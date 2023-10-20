@@ -8,6 +8,13 @@ const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
 const getTaxonomyListApiUrl = () => new URL('api/content_tagging/v1/taxonomies/?enabled=true', getApiBaseUrl()).href;
 const getExportTaxonomyApiUrl = (pk, format) => new URL(
   `api/content_tagging/v1/taxonomies/${pk}/export/?output_format=${format}`,
+);
+
+/**
+  * @param {number} taxonomyId
+  */
+export const getTaxonomyDetailApiUrl = (taxonomyId) => new URL(
+  `api/content_tagging/v1/taxonomies/${taxonomyId}/`,
   getApiBaseUrl(),
 ).href;
 
@@ -48,6 +55,17 @@ export const useExportTaxonomy = () => {
     }
     downloadDataAsFile(data, contentType, `${name}.${fileExtension}`);
   };
-
-  return useMutation(exportTaxonomy);
 };
+
+/**
+ * @param {number} taxonomyId
+ * @returns {import('@tanstack/react-query').UseQueryResult<import('../types.mjs').TaxonomyData>}
+ */
+export const useTaxonomyDetailData = (taxonomyId) => (
+  useQuery({
+    queryKey: ['taxonomyList', taxonomyId],
+    queryFn: () => getAuthenticatedHttpClient().get(getTaxonomyDetailApiUrl(taxonomyId))
+      .then(camelCaseObject)
+      .then((response) => response.data),
+  })
+);
