@@ -8,6 +8,10 @@ export const getExportTaxonomyApiUrl = (pk, format) => new URL(
   `api/content_tagging/v1/taxonomies/${pk}/export/?output_format=${format}&download=1`,
   getApiBaseUrl(),
 ).href;
+const getTaxonomyTemplateApiUrl = (format) => new URL(
+  `api/content_tagging/v1/taxonomies/import/template.${format}`,
+  getApiBaseUrl(),
+).href;
 
 /**
  * Get list of taxonomies.
@@ -26,4 +30,13 @@ export async function getTaxonomyListData() {
  */
 export function getTaxonomyExportFile(pk, format) {
   window.location.href = getExportTaxonomyApiUrl(pk, format);
+}
+
+/**
+ * Downloads the template file for import taxonomies
+ * @param {('json'|'csv')} format
+ * @returns {void}
+ */
+export function getTaxonomyTemplateFile(format) {
+  window.location.href = getTaxonomyTemplateApiUrl(format);
 }

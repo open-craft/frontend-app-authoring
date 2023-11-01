@@ -1,17 +1,57 @@
 import React from 'react';
 import {
+  Button,
   CardView,
   Container,
   DataTable,
+  Dropdown,
+  DropdownButton,
+  OverlayTrigger,
   Spinner,
+  Tooltip,
 } from '@edx/paragon';
+import {
+  Add,
+} from '@edx/paragon/icons';
 import { StudioFooter } from '@edx/frontend-component-footer';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import Header from '../header';
 import SubHeader from '../generic/sub-header/SubHeader';
+import { downloadTaxonomyTemplate } from './data/thunks';
 import messages from './messages';
 import TaxonomyCard from './taxonomy-card';
 import { useTaxonomyListDataResponse, useIsTaxonomyListDataLoaded } from './hooks';
+
+const TaxonomyListHeaderButtons = () => {
+  const intl = useIntl();
+  return (
+    <>
+      <OverlayTrigger
+        placement="top"
+        overlay={(
+          <Tooltip>
+            {intl.formatMessage(messages.downloadTemplateButtonHint)}
+          </Tooltip>
+        )}
+      >
+        <DropdownButton
+          variant="outline-primary"
+          title={intl.formatMessage(messages.downloadTemplateButtonLabel)}
+        >
+          <Dropdown.Item onClick={() => downloadTaxonomyTemplate('csv')}>
+            {intl.formatMessage(messages.downloadTemplateButtonCSVLabel)}
+          </Dropdown.Item>
+          <Dropdown.Item onClick={() => downloadTaxonomyTemplate('json')}>
+            {intl.formatMessage(messages.downloadTemplateButtonJSONLabel)}
+          </Dropdown.Item>
+        </DropdownButton>
+      </OverlayTrigger>
+      <Button iconBefore={Add} disabled>
+        {intl.formatMessage(messages.importButtonLabel)}
+      </Button>
+    </>
+  );
+};
 
 const TaxonomyListPage = () => {
   const intl = useIntl();
@@ -22,12 +62,6 @@ const TaxonomyListPage = () => {
   };
 
   const { taxonomyListData, isLoaded } = useTaxonomyListData();
-
-  const getHeaderButtons = () => (
-    // Download template and import buttons.
-    // TODO Add functionality to this buttons.
-    undefined
-  );
 
   const getOrgSelect = () => (
     // Organization select component
@@ -50,7 +84,7 @@ const TaxonomyListPage = () => {
           <SubHeader
             title={intl.formatMessage(messages.headerTitle)}
             titleActions={getOrgSelect()}
-            headerActions={getHeaderButtons()}
+            headerActions={<TaxonomyListHeaderButtons />}
             hideBorder
           />
         </Container>
