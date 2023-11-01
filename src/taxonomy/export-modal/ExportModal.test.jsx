@@ -5,7 +5,7 @@ import { AppProvider } from '@edx/frontend-platform/react';
 import { render, fireEvent } from '@testing-library/react';
 import ExportModal from '.';
 import initializeStore from '../../store';
-import exportTaxonomy from '../data/thunks';
+import { exportTaxonomy } from '../data/thunks';
 
 const onClose = jest.fn();
 let store;
