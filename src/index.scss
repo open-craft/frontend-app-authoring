@@ -1,8 +1,8 @@
-@import "~@edx/brand/paragon/fonts";
-@import "~@edx/brand/paragon/variables";
-@import "~@openedx/paragon/scss/core/core";
-@import "~@edx/brand/paragon/overrides";
-@import "~@edx/frontend-component-header/dist/index";
+// @import "~@edx/brand/paragon/fonts";
+// @import "~@edx/brand/paragon/variables";
+// @import "~@openedx/paragon/scss/core/core";
+// @import "~@edx/brand/paragon/overrides";
+// @import "~@edx/frontend-component-header/dist/index";
 @import "assets/scss/variables";
 @import "assets/scss/form";
 @import "assets/scss/utilities";
@@ -46,7 +46,7 @@ div.xblock-highlight {
 
 @keyframes glow {
   0% {
-    box-shadow: 0 0 5px 5px $primary-500;
+    box-shadow: 0 0 5px 5px var(--pgn-color-primary-500);
   }
 
   100% {
@@ -55,10 +55,10 @@ div.xblock-highlight {
 }
 
 body {
-  background-color: $light-200;
+  background-color: var(--pgn-color-light-200);
 
   .editor-page {
-    background-color: $light-100;
+    background-color: var(--pgn-color-light-100);
   }
 }
 
