@@ -24,9 +24,9 @@ export const getEnableHighlightsEmailsApiUrl = (courseId) => {
 };
 
 export const getCourseReindexApiUrl = (reindexLink) => `${getApiBaseUrl()}${reindexLink}`;
-export const getUpdateCourseSectionApiUrl = (sectionId) => `${getApiBaseUrl()}/xblock/${sectionId}`;
-export const getCourseSectionApiUrl = (sectionId) => `${getApiBaseUrl()}/xblock/outline/${sectionId}`;
-export const getCourseSectionDuplicateApiUrl = () => `${getApiBaseUrl()}/xblock/`;
+export const getXBlockBaseApiUrl = () => `${getApiBaseUrl()}/xblock/`;
+export const getUpdateCourseSectionApiUrl = (sectionId) => `${getXBlockBaseApiUrl()}${sectionId}`;
+export const getXBlockApiUrl = (blockId) => `${getXBlockBaseApiUrl()}outline/${blockId}`;
 
 /**
  * Get course outline index.
@@ -116,7 +116,7 @@ export async function restartIndexingOnCourse(reindexLink) {
  */
 export async function getCourseSection(sectionId) {
   const { data } = await getAuthenticatedHttpClient()
-    .get(getCourseSectionApiUrl(sectionId));
+    .get(getXBlockApiUrl(sectionId));
   return camelCaseObject(data);
 }
 
@@ -189,9 +189,25 @@ export async function deleteCourseSection(sectionId) {
  */
 export async function duplicateCourseSection(sectionId, courseBlockId) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getCourseSectionDuplicateApiUrl(), {
+    .post(getXBlockBaseApiUrl(), {
       duplicate_source_locator: sectionId,
       parent_locator: courseBlockId,
+    });
+
+  return data;
+}
+
+/**
+ * Add new course item like section, subsection or unit.
+ * @param {string} courseBlockId
+ * @returns {Promise<Object>}
+ */
+export async function addNewCourseItem(courseBlockId, category, displayName) {
+  const { data } = await getAuthenticatedHttpClient()
+    .post(getXBlockBaseApiUrl(), {
+      parent_locator: courseBlockId,
+      category,
+      display_name: displayName,
     });
 
   return data;

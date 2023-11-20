@@ -15,6 +15,11 @@ export const CHECKLIST_FILTERS = {
   INSTRUCTOR_PACED: 'INSTRUCTOR_PACED',
 };
 
+export const DEFAULT_NEW_DISPLAY_NAMES = {
+  chapter: 'Section',
+  subsection: 'Subsection',
+};
+
 export const LAUNCH_CHECKLIST = {
   data: [
     {
