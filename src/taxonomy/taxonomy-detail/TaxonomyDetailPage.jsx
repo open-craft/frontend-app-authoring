@@ -20,9 +20,12 @@ import { useTaxonomyDetailDataResponse, useTaxonomyDetailDataStatus } from './da
 
 const TaxonomyDetailPage = () => {
   const intl = useIntl();
-  const { taxonomyId } = useParams();
-  const { isError, isFetched } = useTaxonomyDetailDataStatus(taxonomyId);
+  const { taxonomyId: taxonomyIdString } = useParams();
+  const taxonomyId = Number(taxonomyIdString);
+
   const taxonomy = useTaxonomyDetailDataResponse(taxonomyId);
+  const { isError, isFetched } = useTaxonomyDetailDataStatus(taxonomyId);
+
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
   if (!isFetched) {
