@@ -13,7 +13,7 @@ import './ContentTagsDropDownSelector.scss';
 import { useTaxonomyTagsDataResponse, useIsTaxonomyTagsDataLoaded } from './data/apiHooks';
 
 const ContentTagsDropDownSelector = ({
-  taxonomyId, level, subTagsUrl,
+  taxonomyId, level, subTagsUrl, lineage, tagsTree,
 }) => {
   const intl = useIntl();
   // This object represents the states of the dropdowns on this level
@@ -32,6 +32,17 @@ const ContentTagsDropDownSelector = ({
   const taxonomyTagsData = useTaxonomyTagsDataResponse(taxonomyId, subTagsUrl);
   const isTaxonomyTagsLoaded = useIsTaxonomyTagsDataLoaded(taxonomyId, subTagsUrl);
 
+  const isImplicit = (tag) => {
+    // Traverse the tags tree using the lineage
+    let traversal = tagsTree;
+    lineage.forEach(t => {
+      // We need to decode the tag to traverse the tree since the lineage value is encoded
+      traversal = traversal[decodeURIComponent(t)]?.children || {};
+    });
+
+    return (traversal[tag.value] && !traversal[tag.value].explicit) || false;
+  };
+
   return (
     isTaxonomyTagsLoaded && taxonomyTagsData
       ? taxonomyTagsData.results.map((taxonomyTag, i) => (
@@ -43,6 +54,9 @@ const ContentTagsDropDownSelector = ({
               className="taxonomy-tags-selectable-box"
               aria-label={`${taxonomyTag.value} checkbox`}
               data-selectable-box="taxonomy-tags"
+              value={[...lineage, encodeURIComponent(taxonomyTag.value)].join(',')}
+              isIndeterminate={isImplicit(taxonomyTag)}
+              disabled={isImplicit(taxonomyTag)}
             >
               {taxonomyTag.value}
             </SelectableBox>
@@ -65,6 +79,8 @@ const ContentTagsDropDownSelector = ({
               taxonomyId={taxonomyId}
               subTagsUrl={taxonomyTag.subTagsUrl}
               level={level + 1}
+              lineage={[...lineage, encodeURIComponent(taxonomyTag.value)]}
+              tagsTree={tagsTree}
             />
           )}
 
@@ -84,12 +100,20 @@ const ContentTagsDropDownSelector = ({
 
 ContentTagsDropDownSelector.defaultProps = {
   subTagsUrl: undefined,
+  lineage: [],
 };
 
 ContentTagsDropDownSelector.propTypes = {
   taxonomyId: PropTypes.number.isRequired,
   level: PropTypes.number.isRequired,
   subTagsUrl: PropTypes.string,
+  lineage: PropTypes.arrayOf(PropTypes.string),
+  tagsTree: PropTypes.objectOf(
+    PropTypes.shape({
+      explicit: PropTypes.bool.isRequired,
+      children: PropTypes.objectOf().isRequired,
+    }).isRequired,
+  ).isRequired,
 };
 
 export default ContentTagsDropDownSelector;

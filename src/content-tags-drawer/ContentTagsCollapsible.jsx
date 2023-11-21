@@ -6,6 +6,7 @@ import {
   Button,
   ModalPopup,
   useToggle,
+  useCheckboxSetValues,
 } from '@edx/paragon';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
@@ -21,6 +22,73 @@ import ContentTagsTree from './ContentTagsTree';
  * Collapsible component that holds a Taxonomy along with Tags that belong to it.
  * This includes both applied tags and tags that are available to select
  * from a dropdown list.
+ *
+ * This component also handles all the logic with selecting/deselecting tags and keeps track of the
+ * tags tree in the state. That is used to render the Tag bubbgles as well as the populating the
+ * state of the tags in the dropdown selectors.
+ *
+ * The `contentTags` that is passed are consolidated and converted to a tree structure. For example:
+ *
+ * FROM:
+ *
+ * [
+ *   {
+ *     "value": "DNA Sequencing",
+ *     "lineage": [
+ *       "Science and Research",
+ *       "Genetics Subcategory",
+ *       "DNA Sequencing"
+ *     ]
+ *   },
+ *   {
+ *     "value": "Virology",
+ *     "lineage": [
+ *       "Science and Research",
+ *       "Molecular, Cellular, and Microbiology",
+ *       "Virology"
+ *     ]
+ *   }
+ * ]
+ *
+ * TO:
+ *
+ * {
+ *   "Science and Research": {
+ *     explicit: false,
+ *     children: {
+ *       "Genetics Subcategory": {
+ *         explicit: false,
+ *         children: {
+ *           "DNA Sequencing": {
+ *             explicit: true,
+ *             children: {}
+ *           }
+ *         }
+ *       },
+ *       "Molecular, Cellular, and Microbiology": {
+ *         explicit: false,
+ *         children: {
+ *           "Virology": {
+ *             explicit: true,
+ *             children: {}
+ *           }
+ *         }
+ *       }
+ *     }
+ *   }
+ * };
+ *
+ *
+ * It also keeps track of newly added tags as they are selected in the dropdown selectors.
+ * They are store in the same format above, and then merged to one tree that is used as the
+ * source of truth for both the tag bubble and the dropdowns. They keys are order alphabetically.
+ *
+ * In the dropdowns, the value of each SelectableBox is stored along with it's lineage and is URI encoded.
+ * Ths is so we are able to traverse and manipulate different parts of the tree leading to it.
+ * Here is an example of what the value of the "Virology" tag would be:
+ *
+ *  "Science%20and%20Research,Molecular%2C%20Cellular%2C%20and%20Microbiology,Virology"
+ *
  * @param {Object} taxonomyAndTagsData - Object containing Taxonomy meta data along with applied tags
  * @param {number} taxonomyAndTagsData.id - id of Taxonomy
  * @param {string} taxonomyAndTagsData.name - name of Taxonomy
@@ -45,11 +113,150 @@ const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
   const [isOpen, open, close] = useToggle(false);
   const [target, setTarget] = React.useState(null);
 
+  // Keeps track of the tree structure for the applied content tags passed
+  // in as a prop.
+  const [appliedContentTags, setAppliedContentTags] = React.useState({});
+
+  // Keeps track of the tree structure for tags that are add by selecting/unselecting
+  // tags in the dropdowns.
+  const [addedContentTags, setAddedContentTags] = React.useState({});
+
+  // To handle checking/unchecking tags in the SelectableBox
+  const [checkedTags, { add, remove }] = useCheckboxSetValues();
+
+  const mergeTrees = (tree1, tree2) => {
+    const mergedTree = { ...tree1 };
+
+    const sortKeysAlphabetically = (obj) => {
+      const sortedObj = {};
+      Object.keys(obj)
+        .sort()
+        .forEach((key) => {
+          sortedObj[key] = obj[key];
+          if (obj[key] && typeof obj[key] === 'object') {
+            sortedObj[key].children = sortKeysAlphabetically(obj[key].children);
+          }
+        });
+      return sortedObj;
+    };
+
+    const mergeRecursively = (destination, source) => {
+      Object.entries(source).forEach(([key, sourceValue]) => {
+        const destinationValue = destination[key];
+
+        if (destinationValue && sourceValue && typeof destinationValue === 'object' && typeof sourceValue === 'object') {
+          mergeRecursively(destinationValue, sourceValue);
+        } else {
+          // eslint-disable-next-line no-param-reassign
+          destination[key] = sourceValue;
+        }
+      });
+    };
+
+    mergeRecursively(mergedTree, tree2);
+    return sortKeysAlphabetically(mergedTree);
+  };
+
+  // This converts the contentTags prop to the tree structure mentioned above
+  React.useEffect(() => {
+    const resultTree = {};
+
+    contentTags.forEach(item => {
+      let currentLevel = resultTree;
+
+      item.lineage.forEach((key, index) => {
+        if (!currentLevel[key]) {
+          const isExplicit = index === item.lineage.length - 1;
+          currentLevel[key] = {
+            explicit: isExplicit,
+            children: {},
+          };
+
+          // Populating the SelectableBox with "selected" (explicit) tags
+          const value = item.lineage.map(l => encodeURIComponent(l)).join(',');
+          // eslint-disable-next-line no-unused-expressions
+          isExplicit ? add(value) : remove(value);
+        }
+
+        currentLevel = currentLevel[key].children;
+      });
+    });
+
+    setAppliedContentTags(resultTree);
+  }, [contentTags]);
+
+  // This is out source of truth that represents the current state of tags in
+  // this Taxonomy as a tree. Whenever either the `appliedContentTags` (i.e. tags passed in
+  // the prop from the backed) change, or when the `addedContentTags` (i.e. tags added by
+  // selecting/unselecting them in the dropdown) change, the tree is recomputed.
+  const tagsTree = React.useMemo(() => (
+    mergeTrees(appliedContentTags, addedContentTags)
+  ), [appliedContentTags, addedContentTags]);
+
+  // Add tag to the tree, and while traversing remove any selected ancestor tags
+  // as they should become implicit
+  const addTags = (tree, tagLineage, selectedTag) => {
+    const value = [];
+    let traversal = tree;
+    tagLineage.forEach(tag => {
+      const isExplicit = selectedTag === tag;
+
+      if (!traversal[tag]) {
+        traversal[tag] = { explicit: isExplicit, children: {} };
+      } else {
+        traversal[tag].explicit = isExplicit;
+      }
+
+      // Clear out the ancestor tags leading to newly selected tag
+      // as they automatically become implicit
+      value.push(encodeURIComponent(tag));
+      // eslint-disable-next-line no-unused-expressions
+      isExplicit ? add(value.join(',')) : remove(value.join(','));
+
+      traversal = traversal[tag].children;
+    });
+  };
+
+  // Remove the tag along with it's ancestors if it was the only explicit child tag
+  const removeTags = (tree, tagsToRemove) => {
+    if (!tree || !tagsToRemove.length) {
+      return;
+    }
+    const key = tagsToRemove[0];
+    if (tree[key]) {
+      removeTags(tree[key].children, tagsToRemove.slice(1));
+
+      if (Object.keys(tree[key].children).length === 0 && (tree[key].explicit === false || tagsToRemove.length === 1)) {
+        // eslint-disable-next-line no-param-reassign
+        delete tree[key];
+      }
+    }
+  };
+
+  const handleSelectableBoxChange = (e) => {
+    // eslint-disable-next-line no-unused-expressions
+    e.target.checked ? add(e.target.value) : remove(e.target.value);
+    const tagLineage = e.target.value.split(',').map(t => decodeURIComponent(t));
+    const selectedTag = tagLineage.slice(-1)[0];
+
+    const addedTree = { ...addedContentTags };
+    if (e.target.checked) {
+      addTags(addedTree, tagLineage, selectedTag);
+    } else {
+      // We remove them from both incase we are unselecting from an
+      // existing applied Tag or a newly added one
+      removeTags(addedTree, tagLineage);
+      removeTags(appliedContentTags, tagLineage);
+    }
+
+    setAddedContentTags(addedTree);
+  };
+
   return (
     <div className="d-flex">
       <Collapsible title={name} styling="card-lg" className="taxonomy-tags-collapsible">
         <div key={id}>
-          <ContentTagsTree appliedContentTags={contentTags} />
+          <ContentTagsTree tagsTree={tagsTree} />
         </div>
 
         <div className="d-flex taxonomy-tags-selector-menu">
@@ -76,11 +283,14 @@ const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
               columns={1}
               ariaLabel={intl.formatMessage(messages.taxonomyTagsAriaLabel)}
               className="taxonomy-tags-selectable-box-set"
+              onChange={handleSelectableBoxChange}
+              value={checkedTags}
             >
               <ContentTagsDropDownSelector
                 key={`selector-${id}`}
                 taxonomyId={id}
                 level={0}
+                tagsTree={tagsTree}
               />
             </SelectableBox.Set>
           </div>

@@ -1,63 +1,42 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 
 import TagBubble from './TagBubble';
 
 /**
- * Component that renders Tags under a Taxonomy in the nested tree format
- * It constructs a tree structure consolidating the tag data. Example:
+ * Component that renders Tags under a Taxonomy in the nested tree format.
  *
- * FROM:
- *
- * [
- *   {
- *     "value": "DNA Sequencing",
- *     "lineage": [
- *       "Science and Research",
- *       "Genetics Subcategory",
- *       "DNA Sequencing"
- *     ]
- *   },
- *   {
- *     "value": "Virology",
- *     "lineage": [
- *       "Science and Research",
- *       "Molecular, Cellular, and Microbiology",
- *       "Virology"
- *     ]
- *   }
- * ]
- *
- * TO:
+ * Example:
  *
  * {
  *   "Science and Research": {
- *     "Genetics Subcategory": {
- *       "DNA Sequencing": {}
- *     },
- *     "Molecular, Cellular, and Microbiology": {
- *       "Virology": {}
+ *     explicit: false,
+ *     children: {
+ *       "Genetics Subcategory": {
+ *         explicit: false,
+ *         children: {
+ *           "DNA Sequencing": {
+ *             explicit: true,
+ *             children: {}
+ *           }
+ *         }
+ *       },
+ *       "Molecular, Cellular, and Microbiology": {
+ *         explicit: false,
+ *         children: {
+ *           "Virology": {
+ *             explicit: true,
+ *             children: {}
+ *           }
+ *         }
+ *       }
  *     }
  *   }
- * }
+ * };
  *
- * @param {Object[]} appliedContentTags - Array of taxonomy tags that are applied to the content
- * @param {string} appliedContentTags.value - Value of applied Tag
- * @param {string} appliedContentTags.lineage - Array of Tag's ancestors sorted (ancestor -> tag)
+ * @param {Object} tagsTree - Array of taxonomy tags that are applied to the content
  */
-const ContentTagsTree = ({ appliedContentTags }) => {
-  const tagsTree = useMemo(() => {
-    const tree = {};
-    appliedContentTags.forEach(tag => {
-      tag.lineage.reduce((currentLevel, ancestor) => {
-        // eslint-disable-next-line no-param-reassign
-        currentLevel[ancestor] = currentLevel[ancestor] || {};
-        return currentLevel[ancestor];
-      }, tree);
-    });
-    return tree;
-  }, [appliedContentTags]);
-
+const ContentTagsTree = ({ tagsTree }) => {
   const renderTagsTree = (tag, level) => Object.keys(tag).map((key) => {
     if (tag[key] !== undefined) {
       return (
@@ -65,10 +44,10 @@ const ContentTagsTree = ({ appliedContentTags }) => {
           <TagBubble
             key={`tag-${key}`}
             value={key}
-            implicit={Object.keys(tag[key]).length !== 0}
+            implicit={!tag[key].explicit}
             level={level}
           />
-          { renderTagsTree(tag[key], level + 1) }
+          { renderTagsTree(tag[key].children, level + 1) }
         </div>
       );
     }
@@ -79,10 +58,12 @@ const ContentTagsTree = ({ appliedContentTags }) => {
 };
 
 ContentTagsTree.propTypes = {
-  appliedContentTags: PropTypes.arrayOf(PropTypes.shape({
-    value: PropTypes.string,
-    lineage: PropTypes.arrayOf(PropTypes.string),
-  })).isRequired,
+  tagsTree: PropTypes.objectOf(
+    PropTypes.shape({
+      explicit: PropTypes.bool.isRequired,
+      children: PropTypes.objectOf().isRequired,
+    }).isRequired,
+  ).isRequired,
 };
 
 export default ContentTagsTree;
