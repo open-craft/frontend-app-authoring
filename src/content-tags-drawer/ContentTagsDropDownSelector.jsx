@@ -111,7 +111,7 @@ ContentTagsDropDownSelector.propTypes = {
   tagsTree: PropTypes.objectOf(
     PropTypes.shape({
       explicit: PropTypes.bool.isRequired,
-      children: PropTypes.objectOf().isRequired,
+      children: PropTypes.shape({}).isRequired,
     }).isRequired,
   ).isRequired,
 };

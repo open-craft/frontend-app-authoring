@@ -8,10 +8,18 @@ import PropTypes from 'prop-types';
 import TagOutlineIcon from './TagOutlineIcon';
 
 const TagBubble = ({
-  value, subTagsCount, implicit, level,
+  value, implicit, level, lineage, removeTagHandler,
 }) => {
   const className = `tag-bubble mb-2 ${implicit ? 'implicit' : ''}`;
   const tagIcon = () => (implicit ? <TagOutlineIcon className="implicit-tag-icon" /> : <Tag />);
+
+  const handleClick = (e) => {
+    if (e.target.value) {
+      e.target.checked = false;
+      removeTagHandler(e);
+    }
+  };
+
   return (
     <div style={{ paddingLeft: `${level * 1}rem` }}>
       <Button
@@ -19,24 +27,26 @@ const TagBubble = ({
         variant="outline-dark"
         iconBefore={tagIcon}
         iconAfter={!implicit ? Close : null}
+        onClick={!implicit ? handleClick : null}
+        value={lineage.join(',')}
       >
-        {value} {subTagsCount > 0 ? `(${subTagsCount})` : null }
+        {value}
       </Button>
     </div>
   );
 };
 
 TagBubble.defaultProps = {
-  subTagsCount: 0,
   implicit: true,
   level: 0,
 };
 
 TagBubble.propTypes = {
   value: PropTypes.string.isRequired,
-  subTagsCount: PropTypes.number,
   implicit: PropTypes.bool,
   level: PropTypes.number,
+  lineage: PropTypes.arrayOf(PropTypes.string).isRequired,
+  removeTagHandler: PropTypes.func.isRequired,
 };
 
 export default TagBubble;

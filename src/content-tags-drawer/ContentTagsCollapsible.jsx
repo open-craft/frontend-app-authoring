@@ -18,6 +18,8 @@ import ContentTagsDropDownSelector from './ContentTagsDropDownSelector';
 
 import ContentTagsTree from './ContentTagsTree';
 
+import { useContentTaxonomyTagsMutation } from './data/apiHooks';
+
 /**
  * Collapsible component that holds a Taxonomy along with Tags that belong to it.
  * This includes both applied tags and tags that are available to select
@@ -88,7 +90,7 @@ import ContentTagsTree from './ContentTagsTree';
  * Here is an example of what the value of the "Virology" tag would be:
  *
  *  "Science%20and%20Research,Molecular%2C%20Cellular%2C%20and%20Microbiology,Virology"
- *
+ * @param {string} contentId - Id of the content object
  * @param {Object} taxonomyAndTagsData - Object containing Taxonomy meta data along with applied tags
  * @param {number} taxonomyAndTagsData.id - id of Taxonomy
  * @param {string} taxonomyAndTagsData.name - name of Taxonomy
@@ -104,11 +106,15 @@ import ContentTagsTree from './ContentTagsTree';
  * @param {string} taxonomyAndTagsData.contentTags.value - Value of applied Tag
  * @param {string} taxonomyAndTagsData.contentTags.lineage - Array of Tag's ancestors sorted (ancestor -> tag)
  */
-const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
+const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
   const intl = useIntl();
   const {
     id, name, contentTags,
   } = taxonomyAndTagsData;
+
+  // State to determine whether to update the backend or not
+  const [updatingTags, setUpdatingTags] = React.useState(false);
+  const mutation = useContentTaxonomyTagsMutation();
 
   const [isOpen, open, close] = useToggle(false);
   const [target, setTarget] = React.useState(null);
@@ -123,6 +129,18 @@ const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
 
   // To handle checking/unchecking tags in the SelectableBox
   const [checkedTags, { add, remove }] = useCheckboxSetValues();
+
+  // Handles make requests to the backend whenever the checked tags change
+  React.useEffect(() => {
+    // We have this check because this hook is fired when the component first load
+    // and reloads (on refocus). We only want to make requests to the backend when
+    // the user is updating the tags.
+    if (updatingTags) {
+      setUpdatingTags(false);
+      const tags = checkedTags.map(t => decodeURIComponent(t.split(',').slice(-1)));
+      mutation.mutate({ contentId, taxonomyId: id, tags });
+    }
+  }, [contentId, id, checkedTags]);
 
   const mergeTrees = (tree1, tree2) => {
     const mergedTree = { ...tree1 };
@@ -235,14 +253,17 @@ const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
 
   const handleSelectableBoxChange = (e) => {
     // eslint-disable-next-line no-unused-expressions
-    e.target.checked ? add(e.target.value) : remove(e.target.value);
     const tagLineage = e.target.value.split(',').map(t => decodeURIComponent(t));
     const selectedTag = tagLineage.slice(-1)[0];
 
     const addedTree = { ...addedContentTags };
     if (e.target.checked) {
+      // We "add" the tag to the SelectableBox.Set inside the addTags method
       addTags(addedTree, tagLineage, selectedTag);
     } else {
+      // Remove tag from the SelectableBox.Set
+      remove(e.target.value);
+
       // We remove them from both incase we are unselecting from an
       // existing applied Tag or a newly added one
       removeTags(addedTree, tagLineage);
@@ -250,13 +271,14 @@ const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
     }
 
     setAddedContentTags(addedTree);
+    setUpdatingTags(true);
   };
 
   return (
     <div className="d-flex">
       <Collapsible title={name} styling="card-lg" className="taxonomy-tags-collapsible">
         <div key={id}>
-          <ContentTagsTree tagsTree={tagsTree} />
+          <ContentTagsTree tagsTree={tagsTree} removeTagHandler={handleSelectableBoxChange} />
         </div>
 
         <div className="d-flex taxonomy-tags-selector-menu">
@@ -314,6 +336,7 @@ const ContentTagsCollapsible = ({ taxonomyAndTagsData }) => {
 };
 
 ContentTagsCollapsible.propTypes = {
+  contentId: PropTypes.string.isRequired,
   taxonomyAndTagsData: PropTypes.shape({
     id: PropTypes.number,
     name: PropTypes.string,

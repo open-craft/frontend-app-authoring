@@ -105,3 +105,8 @@
  * @property {Object} data
  * @property {string} status
  */
+
+/**
+ * @typedef {Object} UseMutationResult
+ * @property {(variables: {Object}, { onSuccess, onSettled, onError }) => void} mutate
+ */

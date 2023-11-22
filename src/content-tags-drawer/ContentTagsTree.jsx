@@ -36,8 +36,9 @@ import TagBubble from './TagBubble';
  *
  * @param {Object} tagsTree - Array of taxonomy tags that are applied to the content
  */
-const ContentTagsTree = ({ tagsTree }) => {
-  const renderTagsTree = (tag, level) => Object.keys(tag).map((key) => {
+const ContentTagsTree = ({ tagsTree, removeTagHandler }) => {
+  const renderTagsTree = (tag, level, lineage) => Object.keys(tag).map((key) => {
+    const updatedLineage = [...lineage, encodeURIComponent(key)];
     if (tag[key] !== undefined) {
       return (
         <div key={`tag-${key}-level-${level}`}>
@@ -46,24 +47,27 @@ const ContentTagsTree = ({ tagsTree }) => {
             value={key}
             implicit={!tag[key].explicit}
             level={level}
+            lineage={updatedLineage}
+            removeTagHandler={removeTagHandler}
           />
-          { renderTagsTree(tag[key].children, level + 1) }
+          { renderTagsTree(tag[key].children, level + 1, updatedLineage) }
         </div>
       );
     }
     return null;
   });
 
-  return renderTagsTree(tagsTree, 0);
+  return renderTagsTree(tagsTree, 0, []);
 };
 
 ContentTagsTree.propTypes = {
   tagsTree: PropTypes.objectOf(
     PropTypes.shape({
       explicit: PropTypes.bool.isRequired,
-      children: PropTypes.objectOf().isRequired,
+      children: PropTypes.shape({}).isRequired,
     }).isRequired,
   ).isRequired,
+  removeTagHandler: PropTypes.func.isRequired,
 };
 
 export default ContentTagsTree;

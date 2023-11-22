@@ -1,6 +1,11 @@
 // @ts-check
-import { useQuery } from '@tanstack/react-query';
-import { getTaxonomyTagsData, getContentTaxonomyTagsData, getContentData } from './api';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import {
+  getTaxonomyTagsData,
+  getContentTaxonomyTagsData,
+  getContentData,
+  updateContentTaxonomyTags,
+} from './api';
 
 /**
  * Builds the query to get the taxonomy tags
@@ -108,4 +113,14 @@ export const useContentDataResponse = (contentId) => {
  */
 export const useIsContentDataLoaded = (contentId) => (
   useContentData(contentId).status === 'success'
+);
+
+/**
+ * Builds the mutation to update the tags applied to the content object
+ * @returns {import("./types.mjs").UseMutationResult}
+ */
+export const useContentTaxonomyTagsMutation = () => (
+  useMutation({
+    mutationFn: ({ contentId, taxonomyId, tags }) => updateContentTaxonomyTags(contentId, taxonomyId, tags),
+  })
 );
