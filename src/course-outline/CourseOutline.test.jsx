@@ -325,7 +325,7 @@ describe('<CourseOutline />', () => {
     await executeThunk(fetchCourseSectionQuery(section.id), store.dispatch);
 
     const firstSection = getAllByTestId('section-card')[0];
-    expect(firstSection.querySelector('.section-card-header__badge-status')).toHaveTextContent('Published not live');
+    expect(firstSection.querySelector('.item-card-header__badge-status')).toHaveTextContent('Published not live');
   });
 
   it('check configure section when configure query is successful', async () => {

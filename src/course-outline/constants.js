@@ -1,4 +1,4 @@
-export const SECTION_BADGE_STATUTES = /** @type {const} */ ({
+export const ITEM_BADGE_STATUS = /** @type {const} */ ({
   live: 'live',
   publishedNotLive: 'published_not_live',
   staffOnly: 'staff_only',
