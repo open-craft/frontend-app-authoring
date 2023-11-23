@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Button,
+  Chip,
 } from '@edx/paragon';
 import { Tag, Close } from '@edx/paragon/icons';
 import PropTypes from 'prop-types';
@@ -11,27 +11,24 @@ const TagBubble = ({
   value, implicit, level, lineage, removeTagHandler,
 }) => {
   const className = `tag-bubble mb-2 ${implicit ? 'implicit' : ''}`;
-  const tagIcon = () => (implicit ? <TagOutlineIcon className="implicit-tag-icon" /> : <Tag />);
 
-  const handleClick = (e) => {
-    if (e.target.value) {
-      e.target.checked = false;
-      removeTagHandler(e);
+  const handleClick = React.useCallback(() => {
+    if (!implicit) {
+      removeTagHandler(lineage.join(','), false);
     }
-  };
+  }, [implicit, lineage]);
 
   return (
     <div style={{ paddingLeft: `${level * 1}rem` }}>
-      <Button
+      <Chip
         className={className}
-        variant="outline-dark"
-        iconBefore={tagIcon}
+        variant="light"
+        iconBefore={!implicit ? Tag : TagOutlineIcon}
         iconAfter={!implicit ? Close : null}
-        onClick={!implicit ? handleClick : null}
-        value={lineage.join(',')}
+        onIconAfterClick={handleClick}
       >
         {value}
-      </Button>
+      </Chip>
     </div>
   );
 };

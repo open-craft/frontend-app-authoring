@@ -176,7 +176,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
   };
 
   // This converts the contentTags prop to the tree structure mentioned above
-  React.useEffect(() => {
+  React.useMemo(() => {
     const resultTree = {};
 
     contentTags.forEach(item => {
@@ -251,18 +251,17 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     }
   };
 
-  const handleSelectableBoxChange = (e) => {
-    // eslint-disable-next-line no-unused-expressions
-    const tagLineage = e.target.value.split(',').map(t => decodeURIComponent(t));
+  const tagChangeHandler = (tagSelectableBoxValue, checked) => {
+    const tagLineage = tagSelectableBoxValue.split(',').map(t => decodeURIComponent(t));
     const selectedTag = tagLineage.slice(-1)[0];
 
     const addedTree = { ...addedContentTags };
-    if (e.target.checked) {
+    if (checked) {
       // We "add" the tag to the SelectableBox.Set inside the addTags method
       addTags(addedTree, tagLineage, selectedTag);
     } else {
       // Remove tag from the SelectableBox.Set
-      remove(e.target.value);
+      remove(tagSelectableBoxValue);
 
       // We remove them from both incase we are unselecting from an
       // existing applied Tag or a newly added one
@@ -274,11 +273,15 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     setUpdatingTags(true);
   };
 
+  const handleSelectableBoxChange = React.useCallback((e) => {
+    tagChangeHandler(e.target.value, e.target.checked);
+  });
+
   return (
     <div className="d-flex">
       <Collapsible title={name} styling="card-lg" className="taxonomy-tags-collapsible">
         <div key={id}>
-          <ContentTagsTree tagsTree={tagsTree} removeTagHandler={handleSelectableBoxChange} />
+          <ContentTagsTree tagsTree={tagsTree} removeTagHandler={tagChangeHandler} />
         </div>
 
         <div className="d-flex taxonomy-tags-selector-menu">
