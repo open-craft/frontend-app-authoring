@@ -7,7 +7,8 @@
   padding: 0;
 }
 
-.pgn__selectable_box:disabled, .pgn__selectable_box[disabled] {
+.pgn__selectable_box:disabled,
+.pgn__selectable_box[disabled] {
   opacity: 1 !important;
 }
 
