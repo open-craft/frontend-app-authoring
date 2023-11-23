@@ -27,6 +27,7 @@ import OutlineSideBar from './outline-sidebar/OutlineSidebar';
 import StatusBar from './status-bar/StatusBar';
 import EnableHighlightsModal from './enable-highlights-modal/EnableHighlightsModal';
 import SectionCard from './section-card/SectionCard';
+import SubsectionCard from './subsection-card/SubsectionCard';
 import HighlightsModal from './highlights-modal/HighlightsModal';
 import EmptyPlaceholder from './empty-placeholder/EmptyPlaceholder';
 import PublishModal from './publish-modal/PublishModal';
@@ -162,7 +163,20 @@ const CourseOutline = ({ courseId }) => {
                               onDuplicateSubmit={handleDuplicateSectionSubmit}
                               isSectionsExpanded={isSectionsExpanded}
                               ref={listRef}
-                            />
+                            >
+                              {section.childInfo.children.map((subsection) => (
+                                <SubsectionCard
+                                  key={subsection.id}
+                                  subsection={subsection}
+                                  savingStatus={savingStatus}
+                                  onOpenHighlightsModal={handleOpenHighlightsModal}
+                                  onOpenPublishModal={openPublishModal}
+                                  onOpenDeleteModal={openDeleteModal}
+                                  onEditSectionSubmit={handleEditSectionSubmit}
+                                  onDuplicateSubmit={handleDuplicateSectionSubmit}
+                                />
+                              ))}
+                            </SectionCard>
                           ))}
                           <Button
                             data-testid="new-section-button"

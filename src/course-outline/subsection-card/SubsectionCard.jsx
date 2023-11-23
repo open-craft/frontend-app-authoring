@@ -1,9 +1,4 @@
-import {
-  React,
-  forwardRef,
-  useEffect,
-  useState,
-} from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch } from 'react-redux';
 import { useIntl } from '@edx/frontend-platform/i18n';
@@ -16,26 +11,20 @@ import CardHeader from '../card-header/CardHeader';
 import { getItemStatus } from '../utils';
 import messages from './messages';
 
-const SectionCard = forwardRef(({
-  section,
+const SubsectionCard = ({
+  subsection,
   children,
   onOpenHighlightsModal,
   onOpenPublishModal,
-  onOpenConfigureModal,
   onEditSectionSubmit,
   savingStatus,
   onOpenDeleteModal,
   onDuplicateSubmit,
-  isSectionsExpanded,
-}, lastItemRef) => {
+}) => {
   const intl = useIntl();
   const dispatch = useDispatch();
-  const [isExpanded, setIsExpanded] = useState(isSectionsExpanded);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [isFormOpen, openForm, closeForm] = useToggle(false);
-
-  useEffect(() => {
-    setIsExpanded(isSectionsExpanded);
-  }, [isSectionsExpanded]);
 
   const {
     id,
@@ -46,10 +35,9 @@ const SectionCard = forwardRef(({
     visibleToStaffOnly = false,
     visibilityState,
     staffOnlyMessage,
-    highlights = [],
-  } = section;
+  } = subsection;
 
-  const sectionStatus = getItemStatus({
+  const subsectionStatus = getItemStatus({
     published,
     releasedToStudents,
     visibleToStaffOnly,
@@ -62,7 +50,7 @@ const SectionCard = forwardRef(({
   };
 
   const handleClickMenuButton = () => {
-    dispatch(setCurrentSection(section));
+    dispatch(setCurrentSection(subsection));
   };
 
   const handleEditSubmit = (titleValue) => {
@@ -75,7 +63,7 @@ const SectionCard = forwardRef(({
   };
 
   const handleOpenHighlightsModal = () => {
-    onOpenHighlightsModal(section);
+    onOpenHighlightsModal(subsection);
   };
 
   useEffect(() => {
@@ -85,17 +73,15 @@ const SectionCard = forwardRef(({
   }, [savingStatus]);
 
   return (
-    <div className="section-card" data-testid="section-card" ref={lastItemRef}>
+    <div className="subsection-card" data-testid="subsection-card">
       <CardHeader
-        sectionId={id}
         title={displayName}
-        status={sectionStatus}
+        status={subsectionStatus}
         hasChanges={hasChanges}
         isExpanded={isExpanded}
         onExpand={handleExpandContent}
         onClickMenuButton={handleClickMenuButton}
         onClickPublish={onOpenPublishModal}
-        onClickConfigure={onOpenConfigureModal}
         onClickEdit={openForm}
         onClickDelete={onOpenDeleteModal}
         isFormOpen={isFormOpen}
@@ -103,47 +89,34 @@ const SectionCard = forwardRef(({
         onEditSubmit={handleEditSubmit}
         isDisabledEditField={savingStatus === RequestStatus.IN_PROGRESS}
         onClickDuplicate={onDuplicateSubmit}
-        namePrefix={'section'}
+        namePrefix={'subsection'}
       />
-      <div className="section-card__content" data-testid="section-card__content">
-        <div className="outline-section__status">
-          <Button
-            className="section-card__highlights"
-            data-destid="section-card-highlights-button"
-            variant="tertiary"
-            onClick={handleOpenHighlightsModal}
-          >
-            <Badge className="highlights-badge">{highlights.length}</Badge>
-            <p className="m-0 text-black">{messages.sectionHighlightsBadge.defaultMessage}</p>
-          </Button>
-        </div>
-      </div>
       {isExpanded && (
         <React.Fragment>
-          <div data-testid="section-card__subsections" className="section-card__subsections">
+          <div data-testid="subsection-card__units" className="subsection-card__units">
             {children}
           </div>
           <Button
-            data-testid="new-subsection-button"
+            data-testid="new-unit-button"
             className="mt-4"
             variant="outline-primary"
             iconBefore={IconAdd}
             block
           >
-            {intl.formatMessage(messages.newSubsectionButton)}
+            {intl.formatMessage(messages.newUnitButton)}
           </Button>
         </React.Fragment>
       )}
     </div>
   );
-});
+};
 
-SectionCard.defaultProps = {
+SubsectionCard.defaultProps = {
   children: null,
 };
 
-SectionCard.propTypes = {
-  section: PropTypes.shape({
+SubsectionCard.propTypes = {
+  subsection: PropTypes.shape({
     id: PropTypes.string.isRequired,
     displayName: PropTypes.string.isRequired,
     published: PropTypes.bool.isRequired,
@@ -152,17 +125,14 @@ SectionCard.propTypes = {
     visibleToStaffOnly: PropTypes.bool,
     visibilityState: PropTypes.string.isRequired,
     staffOnlyMessage: PropTypes.bool.isRequired,
-    highlights: PropTypes.arrayOf(PropTypes.string).isRequired,
   }).isRequired,
   children: PropTypes.node,
   onOpenHighlightsModal: PropTypes.func.isRequired,
   onOpenPublishModal: PropTypes.func.isRequired,
-  onOpenConfigureModal: PropTypes.func.isRequired,
   onEditSectionSubmit: PropTypes.func.isRequired,
   savingStatus: PropTypes.string.isRequired,
   onOpenDeleteModal: PropTypes.func.isRequired,
   onDuplicateSubmit: PropTypes.func.isRequired,
-  isSectionsExpanded: PropTypes.bool.isRequired,
 };
 
-export default SectionCard;
+export default SubsectionCard;
