@@ -294,7 +294,6 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
           </Button>
         </div>
         <ModalPopup
-          hasArrow
           placement="bottom"
           positionRef={target}
           isOpen={isOpen}
