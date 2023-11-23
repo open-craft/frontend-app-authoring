@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   SelectableBox,
   Icon,
   Spinner,
+  Button,
 } from '@edx/paragon';
-import { useIntl } from '@edx/frontend-platform/i18n';
+import { useIntl, FormattedMessage } from '@edx/frontend-platform/i18n';
 import { ArrowDropDown, ArrowDropUp } from '@edx/paragon/icons';
 import PropTypes from 'prop-types';
 import messages from './messages';
@@ -21,6 +22,15 @@ const ContentTagsDropDownSelector = ({
   // the value true (open) false (closed)
   const [dropdownStates, setDropdownStates] = useState({});
 
+  const [tags, setTags] = useState([]);
+  const [nextPage, setNextPage] = useState(null);
+
+  // `fetchUrl` is initially `subTagsUrl` to fetch the initial data,
+  // however if it is null that means it is the root, and the apiHooks
+  // would automatically handle it. Later this url is set to the next
+  // page of results (if any)
+  const [fetchUrl, setFetchUrl] = useState(subTagsUrl);
+
   const isOpen = (i) => dropdownStates[i];
 
   const clickAndEnterHandler = (i) => {
@@ -29,8 +39,8 @@ const ContentTagsDropDownSelector = ({
     setDropdownStates({ ...dropdownStates, [i]: !dropdownStates[i] });
   };
 
-  const taxonomyTagsData = useTaxonomyTagsDataResponse(taxonomyId, subTagsUrl);
-  const isTaxonomyTagsLoaded = useIsTaxonomyTagsDataLoaded(taxonomyId, subTagsUrl);
+  const taxonomyTagsData = useTaxonomyTagsDataResponse(taxonomyId, fetchUrl);
+  const isTaxonomyTagsLoaded = useIsTaxonomyTagsDataLoaded(taxonomyId, fetchUrl);
 
   const isImplicit = (tag) => {
     // Traverse the tags tree using the lineage
@@ -43,9 +53,20 @@ const ContentTagsDropDownSelector = ({
     return (traversal[tag.value] && !traversal[tag.value].explicit) || false;
   };
 
+  useEffect(() => {
+    if (isTaxonomyTagsLoaded && taxonomyTagsData) {
+      setTags([...tags, ...taxonomyTagsData.results]);
+      setNextPage(taxonomyTagsData.next);
+    }
+  }, [isTaxonomyTagsLoaded, taxonomyTagsData]);
+
+  const loadMoreTags = useCallback(() => {
+    setFetchUrl(nextPage);
+  }, [nextPage]);
+
   return (
-    isTaxonomyTagsLoaded && taxonomyTagsData
-      ? taxonomyTagsData.results.map((taxonomyTag, i) => (
+    <>
+      {tags.map((taxonomyTag, i) => (
         <div className="d-flex flex-column" key={`selector-div-${taxonomyTag.value}`} style={{ paddingLeft: `${level * 1}rem` }}>
           <div className="d-flex">
             <SelectableBox
@@ -85,8 +106,21 @@ const ContentTagsDropDownSelector = ({
           )}
 
         </div>
-      ))
-      : (
+      ))}
+
+      { nextPage && isTaxonomyTagsLoaded
+        ? (
+          <Button
+            style={{ marginLeft: `${level * 1}rem` }}
+            variant="outline-primary"
+            onClick={loadMoreTags}
+          >
+            <FormattedMessage {...messages.loadMoreTagsButtonText} />
+          </Button>
+        )
+        : null}
+
+      { !isTaxonomyTagsLoaded ? (
         <div className="d-flex justify-content-center align-items-center flex-column">
           <Spinner
             animation="border"
@@ -94,7 +128,8 @@ const ContentTagsDropDownSelector = ({
             screenReaderText={intl.formatMessage(messages.loadingTagsDropdownMessage)}
           />
         </div>
-      )
+      ) : null}
+    </>
   );
 };
 
