@@ -21,6 +21,70 @@ import ContentTagsTree from './ContentTagsTree';
 import { useContentTaxonomyTagsMutation } from './data/apiHooks';
 
 /**
+ * Util function that consolidates two tag trees into one, sorting the keys in
+ * alphabetical order.
+ *
+ * @param {object} tree1 - first tag tree
+ * @param {object} tree2 - second tag tree
+ * @returns {object} merged tree containing both tree1 and tree2
+ */
+const mergeTrees = (tree1, tree2) => {
+  const mergedTree = { ...tree1 };
+
+  const sortKeysAlphabetically = (obj) => {
+    const sortedObj = {};
+    Object.keys(obj)
+      .sort()
+      .forEach((key) => {
+        sortedObj[key] = obj[key];
+        if (obj[key] && typeof obj[key] === 'object') {
+          sortedObj[key].children = sortKeysAlphabetically(obj[key].children);
+        }
+      });
+    return sortedObj;
+  };
+
+  const mergeRecursively = (destination, source) => {
+    Object.entries(source).forEach(([key, sourceValue]) => {
+      const destinationValue = destination[key];
+
+      if (destinationValue && sourceValue && typeof destinationValue === 'object' && typeof sourceValue === 'object') {
+        mergeRecursively(destinationValue, sourceValue);
+      } else {
+        // eslint-disable-next-line no-param-reassign
+        destination[key] = sourceValue;
+      }
+    });
+  };
+
+  mergeRecursively(mergedTree, tree2);
+  return sortKeysAlphabetically(mergedTree);
+};
+
+/**
+ * Util function that removes the tag along with it's ancestors if it was
+ * the only explicit child tag.
+ *
+ * @param {object} tree - tag tree to remove the tag from
+ * @param {string[]} tagsToRemove - full lineage of tag to remove.
+ *                                  eg: ['grand parent', 'parent', 'tag']
+ */
+const removeTags = (tree, tagsToRemove) => {
+  if (!tree || !tagsToRemove.length) {
+    return;
+  }
+  const key = tagsToRemove[0];
+  if (tree[key]) {
+    removeTags(tree[key].children, tagsToRemove.slice(1));
+
+    if (Object.keys(tree[key].children).length === 0 && (tree[key].explicit === false || tagsToRemove.length === 1)) {
+      // eslint-disable-next-line no-param-reassign
+      delete tree[key];
+    }
+  }
+};
+
+/**
  * Collapsible component that holds a Taxonomy along with Tags that belong to it.
  * This includes both applied tags and tags that are available to select
  * from a dropdown list.
@@ -142,39 +206,6 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     }
   }, [contentId, id, checkedTags]);
 
-  const mergeTrees = (tree1, tree2) => {
-    const mergedTree = { ...tree1 };
-
-    const sortKeysAlphabetically = (obj) => {
-      const sortedObj = {};
-      Object.keys(obj)
-        .sort()
-        .forEach((key) => {
-          sortedObj[key] = obj[key];
-          if (obj[key] && typeof obj[key] === 'object') {
-            sortedObj[key].children = sortKeysAlphabetically(obj[key].children);
-          }
-        });
-      return sortedObj;
-    };
-
-    const mergeRecursively = (destination, source) => {
-      Object.entries(source).forEach(([key, sourceValue]) => {
-        const destinationValue = destination[key];
-
-        if (destinationValue && sourceValue && typeof destinationValue === 'object' && typeof sourceValue === 'object') {
-          mergeRecursively(destinationValue, sourceValue);
-        } else {
-          // eslint-disable-next-line no-param-reassign
-          destination[key] = sourceValue;
-        }
-      });
-    };
-
-    mergeRecursively(mergedTree, tree2);
-    return sortKeysAlphabetically(mergedTree);
-  };
-
   // This converts the contentTags prop to the tree structure mentioned above
   React.useMemo(() => {
     const resultTree = {};
@@ -203,7 +234,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     setAppliedContentTags(resultTree);
   }, [contentTags]);
 
-  // This is out source of truth that represents the current state of tags in
+  // This is the source of truth that represents the current state of tags in
   // this Taxonomy as a tree. Whenever either the `appliedContentTags` (i.e. tags passed in
   // the prop from the backed) change, or when the `addedContentTags` (i.e. tags added by
   // selecting/unselecting them in the dropdown) change, the tree is recomputed.
@@ -235,23 +266,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     });
   };
 
-  // Remove the tag along with it's ancestors if it was the only explicit child tag
-  const removeTags = (tree, tagsToRemove) => {
-    if (!tree || !tagsToRemove.length) {
-      return;
-    }
-    const key = tagsToRemove[0];
-    if (tree[key]) {
-      removeTags(tree[key].children, tagsToRemove.slice(1));
-
-      if (Object.keys(tree[key].children).length === 0 && (tree[key].explicit === false || tagsToRemove.length === 1)) {
-        // eslint-disable-next-line no-param-reassign
-        delete tree[key];
-      }
-    }
-  };
-
-  const tagChangeHandler = (tagSelectableBoxValue, checked) => {
+  const tagChangeHandler = React.useCallback((tagSelectableBoxValue, checked) => {
     const tagLineage = tagSelectableBoxValue.split(',').map(t => decodeURIComponent(t));
     const selectedTag = tagLineage.slice(-1)[0];
 
@@ -271,7 +286,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
 
     setAddedContentTags(addedTree);
     setUpdatingTags(true);
-  };
+  });
 
   const handleSelectableBoxChange = React.useCallback((e) => {
     tagChangeHandler(e.target.value, e.target.checked);
