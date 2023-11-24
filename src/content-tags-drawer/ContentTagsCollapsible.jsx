@@ -178,7 +178,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
 
   // State to determine whether to update the backend or not
   const [updatingTags, setUpdatingTags] = React.useState(false);
-  const mutation = useContentTaxonomyTagsMutation();
+  const mutation = useContentTaxonomyTagsMutation(contentId, id);
 
   const [isOpen, open, close] = useToggle(false);
   const [target, setTarget] = React.useState(null);
@@ -202,7 +202,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     if (updatingTags) {
       setUpdatingTags(false);
       const tags = checkedTags.map(t => decodeURIComponent(t.split(',').slice(-1)));
-      mutation.mutate({ contentId, taxonomyId: id, tags });
+      mutation.mutate({ tags });
     }
   }, [contentId, id, checkedTags]);
 

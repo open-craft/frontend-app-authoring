@@ -1,5 +1,5 @@
 // @ts-check
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getTaxonomyTagsData,
   getContentTaxonomyTagsData,
@@ -48,13 +48,18 @@ export const useContentData = (contentId) => (
 /**
  * Builds the mutation to update the tags applied to the content object
  */
-export const useContentTaxonomyTagsMutation = () => (
+export const useContentTaxonomyTagsMutation = (contentId, taxonomyId) => {
+  const queryClient = useQueryClient();
+
   /**
    * @type {
    *   import("@tanstack/react-query").MutateFunction<any, any, {contentId: string, taxonomyId: number, tags: string[]}>
    * }
    */
-  useMutation({
-    mutationFn: ({ contentId, taxonomyId, tags }) => updateContentTaxonomyTags(contentId, taxonomyId, tags),
-  })
-);
+  return useMutation({
+    mutationFn: ({ tags }) => updateContentTaxonomyTags(contentId, taxonomyId, tags),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['contentTaxonomyTags', contentId] });
+    },
+  });
+};
