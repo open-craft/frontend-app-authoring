@@ -11,7 +11,7 @@ import PropTypes from 'prop-types';
 import messages from './messages';
 import './ContentTagsDropDownSelector.scss';
 
-import { useTaxonomyTagsDataResponse, useIsTaxonomyTagsDataLoaded } from './data/apiHooks';
+import { useTaxonomyTagsData } from './data/apiHooks';
 
 const ContentTagsDropDownSelector = ({
   taxonomyId, level, subTagsUrl, lineage, tagsTree,
@@ -39,8 +39,7 @@ const ContentTagsDropDownSelector = ({
     setDropdownStates({ ...dropdownStates, [i]: !dropdownStates[i] });
   };
 
-  const taxonomyTagsData = useTaxonomyTagsDataResponse(taxonomyId, fetchUrl);
-  const isTaxonomyTagsLoaded = useIsTaxonomyTagsDataLoaded(taxonomyId, fetchUrl);
+  const { data: taxonomyTagsData, isSuccess: isTaxonomyTagsLoaded } = useTaxonomyTagsData(taxonomyId, fetchUrl);
 
   const isImplicit = (tag) => {
     // Traverse the tags tree using the lineage
