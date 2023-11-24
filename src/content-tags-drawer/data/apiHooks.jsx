@@ -54,7 +54,7 @@ export const useIsTaxonomyTagsDataLoaded = (taxonomyId, fullPathProvided) => (
  */
 const useContentTaxonomyTagsData = (contentId) => (
   useQuery({
-    queryKey: ['contentTaxonomyTags'],
+    queryKey: ['contentTaxonomyTags', contentId],
     queryFn: () => getContentTaxonomyTagsData(contentId),
   })
 );
@@ -88,7 +88,7 @@ export const useIsContentTaxonomyTagsDataLoaded = (contentId) => (
  */
 const useContentData = (contentId) => (
   useQuery({
-    queryKey: ['contentData'],
+    queryKey: ['contentData', contentId],
     queryFn: () => getContentData(contentId),
   })
 );
