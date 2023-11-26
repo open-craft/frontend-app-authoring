@@ -35,8 +35,10 @@ import TagBubble from './TagBubble';
  * };
  *
  * @param {Object} tagsTree - Array of taxonomy tags that are applied to the content
+ * @param {Func} removeTagHandler - Function that is called when removing tags from tree
+ * @param {boolean} editable - Whether the tags appear with an 'x' allowing the user to remove them
  */
-const ContentTagsTree = ({ tagsTree, removeTagHandler }) => {
+const ContentTagsTree = ({ tagsTree, removeTagHandler, editable }) => {
   const renderTagsTree = (tag, level, lineage) => Object.keys(tag).map((key) => {
     const updatedLineage = [...lineage, encodeURIComponent(key)];
     if (tag[key] !== undefined) {
@@ -49,6 +51,7 @@ const ContentTagsTree = ({ tagsTree, removeTagHandler }) => {
             level={level}
             lineage={updatedLineage}
             removeTagHandler={removeTagHandler}
+            editable={editable}
           />
           { renderTagsTree(tag[key].children, level + 1, updatedLineage) }
         </div>
@@ -68,6 +71,7 @@ ContentTagsTree.propTypes = {
     }).isRequired,
   ).isRequired,
   removeTagHandler: PropTypes.func.isRequired,
+  editable: PropTypes.bool.isRequired,
 };
 
 export default ContentTagsTree;

@@ -169,8 +169,9 @@ const removeTags = (tree, tagsToRemove) => {
  * @param {Object[]} taxonomyAndTagsData.contentTags - Array of taxonomy tags that are applied to the content
  * @param {string} taxonomyAndTagsData.contentTags.value - Value of applied Tag
  * @param {string} taxonomyAndTagsData.contentTags.lineage - Array of Tag's ancestors sorted (ancestor -> tag)
+ * @param {boolean} editable - Whether the tags can be edited
  */
-const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
+const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) => {
   const intl = useIntl();
   const {
     id, name, contentTags,
@@ -296,17 +297,20 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData }) => {
     <div className="d-flex">
       <Collapsible title={name} styling="card-lg" className="taxonomy-tags-collapsible">
         <div key={id}>
-          <ContentTagsTree tagsTree={tagsTree} removeTagHandler={tagChangeHandler} />
+          <ContentTagsTree tagsTree={tagsTree} removeTagHandler={tagChangeHandler} editable={editable} />
         </div>
 
         <div className="d-flex taxonomy-tags-selector-menu">
-          <Button
-            ref={setTarget}
-            variant="outline-primary"
-            onClick={open}
-          >
-            <FormattedMessage {...messages.addTagsButtonText} />
-          </Button>
+
+          {editable && (
+            <Button
+              ref={setTarget}
+              variant="outline-primary"
+              onClick={open}
+            >
+              <FormattedMessage {...messages.addTagsButtonText} />
+            </Button>
+          )}
         </div>
         <ModalPopup
           placement="bottom"
@@ -362,6 +366,7 @@ ContentTagsCollapsible.propTypes = {
       lineage: PropTypes.arrayOf(PropTypes.string),
     })),
   }).isRequired,
+  editable: PropTypes.bool.isRequired,
 };
 
 export default ContentTagsCollapsible;

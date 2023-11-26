@@ -8,12 +8,12 @@ import PropTypes from 'prop-types';
 import TagOutlineIcon from './TagOutlineIcon';
 
 const TagBubble = ({
-  value, implicit, level, lineage, removeTagHandler,
+  value, implicit, level, lineage, removeTagHandler, editable,
 }) => {
   const className = `tag-bubble mb-2 ${implicit ? 'implicit' : ''}`;
 
   const handleClick = React.useCallback(() => {
-    if (!implicit) {
+    if (!implicit && editable) {
       removeTagHandler(lineage.join(','), false);
     }
   }, [implicit, lineage]);
@@ -24,7 +24,7 @@ const TagBubble = ({
         className={className}
         variant="light"
         iconBefore={!implicit ? Tag : TagOutlineIcon}
-        iconAfter={!implicit ? Close : null}
+        iconAfter={!implicit && editable ? Close : null}
         onIconAfterClick={handleClick}
       >
         {value}
@@ -44,6 +44,7 @@ TagBubble.propTypes = {
   level: PropTypes.number,
   lineage: PropTypes.arrayOf(PropTypes.string).isRequired,
   removeTagHandler: PropTypes.func.isRequired,
+  editable: PropTypes.bool.isRequired,
 };
 
 export default TagBubble;
