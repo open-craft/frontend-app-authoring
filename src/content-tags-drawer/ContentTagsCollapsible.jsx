@@ -193,7 +193,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
   const [addedContentTags, setAddedContentTags] = React.useState({});
 
   // To handle checking/unchecking tags in the SelectableBox
-  const [checkedTags, { add, remove }] = useCheckboxSetValues();
+  const [checkedTags, { add, remove, clear }] = useCheckboxSetValues();
 
   // Handles make requests to the backend whenever the checked tags change
   React.useEffect(() => {
@@ -209,8 +209,18 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
 
   // This converts the contentTags prop to the tree structure mentioned above
   React.useMemo(() => {
-    const resultTree = {};
+    // Clear all the tags that have not been commited and the checked boxes when
+    // fresh contentTags passed in so the latest state from the backend is rendered
+    setAddedContentTags({});
+    clear();
 
+    // When an error occurs while updating, the contentTags query is invalidated,
+    // hence they will be recalculated, and the mutation should be reset.
+    if (mutation.isError) {
+      mutation.reset();
+    }
+
+    const resultTree = {};
     contentTags.forEach(item => {
       let currentLevel = resultTree;
 
@@ -233,7 +243,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
     });
 
     setAppliedContentTags(resultTree);
-  }, [contentTags]);
+  }, [contentTags, setAddedContentTags, mutation.isError]);
 
   // This is the source of truth that represents the current state of tags in
   // this Taxonomy as a tree. Whenever either the `appliedContentTags` (i.e. tags passed in
