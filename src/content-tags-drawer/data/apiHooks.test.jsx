@@ -77,7 +77,7 @@ describe('useContentTaxonomyTagsMutation', () => {
     useMutation.mockReturnValueOnce({ mutate: jest.fn() });
 
     const mutation = useContentTaxonomyTagsMutation();
-    mutation.mutate();
+    mutation.mutate({ tags: ['a', 'b', 'c'] });
 
     expect(useMutation).toBeCalled();
 

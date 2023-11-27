@@ -9,7 +9,7 @@ export const getContentDataApiUrl = (contentId) => new URL(`/xblock/outline/${co
 
 /**
  * Get all tags that belong to taxonomy.
- * @param {string} taxonomyId The id of the taxonomy to fetch tags for
+ * @param {number} taxonomyId The id of the taxonomy to fetch tags for
  * @param {string} fullPathProvided Optional param that contains the full URL to fetch data
  *                 If provided, we use it instead of generating the URL. This is usually for fetching subTags
  * @returns {Promise<Object>}

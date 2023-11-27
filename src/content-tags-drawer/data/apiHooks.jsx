@@ -47,16 +47,22 @@ export const useContentData = (contentId) => (
 
 /**
  * Builds the mutation to update the tags applied to the content object
+ * @param {string} contentId The id of the content object to update tags for
+ * @param {number} taxonomyId The id of the taxonomy the tags belong to
  */
 export const useContentTaxonomyTagsMutation = (contentId, taxonomyId) => {
   const queryClient = useQueryClient();
 
-  /**
-   * @type {
-   *   import("@tanstack/react-query").MutateFunction<any, any, {contentId: string, taxonomyId: number, tags: string[]}>
-   * }
-   */
   return useMutation({
+    /**
+     * @type {import("@tanstack/react-query").MutateFunction<
+     *   any,
+     *   any,
+     *   {
+     *     tags: string[]
+     *   }
+     * >}
+     */
     mutationFn: ({ tags }) => updateContentTaxonomyTags(contentId, taxonomyId, tags),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['contentTaxonomyTags', contentId] });
