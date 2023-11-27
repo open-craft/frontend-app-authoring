@@ -12,6 +12,7 @@ import { updateContentTaxonomyTags } from './api';
 jest.mock('@tanstack/react-query', () => ({
   useQuery: jest.fn(),
   useMutation: jest.fn(),
+  useQueryClient: jest.fn(),
 }));
 
 jest.mock('./api', () => ({
@@ -76,8 +77,10 @@ describe('useContentTaxonomyTagsMutation', () => {
   it('should call the update content taxonomy tags function', async () => {
     useMutation.mockReturnValueOnce({ mutate: jest.fn() });
 
-    const mutation = useContentTaxonomyTagsMutation();
-    mutation.mutate({ tags: ['a', 'b', 'c'] });
+    const contentId = 'testerContent';
+    const taxonomyId = 123;
+    const mutation = useContentTaxonomyTagsMutation(contentId, taxonomyId);
+    mutation.mutate({ tags: ['tag1', 'tag2'] });
 
     expect(useMutation).toBeCalled();
 
@@ -85,10 +88,8 @@ describe('useContentTaxonomyTagsMutation', () => {
     const { mutationFn } = config;
 
     await act(async () => {
-      const contentId = 'testerContent';
-      const taxonomyId = 123;
       const tags = ['tag1', 'tag2'];
-      await mutationFn({ contentId, taxonomyId, tags });
+      await mutationFn({ tags });
       expect(updateContentTaxonomyTags).toBeCalledWith(contentId, taxonomyId, tags);
     });
   });
