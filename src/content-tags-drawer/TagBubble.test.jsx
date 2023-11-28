@@ -1,6 +1,6 @@
 import React from 'react';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
-import { render } from '@testing-library/react';
+import { act, render, fireEvent } from '@testing-library/react';
 import PropTypes from 'prop-types';
 
 import TagBubble from './TagBubble';
@@ -8,7 +8,7 @@ import TagBubble from './TagBubble';
 const data = {
   value: 'Tag 1',
   lineage: [],
-  removeTagHandler: () => {},
+  removeTagHandler: jest.fn(),
 };
 
 const TagBubbleComponent = ({
@@ -72,5 +72,27 @@ describe('<TagBubble />', () => {
     expect(getByText(`${tagBubbleData.value}`)).toBeInTheDocument();
     expect(container.getElementsByClassName('implicit').length).toBe(0);
     expect(container.getElementsByClassName('pgn__chip__icon-after').length).toBe(1);
+  });
+
+  it('should call removeTagHandler when "x" clicked on explicit tag', async () => {
+    const tagBubbleData = {
+      implicit: false,
+      ...data,
+    };
+    const { container } = render(
+      <TagBubbleComponent
+        value={tagBubbleData.value}
+        editable
+        lineage={data.lineage}
+        implicit={tagBubbleData.implicit}
+        removeTagHandler={tagBubbleData.removeTagHandler}
+      />,
+    );
+
+    const xButton = container.getElementsByClassName('pgn__chip__icon-after')[0];
+    await act(async () => {
+      fireEvent.click(xButton);
+    });
+    expect(data.removeTagHandler).toHaveBeenCalled();
   });
 });
