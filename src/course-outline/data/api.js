@@ -26,7 +26,7 @@ export const getEnableHighlightsEmailsApiUrl = (courseId) => {
 
 export const getCourseReindexApiUrl = (reindexLink) => `${getApiBaseUrl()}${reindexLink}`;
 export const getXBlockBaseApiUrl = () => `${getApiBaseUrl()}/xblock/`;
-export const getUpdateCourseSectionApiUrl = (sectionId) => `${getXBlockBaseApiUrl()}${sectionId}`;
+export const getUpdateCourseItemApiUrl = (sectionId) => `${getXBlockBaseApiUrl()}${sectionId}`;
 export const getXBlockApiUrl = (blockId) => `${getXBlockBaseApiUrl()}outline/${blockId}`;
 
 /**
@@ -191,7 +191,7 @@ export async function getCourseSection(sectionId) {
  */
 export async function updateCourseSectionHighlights(sectionId, highlights) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseSectionApiUrl(sectionId), {
+    .post(getUpdateCourseItemApiUrl(sectionId), {
       publish: 'republish',
       metadata: {
         highlights,
@@ -208,7 +208,7 @@ export async function updateCourseSectionHighlights(sectionId, highlights) {
  */
 export async function publishCourseSection(sectionId) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseSectionApiUrl(sectionId), {
+    .post(getUpdateCourseItemApiUrl(sectionId), {
       publish: 'make_public',
     });
 
@@ -240,9 +240,9 @@ export async function configureCourseSection(sectionId, isVisibleToStaffOnly, st
  * @param {string} displayName
  * @returns {Promise<Object>}
  */
-export async function editCourseSection(sectionId, displayName) {
+export async function editItemDisplayName(itemId, displayName) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseSectionApiUrl(sectionId), {
+    .post(getUpdateCourseItemApiUrl(itemId), {
       metadata: {
         display_name: displayName,
       },
@@ -258,7 +258,7 @@ export async function editCourseSection(sectionId, displayName) {
  */
 export async function deleteCourseSection(sectionId) {
   const { data } = await getAuthenticatedHttpClient()
-    .delete(getUpdateCourseSectionApiUrl(sectionId));
+    .delete(getUpdateCourseItemApiUrl(sectionId));
 
   return data;
 }

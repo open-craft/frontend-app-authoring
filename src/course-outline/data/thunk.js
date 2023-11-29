@@ -13,7 +13,7 @@ import {
   addNewCourseItem,
   deleteCourseSection,
   duplicateCourseSection,
-  editCourseSection,
+  editItemDisplayName,
   enableCourseHighlightsEmails,
   getCourseBestPractices,
   getCourseLaunch,
@@ -198,13 +198,13 @@ export function configureCourseSectionQuery(sectionId, isVisibleToStaffOnly, sta
   };
 }
 
-export function editCourseSectionQuery(sectionId, displayName) {
+export function editCourseItemQuery(itemId, sectionId, displayName) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
-      await editCourseSection(sectionId, displayName).then(async (result) => {
+      await editItemDisplayName(itemId, displayName).then(async (result) => {
         if (result) {
           await dispatch(fetchCourseSectionQuery(sectionId));
           dispatch(hideProcessingNotification());

@@ -74,7 +74,7 @@ const CourseOutline = ({ courseId }) => {
     handleHighlightsFormSubmit,
     handlePublishSectionSubmit,
     handleConfigureSectionSubmit,
-    handleEditSectionSubmit,
+    handleEditSubmit,
     handleDeleteSectionSubmit,
     handleDuplicateSectionSubmit,
     handleNewSectionSubmit,
@@ -159,7 +159,7 @@ const CourseOutline = ({ courseId }) => {
                               onOpenPublishModal={openPublishModal}
                               onOpenConfigureModal={openConfigureModal}
                               onOpenDeleteModal={openDeleteModal}
-                              onEditSectionSubmit={handleEditSectionSubmit}
+                              onEditSectionSubmit={handleEditSubmit}
                               onDuplicateSubmit={handleDuplicateSectionSubmit}
                               isSectionsExpanded={isSectionsExpanded}
                               ref={listRef}
@@ -167,12 +167,12 @@ const CourseOutline = ({ courseId }) => {
                               {section.childInfo.children.map((subsection) => (
                                 <SubsectionCard
                                   key={subsection.id}
+                                  sectionId={section.id}
                                   subsection={subsection}
                                   savingStatus={savingStatus}
-                                  onOpenHighlightsModal={handleOpenHighlightsModal}
                                   onOpenPublishModal={openPublishModal}
                                   onOpenDeleteModal={openDeleteModal}
-                                  onEditSectionSubmit={handleEditSectionSubmit}
+                                  onEditSubmit={handleEditSubmit}
                                   onDuplicateSubmit={handleDuplicateSectionSubmit}
                                 />
                               ))}

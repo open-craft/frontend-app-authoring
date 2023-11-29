@@ -1,5 +1,4 @@
 import {
-  React,
   forwardRef,
   useEffect,
   useState,
@@ -67,7 +66,8 @@ const SectionCard = forwardRef(({
 
   const handleEditSubmit = (titleValue) => {
     if (displayName !== titleValue) {
-      onEditSectionSubmit(id, titleValue);
+      // both itemId and sectionId are same
+      onEditSectionSubmit(id, id, titleValue);
       return;
     }
 
@@ -119,7 +119,7 @@ const SectionCard = forwardRef(({
         </div>
       </div>
       {isExpanded && (
-        <React.Fragment>
+        <>
           <div data-testid="section-card__subsections" className="section-card__subsections">
             {children}
           </div>
@@ -132,7 +132,7 @@ const SectionCard = forwardRef(({
           >
             {intl.formatMessage(messages.newSubsectionButton)}
           </Button>
-        </React.Fragment>
+        </>
       )}
     </div>
   );
