@@ -4,7 +4,7 @@ import { useToggle } from '@edx/paragon';
 
 import { RequestStatus } from '../data/constants';
 import {
-  setCurrentSection,
+  setCurrentItem,
   updateSavingStatus,
 } from './data/slice';
 import {
@@ -13,7 +13,7 @@ import {
   getSavingStatus,
   getStatusBarData,
   getSectionsList,
-  getCurrentSection,
+  getCurrentItem,
 } from './data/selectors';
 import {
   addNewCourseSectionQuery,
@@ -38,7 +38,7 @@ const useCourseOutline = ({ courseId }) => {
   const statusBarData = useSelector(getStatusBarData);
   const savingStatus = useSelector(getSavingStatus);
   const sectionsList = useSelector(getSectionsList);
-  const currentSection = useSelector(getCurrentSection);
+  const currentItem = useSelector(getCurrentItem);
 
   const [isEnableHighlightsModalOpen, openEnableHighlightsModal, closeEnableHighlightsModal] = useToggle(false);
   const [isSectionsExpanded, setSectionsExpanded] = useState(true);
@@ -81,19 +81,19 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleOpenHighlightsModal = (section) => {
-    dispatch(setCurrentSection(section));
+    dispatch(setCurrentItem(section));
     openHighlightsModal();
   };
 
   const handleHighlightsFormSubmit = (highlights) => {
     const dataToSend = Object.values(highlights).filter(Boolean);
-    dispatch(updateCourseSectionHighlightsQuery(currentSection.id, dataToSend));
+    dispatch(updateCourseSectionHighlightsQuery(currentItem.id, dataToSend));
 
     closeHighlightsModal();
   };
 
   const handlePublishSectionSubmit = () => {
-    dispatch(publishCourseSectionQuery(currentSection.id));
+    dispatch(publishCourseSectionQuery(currentItem.id));
 
     closePublishModal();
   };
@@ -109,12 +109,12 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleDeleteSectionSubmit = () => {
-    dispatch(deleteCourseSectionQuery(currentSection.id));
+    dispatch(deleteCourseSectionQuery(currentItem.id));
     closeDeleteModal();
   };
 
   const handleDuplicateSectionSubmit = () => {
-    dispatch(duplicateCourseSectionQuery(currentSection.id, courseStructure.id));
+    dispatch(duplicateCourseSectionQuery(currentItem.id, courseStructure.id));
   };
 
   useEffect(() => {

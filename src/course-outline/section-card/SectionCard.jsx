@@ -10,7 +10,7 @@ import { useIntl } from '@edx/frontend-platform/i18n';
 import { Badge, Button, useToggle } from '@edx/paragon';
 import { Add as IconAdd } from '@edx/paragon/icons';
 
-import { setCurrentSection } from '../data/slice';
+import { setCurrentItem } from '../data/slice';
 import { RequestStatus } from '../../data/constants';
 import CardHeader from '../card-header/CardHeader';
 import { getItemStatus } from '../utils';
@@ -46,7 +46,7 @@ const SectionCard = forwardRef(({
     visibleToStaffOnly = false,
     visibilityState,
     staffOnlyMessage,
-    highlights = [],
+    highlights,
   } = section;
 
   const sectionStatus = getItemStatus({
@@ -62,7 +62,7 @@ const SectionCard = forwardRef(({
   };
 
   const handleClickMenuButton = () => {
-    dispatch(setCurrentSection(section));
+    dispatch(setCurrentItem(section));
   };
 
   const handleEditSubmit = (titleValue) => {

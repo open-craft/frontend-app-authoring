@@ -25,7 +25,7 @@ const slice = createSlice({
       },
     },
     sectionsList: [],
-    currentSection: {},
+    currentItem: {},
   },
   reducers: {
     fetchOutlineIndexSuccess: (state, { payload }) => {
@@ -71,8 +71,8 @@ const slice = createSlice({
     updateSectionList: (state, { payload }) => {
       state.sectionsList = state.sectionsList.map((section) => (section.id === payload.id ? payload : section));
     },
-    setCurrentSection: (state, { payload }) => {
-      state.currentSection = payload;
+    setCurrentItem: (state, { payload }) => {
+      state.currentItem = payload;
     },
     addSection: (state, { payload }) => {
       state.sectionsList = [
@@ -105,7 +105,7 @@ export const {
   updateFetchSectionLoadingStatus,
   updateSavingStatus,
   updateSectionList,
-  setCurrentSection,
+  setCurrentItem,
   deleteSection,
   duplicateSection,
 } = slice.actions;
