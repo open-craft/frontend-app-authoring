@@ -29,6 +29,10 @@ const ContentTagsDropDownSelector = ({
   // however if it is null that means it is the root, and the apiHooks
   // would automatically handle it. Later this url is set to the next
   // page of results (if any)
+  //
+  // TODO: In the future we may need to refactor this to keep track
+  // of the count for how many times the user clicked on "load more" then
+  // use useQueries to load all the pages based on that.
   const [fetchUrl, setFetchUrl] = useState(subTagsUrl);
 
   const isOpen = (i) => dropdownStates[i];

@@ -16,7 +16,7 @@ const TagBubble = ({
     if (!implicit && editable) {
       removeTagHandler(lineage.join(','), false);
     }
-  }, [implicit, lineage]);
+  }, [implicit, lineage, editable, removeTagHandler]);
 
   return (
     <div style={{ paddingLeft: `${level * 1}rem` }}>

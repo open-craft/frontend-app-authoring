@@ -178,16 +178,13 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
     id, name, contentTags,
   } = taxonomyAndTagsData;
 
-  // State to determine whether to update the backend or not
+  // State to determine whether the tags are being updating so we can make a call
+  // to the update endpoint to the reflect those changes
   const [updatingTags, setUpdatingTags] = React.useState(false);
   const mutation = useContentTaxonomyTagsMutation(contentId, id);
 
   const [isOpen, open, close] = useToggle(false);
-  const [target, setTarget] = React.useState(null);
-
-  // Keeps track of the tree structure for the applied content tags passed
-  // in as a prop.
-  const [appliedContentTags, setAppliedContentTags] = React.useState({});
+  const [addTagsButtonRef, setAddTagsButtonRef] = React.useState(null);
 
   // Keeps track of the tree structure for tags that are add by selecting/unselecting
   // tags in the dropdowns.
@@ -196,10 +193,10 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
   // To handle checking/unchecking tags in the SelectableBox
   const [checkedTags, { add, remove, clear }] = useCheckboxSetValues();
 
-  // Handles make requests to the backend whenever the checked tags change
+  // Handles making requests to the update endpoint whenever the checked tags change
   React.useEffect(() => {
-    // We have this check because this hook is fired when the component first load
-    // and reloads (on refocus). We only want to make requests to the backend when
+    // We have this check because this hook is fired when the component first loads
+    // and reloads (on refocus). We only want to make a request to the update endpoint when
     // the user is updating the tags.
     if (updatingTags) {
       setUpdatingTags(false);
@@ -209,7 +206,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
   }, [contentId, id, checkedTags]);
 
   // This converts the contentTags prop to the tree structure mentioned above
-  React.useMemo(() => {
+  const appliedContentTags = React.useMemo(() => {
     // Clear all the tags that have not been commited and the checked boxes when
     // fresh contentTags passed in so the latest state from the backend is rendered
     setAddedContentTags({});
@@ -243,8 +240,8 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
       });
     });
 
-    setAppliedContentTags(resultTree);
-  }, [contentTags, setAddedContentTags, mutation.isError]);
+    return resultTree;
+  }, [contentTags, mutation.isError]);
 
   // This is the source of truth that represents the current state of tags in
   // this Taxonomy as a tree. Whenever either the `appliedContentTags` (i.e. tags passed in
@@ -315,7 +312,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
 
           {editable && (
             <Button
-              ref={setTarget}
+              ref={setAddTagsButtonRef}
               variant="outline-primary"
               onClick={open}
             >
@@ -325,7 +322,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
         </div>
         <ModalPopup
           placement="bottom"
-          positionRef={target}
+          positionRef={addTagsButtonRef}
           isOpen={isOpen}
           onClose={close}
         >
