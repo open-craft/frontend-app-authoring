@@ -28,7 +28,7 @@ jest.mock('react-router-dom', () => ({
   }),
 }));
 
-const currentSectionMock = {
+const currentItemMock = {
   displayName: 'Publish',
   childInfo: {
     displayName: 'Subsection',
@@ -102,13 +102,13 @@ describe('<PublishModal />', () => {
 
     store = initializeStore();
     axiosMock = new MockAdapter(getAuthenticatedHttpClient());
-    useSelector.mockReturnValue(currentSectionMock);
+    useSelector.mockReturnValue(currentItemMock);
   });
 
   it('renders PublishModal component correctly', () => {
     const { getByText, getByRole, queryByText } = renderComponent();
 
-    expect(getByText(`Publish ${currentSectionMock.displayName}`)).toBeInTheDocument();
+    expect(getByText(`Publish ${currentItemMock.displayName}`)).toBeInTheDocument();
     expect(getByText(messages.description.defaultMessage)).toBeInTheDocument();
     expect(getByText(/Subsection 1/i)).toBeInTheDocument();
     expect(getByText(/Subsection_1 Unit 1/i)).toBeInTheDocument();
