@@ -15,15 +15,36 @@ import { importTaxonomyTags } from '../import-tags';
 import messages from './messages';
 
 const TaxonomyMenu = ({
-  id, name, iconMenu, disabled,
+  taxonomy, iconMenu,
 }) => {
   const intl = useIntl();
+
+  const getTaxonomyMenuItems = () => {
+    const { systemDefined, allowFreeText } = taxonomy;
+    const menuItems = ['import', 'export'];
+    if (systemDefined) {
+      // System defined taxonomies cannot be imported
+      return menuItems.filter((item) => !['import'].includes(item));
+    }
+    if (allowFreeText) {
+      // Free text taxonomies cannot be imported
+      return menuItems.filter((item) => !['import'].includes(item));
+    }
+    return menuItems;
+  };
+
+  const menuItems = getTaxonomyMenuItems();
 
   const [isExportModalOpen, exportModalOpen, exportModalClose] = useToggle(false);
 
   const menuItemActions = {
-    import: () => importTaxonomyTags(id, intl),
+    import: () => importTaxonomyTags(taxonomy.id, intl),
     export: exportModalOpen,
+  };
+
+  const menuItemMessages = {
+    import: messages.importMenu,
+    export: messages.exportMenu,
   };
 
   const onClickMenuItem = (e, menuName) => {
@@ -35,8 +56,8 @@ const TaxonomyMenu = ({
     <ExportModal
       isOpen={isExportModalOpen}
       onClose={exportModalClose}
-      taxonomyId={id}
-      taxonomyName={name}
+      taxonomyId={taxonomy.id}
+      taxonomyName={taxonomy.name}
     />
   );
 
@@ -47,19 +68,22 @@ const TaxonomyMenu = ({
         src={MoreVert}
         iconAs={Icon}
         variant="primary"
-        alt={intl.formatMessage(messages.actionsButtonAlt, { name })}
+        alt={intl.formatMessage(messages.actionsButtonAlt, { name: taxonomy.name })}
         data-testid="taxonomy-menu-button"
-        disabled={disabled}
+        disabled={menuItems.length === 0}
       >
         {intl.formatMessage(messages.actionsButtonLabel)}
       </Dropdown.Toggle>
       <Dropdown.Menu data-testid="taxonomy-menu">
-        <Dropdown.Item data-testid="taxonomy-menu-import" onClick={(e) => onClickMenuItem(e, 'import')}>
-          {intl.formatMessage(messages.importMenu)}
-        </Dropdown.Item>
-        <Dropdown.Item data-testid="taxonomy-menu-export" onClick={(e) => onClickMenuItem(e, 'export')}>
-          {intl.formatMessage(messages.exportMenu)}
-        </Dropdown.Item>
+        {menuItems.map((item) => (
+          <Dropdown.Item
+            key={item}
+            data-testid={`taxonomy-menu-${item}`}
+            onClick={(e) => onClickMenuItem(e, item)}
+          >
+            {intl.formatMessage(menuItemMessages[item])}
+          </Dropdown.Item>
+        ))}
       </Dropdown.Menu>
       {renderModals()}
     </Dropdown>
@@ -67,14 +91,13 @@ const TaxonomyMenu = ({
 };
 
 TaxonomyMenu.propTypes = {
-  id: PropTypes.number.isRequired,
-  name: PropTypes.string.isRequired,
+  taxonomy: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    name: PropTypes.string.isRequired,
+    systemDefined: PropTypes.bool.isRequired,
+    allowFreeText: PropTypes.bool.isRequired,
+  }).isRequired,
   iconMenu: PropTypes.bool.isRequired,
-  disabled: PropTypes.bool,
-};
-
-TaxonomyMenu.defaultProps = {
-  disabled: false,
 };
 
 export default TaxonomyMenu;

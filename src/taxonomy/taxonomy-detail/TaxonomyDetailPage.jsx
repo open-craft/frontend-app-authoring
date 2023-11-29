@@ -40,16 +40,7 @@ const TaxonomyDetailPage = () => {
 
   const getHeaderActions = () => (
     <TaxonomyMenu
-      id={taxonomy.id}
-      name={taxonomy.name}
-      disabled={
-        // We don't show the export menu, because the system-taxonomies
-        // can't be exported. The API returns and error.
-        // The entire menu has been disabled because currently only
-        // the export menu exists.
-        // ToDo: When adding more menus, change this logic to hide only the export menu.
-        taxonomy.systemDefined
-      }
+      taxonomy={taxonomy}
     />
   );
 

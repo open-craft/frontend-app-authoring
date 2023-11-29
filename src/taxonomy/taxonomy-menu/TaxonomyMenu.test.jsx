@@ -22,23 +22,34 @@ jest.mock('../data/api', () => ({
 }));
 
 const TaxonomyMenuComponent = ({
+  systemDefined,
+  allowFreeText,
   iconMenu,
-  disabled,
 }) => (
   <AppProvider store={store}>
     <IntlProvider locale="en" messages={{}}>
-      <TaxonomyMenu id={taxonomyId} name={taxonomyName} iconMenu={iconMenu} disabled={disabled} />
+      <TaxonomyMenu
+        taxonomy={{
+          id: taxonomyId,
+          name: taxonomyName,
+          systemDefined,
+          allowFreeText,
+        }}
+        iconMenu={iconMenu}
+      />
     </IntlProvider>
   </AppProvider>
 );
 
 TaxonomyMenuComponent.propTypes = {
   iconMenu: PropTypes.bool.isRequired,
-  disabled: PropTypes.bool,
+  systemDefined: PropTypes.bool,
+  allowFreeText: PropTypes.bool,
 };
 
 TaxonomyMenuComponent.defaultProps = {
-  disabled: false,
+  systemDefined: false,
+  allowFreeText: false,
 };
 
 describe('<TaxonomyMenu />', async () => {
@@ -77,6 +88,38 @@ describe('<TaxonomyMenu />', async () => {
 
       // Menu button still visible
       expect(getByTestId('taxonomy-menu-button')).toBeVisible();
+    });
+
+    test('doesnt show systemDefined taxonomies disabled menus', () => {
+      const { getByTestId } = render(<TaxonomyMenuComponent iconMenu={iconMenu} systemDefined />);
+
+      // Menu closed/doesn't exist yet
+      expect(() => getByTestId('taxonomy-menu')).toThrow();
+
+      // Click on the menu button to open
+      fireEvent.click(getByTestId('taxonomy-menu-button'));
+
+      // Menu opened
+      expect(getByTestId('taxonomy-menu')).toBeVisible();
+
+      // Check that the import menu is not show
+      expect(() => getByTestId('taxonomy-menu-import')).toThrow();
+    });
+
+    test('doesnt show freeText taxonomies disabled menus', () => {
+      const { getByTestId } = render(<TaxonomyMenuComponent iconMenu={iconMenu} allowFreeText />);
+
+      // Menu closed/doesn't exist yet
+      expect(() => getByTestId('taxonomy-menu')).toThrow();
+
+      // Click on the menu button to open
+      fireEvent.click(getByTestId('taxonomy-menu-button'));
+
+      // Menu opened
+      expect(getByTestId('taxonomy-menu')).toBeVisible();
+
+      // Check that the import menu is not show
+      expect(() => getByTestId('taxonomy-menu-import')).toThrow();
     });
 
     test('should open export modal on export menu click', () => {
