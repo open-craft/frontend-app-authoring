@@ -12,7 +12,7 @@ import { useSelector } from 'react-redux';
 
 import { useHelpUrls } from '../../help-urls/hooks';
 import FormikControl from '../../generic/FormikControl';
-import { getCurrentSection } from '../data/selectors';
+import { getCurrentItem } from '../data/selectors';
 import { HIGHLIGHTS_FIELD_MAX_LENGTH } from '../constants';
 import { getHighlightsFormValues } from '../utils';
 import messages from './messages';
@@ -23,7 +23,7 @@ const HighlightsModal = ({
   onSubmit,
 }) => {
   const intl = useIntl();
-  const { highlights = [], displayName } = useSelector(getCurrentSection);
+  const { highlights = [], displayName } = useSelector(getCurrentItem);
   const initialFormValues = getHighlightsFormValues(highlights);
 
   const {
