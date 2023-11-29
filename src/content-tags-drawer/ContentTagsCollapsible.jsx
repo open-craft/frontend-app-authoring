@@ -1,4 +1,5 @@
 import React from 'react';
+import _ from 'lodash';
 import {
   Badge,
   Collapsible,
@@ -29,7 +30,7 @@ import { useContentTaxonomyTagsMutation } from './data/apiHooks';
  * @returns {object} merged tree containing both tree1 and tree2
  */
 const mergeTrees = (tree1, tree2) => {
-  const mergedTree = { ...tree1 };
+  const mergedTree = _.cloneDeep(tree1);
 
   const sortKeysAlphabetically = (obj) => {
     const sortedObj = {};
@@ -52,7 +53,7 @@ const mergeTrees = (tree1, tree2) => {
         mergeRecursively(destinationValue, sourceValue);
       } else {
         // eslint-disable-next-line no-param-reassign
-        destination[key] = sourceValue;
+        destination[key] = _.cloneDeep(sourceValue);
       }
     });
   };
