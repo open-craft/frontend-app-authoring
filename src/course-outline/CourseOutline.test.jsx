@@ -15,14 +15,14 @@ import {
   getCourseReindexApiUrl,
   getXBlockApiUrl,
   getEnableHighlightsEmailsApiUrl,
-  getUpdateCourseSectionApiUrl,
+  getUpdateCourseItemApiUrl,
   getXBlockBaseApiUrl,
 } from './data/api';
 import {
   addNewCourseSectionQuery,
   deleteCourseSectionQuery,
   duplicateCourseSectionQuery,
-  editCourseSectionQuery,
+  editCourseItemQuery,
   enableCourseHighlightsEmailsQuery,
   fetchCourseBestPracticesQuery,
   fetchCourseLaunchQuery,
@@ -236,14 +236,14 @@ describe('<CourseOutline />', () => {
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[0];
 
     axiosMock
-      .onPost(getUpdateCourseSectionApiUrl(section.id, {
+      .onPost(getUpdateCourseItemApiUrl(section.id, {
         metadata: {
           display_name: newDisplayName,
         },
       }))
       .reply(200);
 
-    await executeThunk(editCourseSectionQuery(section.id, newDisplayName), store.dispatch);
+    await executeThunk(editCourseItemQuery(section.id, section.id, newDisplayName), store.dispatch);
 
     axiosMock
       .onGet(getXBlockApiUrl(section.id))
@@ -259,7 +259,7 @@ describe('<CourseOutline />', () => {
     const { queryByText } = render(<RootWrapper />);
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[1];
 
-    axiosMock.onDelete(getUpdateCourseSectionApiUrl(section.id)).reply(200);
+    axiosMock.onDelete(getUpdateCourseItemApiUrl(section.id)).reply(200);
     await executeThunk(deleteCourseSectionQuery(section.id), store.dispatch);
 
     await waitFor(() => {
@@ -307,7 +307,7 @@ describe('<CourseOutline />', () => {
       });
 
     axiosMock
-      .onPost(getUpdateCourseSectionApiUrl(section.id), {
+      .onPost(getUpdateCourseItemApiUrl(section.id), {
         publish: 'make_public',
       })
       .reply(200);
@@ -390,7 +390,7 @@ describe('<CourseOutline />', () => {
     ];
 
     axiosMock
-      .onPost(getUpdateCourseSectionApiUrl(section.id), {
+      .onPost(getUpdateCourseItemApiUrl(section.id), {
         publish: 'republish',
         metadata: {
           highlights,

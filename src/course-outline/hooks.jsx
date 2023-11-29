@@ -18,7 +18,7 @@ import {
 import {
   addNewCourseSectionQuery,
   deleteCourseSectionQuery,
-  editCourseSectionQuery,
+  editCourseItemQuery,
   duplicateCourseSectionQuery,
   enableCourseHighlightsEmailsQuery,
   fetchCourseBestPracticesQuery,
@@ -104,8 +104,8 @@ const useCourseOutline = ({ courseId }) => {
     closeConfigureModal();
   };
 
-  const handleEditSectionSubmit = (sectionId, displayName) => {
-    dispatch(editCourseSectionQuery(sectionId, displayName));
+  const handleEditSubmit = (itemId, sectionId, displayName) => {
+    dispatch(editCourseItemQuery(itemId, sectionId, displayName));
   };
 
   const handleDeleteSectionSubmit = () => {
@@ -153,7 +153,7 @@ const useCourseOutline = ({ courseId }) => {
     handleHighlightsFormSubmit,
     handlePublishSectionSubmit,
     handleConfigureSectionSubmit,
-    handleEditSectionSubmit,
+    handleEditSubmit,
     statusBarData,
     isEnableHighlightsModalOpen,
     openEnableHighlightsModal,

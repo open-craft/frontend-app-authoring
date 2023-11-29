@@ -35,7 +35,7 @@ const renderComponent = (props) => render(
         onOpenDeleteModal={jest.fn()}
         onEditClick={jest.fn()}
         savingStatus=""
-        onEditSectionSubmit={jest.fn()}
+        onEditSubmit={jest.fn()}
         onDuplicateSubmit={jest.fn()}
         isSectionsExpanded
         {...props}

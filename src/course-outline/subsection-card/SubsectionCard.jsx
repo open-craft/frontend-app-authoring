@@ -12,11 +12,11 @@ import { getItemStatus } from '../utils';
 import messages from './messages';
 
 const SubsectionCard = ({
+  sectionId,
   subsection,
   children,
-  onOpenHighlightsModal,
   onOpenPublishModal,
-  onEditSectionSubmit,
+  onEditSubmit,
   savingStatus,
   onOpenDeleteModal,
   onDuplicateSubmit,
@@ -55,15 +55,11 @@ const SubsectionCard = ({
 
   const handleEditSubmit = (titleValue) => {
     if (displayName !== titleValue) {
-      onEditSectionSubmit(id, titleValue);
+      onEditSubmit(id, sectionId, titleValue);
       return;
     }
 
     closeForm();
-  };
-
-  const handleOpenHighlightsModal = () => {
-    onOpenHighlightsModal(subsection);
   };
 
   useEffect(() => {
@@ -116,6 +112,7 @@ SubsectionCard.defaultProps = {
 };
 
 SubsectionCard.propTypes = {
+  sectionId: PropTypes.string.isRequired,
   subsection: PropTypes.shape({
     id: PropTypes.string.isRequired,
     displayName: PropTypes.string.isRequired,
@@ -127,9 +124,8 @@ SubsectionCard.propTypes = {
     staffOnlyMessage: PropTypes.bool.isRequired,
   }).isRequired,
   children: PropTypes.node,
-  onOpenHighlightsModal: PropTypes.func.isRequired,
   onOpenPublishModal: PropTypes.func.isRequired,
-  onEditSectionSubmit: PropTypes.func.isRequired,
+  onEditSubmit: PropTypes.func.isRequired,
   savingStatus: PropTypes.string.isRequired,
   onOpenDeleteModal: PropTypes.func.isRequired,
   onDuplicateSubmit: PropTypes.func.isRequired,
