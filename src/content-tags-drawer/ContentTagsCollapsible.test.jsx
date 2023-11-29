@@ -34,6 +34,10 @@ const data = {
         lineage: ['Tag 1'],
       },
       {
+        value: 'Tag 1.1',
+        lineage: ['Tag 1', 'Tag 1.1'],
+      },
+      {
         value: 'Tag 2',
         lineage: ['Tag 2'],
       },
@@ -73,7 +77,7 @@ describe('<ContentTagsCollapsible />', () => {
       );
       expect(getByText('Taxonomy 1')).toBeInTheDocument();
       expect(container.getElementsByClassName('badge').length).toBe(1);
-      expect(getByText('2')).toBeInTheDocument();
+      expect(getByText('3')).toBeInTheDocument();
     });
   });
 

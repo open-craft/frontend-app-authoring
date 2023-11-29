@@ -186,6 +186,9 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
   const [isOpen, open, close] = useToggle(false);
   const [addTagsButtonRef, setAddTagsButtonRef] = React.useState(null);
 
+  // Keeps track of the content objects tags count (both implicit and explicit)
+  const [contentTagsCount, setContentTagsCount] = React.useState(0);
+
   // Keeps track of the tree structure for tags that are add by selecting/unselecting
   // tags in the dropdowns.
   const [addedContentTags, setAddedContentTags] = React.useState({});
@@ -207,6 +210,8 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
 
   // This converts the contentTags prop to the tree structure mentioned above
   const appliedContentTags = React.useMemo(() => {
+    let contentTagsCounter = 0;
+
     // Clear all the tags that have not been commited and the checked boxes when
     // fresh contentTags passed in so the latest state from the backend is rendered
     setAddedContentTags({});
@@ -234,12 +239,14 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
           const value = item.lineage.map(l => encodeURIComponent(l)).join(',');
           // eslint-disable-next-line no-unused-expressions
           isExplicit ? add(value) : remove(value);
+          contentTagsCounter += 1;
         }
 
         currentLevel = currentLevel[key].children;
       });
     });
 
+    setContentTagsCount(contentTagsCounter);
     return resultTree;
   }, [contentTags, mutation.isError]);
 
@@ -354,10 +361,10 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
           pill
           className={classNames('align-self-start', 'mt-3', {
             // eslint-disable-next-line quote-props
-            'invisible': contentTags.length === 0,
+            'invisible': contentTagsCount === 0,
           })}
         >
-          {contentTags.length}
+          {contentTagsCount}
         </Badge>
       </div>
     </div>
