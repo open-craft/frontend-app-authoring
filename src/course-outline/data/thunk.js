@@ -1,6 +1,6 @@
 import { RequestStatus } from '../../data/constants';
 import { NOTIFICATION_MESSAGES } from '../../constants';
-import { DEFAULT_NEW_DISPLAY_NAMES } from '../constants';
+import { COURSE_BLOCK_NAMES } from '../constants';
 import {
   hideProcessingNotification,
   showProcessingNotification,
@@ -11,7 +11,7 @@ import {
 } from '../utils/getChecklistForStatusBar';
 import {
   addNewCourseItem,
-  deleteCourseSection,
+  deleteCourseItem,
   duplicateCourseSection,
   editItemDisplayName,
   enableCourseHighlightsEmails,
@@ -35,7 +35,7 @@ import {
   updateSavingStatus,
   updateSectionList,
   updateFetchSectionLoadingStatus,
-  deleteSection,
+  deleteItem,
   duplicateSection,
 } from './slice';
 
@@ -218,14 +218,14 @@ export function editCourseItemQuery(itemId, sectionId, displayName) {
   };
 }
 
-export function deleteCourseSectionQuery(sectionId) {
+export function deleteCourseItemQuery(itemId, category) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.deleting));
 
     try {
-      await deleteCourseSection(sectionId);
-      dispatch(deleteSection(sectionId));
+      await deleteCourseItem(itemId);
+      dispatch(deleteItem({ itemId, category }));
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
     } catch (error) {
@@ -264,8 +264,8 @@ export function addNewCourseSectionQuery(courseBlockId) {
     try {
       await addNewCourseItem(
         courseBlockId,
-        'chapter',
-        DEFAULT_NEW_DISPLAY_NAMES.chapter,
+        COURSE_BLOCK_NAMES.chapter.id,
+        COURSE_BLOCK_NAMES.chapter.name,
       ).then(async (result) => {
         if (result) {
           const data = await getCourseSection(result.locator);

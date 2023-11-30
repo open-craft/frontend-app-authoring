@@ -15,10 +15,11 @@ export const CHECKLIST_FILTERS = /** @type {const} */ ({
   INSTRUCTOR_PACED: 'INSTRUCTOR_PACED',
 });
 
-export const DEFAULT_NEW_DISPLAY_NAMES = /** @type {const} */ ({
-  chapter: 'Section',
-  subsection: 'Subsection',
-});
+export const COURSE_BLOCK_NAMES = /** @type {const} */ ({
+  chapter: { 'id': 'chapter', 'name': 'Section' },
+  sequential: { 'id': 'sequential', 'name': 'Subsection' },
+  vertical: { 'id': 'vertical', 'name': 'Unit' },
+})
 
 export const LAUNCH_CHECKLIST = /** @type {const} */ ({
   data: [
