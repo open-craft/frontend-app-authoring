@@ -17,7 +17,7 @@ import {
 } from './data/selectors';
 import {
   addNewCourseSectionQuery,
-  deleteCourseSectionQuery,
+  deleteCourseItemQuery,
   editCourseItemQuery,
   duplicateCourseSectionQuery,
   enableCourseHighlightsEmailsQuery,
@@ -108,8 +108,8 @@ const useCourseOutline = ({ courseId }) => {
     dispatch(editCourseItemQuery(itemId, sectionId, displayName));
   };
 
-  const handleDeleteSectionSubmit = () => {
-    dispatch(deleteCourseSectionQuery(currentItem.id));
+  const handleDeleteItemSubmit = () => {
+    dispatch(deleteCourseItemQuery(currentItem.id, currentItem.category));
     closeDeleteModal();
   };
 
@@ -167,7 +167,7 @@ const useCourseOutline = ({ courseId }) => {
     isDeleteModalOpen,
     closeDeleteModal,
     openDeleteModal,
-    handleDeleteSectionSubmit,
+    handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
     handleNewSectionSubmit,
   };

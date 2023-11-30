@@ -1,6 +1,7 @@
 /* eslint-disable no-param-reassign */
 import { createSlice } from '@reduxjs/toolkit';
 
+import { COURSE_BLOCK_NAMES } from '../constants';
 import { RequestStatus } from '../../data/constants';
 
 const slice = createSlice({
@@ -80,8 +81,35 @@ const slice = createSlice({
         payload,
       ];
     },
-    deleteSection: (state, { payload }) => {
-      state.sectionsList = state.sectionsList.filter(({ id }) => id !== payload);
+    deleteItem: (state, { payload }) => {
+      switch (payload.category) {
+        case COURSE_BLOCK_NAMES.chapter.id:
+          state.sectionsList = state.sectionsList.filter(
+            ({ id }) => id !== payload.itemId
+          );
+          break;
+        case COURSE_BLOCK_NAMES.sequential.id:
+          state.sectionsList = state.sectionsList.map((section) => {
+            section.childInfo.children = section.childInfo.children.filter(
+              ({ id }) => id !== payload.itemId
+            );
+            return section;
+          });
+        case COURSE_BLOCK_NAMES.vertical.id:
+          state.sectionsList = state.sectionsList.map((section) => {
+            section.childInfo.children = section.childInfo.children.map(
+              (subsection) => {
+                subsection.childInfo.children = subsection.childInfo.children.filter(
+                  ({ id }) => id !== payload.itemId
+                );
+                return subsection;
+              }
+            );
+            return section;
+          });
+        default:
+          break;
+      }
     },
     duplicateSection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.reduce((result, currentValue) => {
@@ -106,7 +134,7 @@ export const {
   updateSavingStatus,
   updateSectionList,
   setCurrentItem,
-  deleteSection,
+  deleteItem,
   duplicateSection,
 } = slice.actions;
 

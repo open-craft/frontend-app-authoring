@@ -75,7 +75,7 @@ const CourseOutline = ({ courseId }) => {
     handlePublishSectionSubmit,
     handleConfigureSectionSubmit,
     handleEditSubmit,
-    handleDeleteSectionSubmit,
+    handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
     handleNewSectionSubmit,
   } = useCourseOutline({ courseId });
@@ -225,7 +225,7 @@ const CourseOutline = ({ courseId }) => {
         <DeleteModal
           isOpen={isDeleteModalOpen}
           close={closeDeleteModal}
-          onDeleteSubmit={handleDeleteSectionSubmit}
+          onDeleteSubmit={handleDeleteItemSubmit}
         />
       </Container>
       <div className="alert-toast">

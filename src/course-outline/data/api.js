@@ -26,7 +26,7 @@ export const getEnableHighlightsEmailsApiUrl = (courseId) => {
 
 export const getCourseReindexApiUrl = (reindexLink) => `${getApiBaseUrl()}${reindexLink}`;
 export const getXBlockBaseApiUrl = () => `${getApiBaseUrl()}/xblock/`;
-export const getUpdateCourseItemApiUrl = (sectionId) => `${getXBlockBaseApiUrl()}${sectionId}`;
+export const getCourseItemApiUrl = (itemId) => `${getXBlockBaseApiUrl()}${itemId}`;
 export const getXBlockApiUrl = (blockId) => `${getXBlockBaseApiUrl()}outline/${blockId}`;
 
 /**
@@ -191,7 +191,7 @@ export async function getCourseSection(sectionId) {
  */
 export async function updateCourseSectionHighlights(sectionId, highlights) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseItemApiUrl(sectionId), {
+    .post(getCourseItemApiUrl(sectionId), {
       publish: 'republish',
       metadata: {
         highlights,
@@ -208,7 +208,7 @@ export async function updateCourseSectionHighlights(sectionId, highlights) {
  */
 export async function publishCourseSection(sectionId) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseItemApiUrl(sectionId), {
+    .post(getCourseItemApiUrl(sectionId), {
       publish: 'make_public',
     });
 
@@ -242,7 +242,7 @@ export async function configureCourseSection(sectionId, isVisibleToStaffOnly, st
  */
 export async function editItemDisplayName(itemId, displayName) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseItemApiUrl(itemId), {
+    .post(getCourseItemApiUrl(itemId), {
       metadata: {
         display_name: displayName,
       },
@@ -256,9 +256,9 @@ export async function editItemDisplayName(itemId, displayName) {
  * @param {string} sectionId
  * @returns {Promise<Object>}
  */
-export async function deleteCourseSection(sectionId) {
+export async function deleteCourseItem(itemId) {
   const { data } = await getAuthenticatedHttpClient()
-    .delete(getUpdateCourseItemApiUrl(sectionId));
+    .delete(getCourseItemApiUrl(itemId));
 
   return data;
 }

@@ -15,12 +15,12 @@ import {
   getCourseReindexApiUrl,
   getXBlockApiUrl,
   getEnableHighlightsEmailsApiUrl,
-  getUpdateCourseItemApiUrl,
+  getCourseItemApiUrl,
   getXBlockBaseApiUrl,
 } from './data/api';
 import {
   addNewCourseSectionQuery,
-  deleteCourseSectionQuery,
+  deleteCourseItemQuery,
   duplicateCourseSectionQuery,
   editCourseItemQuery,
   enableCourseHighlightsEmailsQuery,
@@ -196,18 +196,17 @@ describe('<CourseOutline />', () => {
   });
 
   it('should expand and collapse subsections, after click on subheader buttons', async () => {
-    const { queryAllByTestId, getByText } = render(<RootWrapper />);
+    const { queryAllByTestId, findByText } = render(<RootWrapper />);
+
+    const collapseBtn = await findByText(headerMessages.collapseAllButton.defaultMessage);
+    expect(collapseBtn).toBeInTheDocument();
+    fireEvent.click(collapseBtn);
+
+    const expandBtn = await findByText(headerMessages.expandAllButton.defaultMessage);
+    expect(expandBtn).toBeInTheDocument();
+    fireEvent.click(expandBtn);
 
     await waitFor(() => {
-      const collapseBtn = getByText(headerMessages.collapseAllButton.defaultMessage);
-      expect(collapseBtn).toBeInTheDocument();
-      fireEvent.click(collapseBtn);
-
-      const expendBtn = getByText(headerMessages.expandAllButton.defaultMessage);
-      expect(expendBtn).toBeInTheDocument();
-
-      fireEvent.click(expendBtn);
-
       const cardSubsections = queryAllByTestId('section-card__subsections');
       cardSubsections.forEach(element => expect(element).toBeVisible());
 
@@ -236,7 +235,7 @@ describe('<CourseOutline />', () => {
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[0];
 
     axiosMock
-      .onPost(getUpdateCourseItemApiUrl(section.id, {
+      .onPost(getCourseItemApiUrl(section.id, {
         metadata: {
           display_name: newDisplayName,
         },
@@ -259,8 +258,8 @@ describe('<CourseOutline />', () => {
     const { queryByText } = render(<RootWrapper />);
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[1];
 
-    axiosMock.onDelete(getUpdateCourseItemApiUrl(section.id)).reply(200);
-    await executeThunk(deleteCourseSectionQuery(section.id), store.dispatch);
+    axiosMock.onDelete(getCourseItemApiUrl(section.id)).reply(200);
+    await executeThunk(deleteCourseItemQuery(section.id, section.category), store.dispatch);
 
     await waitFor(() => {
       expect(queryByText(section.displayName)).not.toBeInTheDocument();
@@ -307,7 +306,7 @@ describe('<CourseOutline />', () => {
       });
 
     axiosMock
-      .onPost(getUpdateCourseItemApiUrl(section.id), {
+      .onPost(getCourseItemApiUrl(section.id), {
         publish: 'make_public',
       })
       .reply(200);
@@ -390,7 +389,7 @@ describe('<CourseOutline />', () => {
     ];
 
     axiosMock
-      .onPost(getUpdateCourseItemApiUrl(section.id), {
+      .onPost(getCourseItemApiUrl(section.id), {
         publish: 'republish',
         metadata: {
           highlights,
