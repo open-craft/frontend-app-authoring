@@ -51,6 +51,8 @@ let store;
 const mockPathname = '/foo-bar';
 const courseId = '123';
 
+window.HTMLElement.prototype.scrollIntoView = jest.fn();
+
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useLocation: () => ({
