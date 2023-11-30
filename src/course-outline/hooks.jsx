@@ -15,6 +15,7 @@ import {
   getSectionsList,
   getCurrentItem,
   getCurrentSection,
+  getCurrentSubsection,
 } from './data/selectors';
 import {
   addNewCourseSectionQuery,
@@ -41,6 +42,7 @@ const useCourseOutline = ({ courseId }) => {
   const sectionsList = useSelector(getSectionsList);
   const currentItem = useSelector(getCurrentItem);
   const currentSection = useSelector(getCurrentSection);
+  const currentSubsection = useSelector(getCurrentSubsection);
 
   const [isEnableHighlightsModalOpen, openEnableHighlightsModal, closeEnableHighlightsModal] = useToggle(false);
   const [isSectionsExpanded, setSectionsExpanded] = useState(true);
@@ -111,7 +113,12 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleDeleteItemSubmit = () => {
-    dispatch(deleteCourseItemQuery(currentItem.id, currentItem.category));
+    dispatch(deleteCourseItemQuery(
+      currentItem.id,
+      currentSection.id,
+      currentSubsection.id,
+      currentItem.category
+    ));
     closeDeleteModal();
   };
 
