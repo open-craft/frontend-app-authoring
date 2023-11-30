@@ -109,16 +109,13 @@ const getHighlightsFormValues = (currentHighlights) => {
   return formValues;
 };
 
-/* eslint no-param-reassign: "error" */
-const scrollToBottom = (ref) => {
-  if (ref.current) {
-    ref.current.scrollIntoView({ behavior: 'smooth' });
-  }
+const scrollToElement = (ref) => {
+  ref.current?.scrollIntoView({ behavior: 'smooth' });
 };
 
 export {
   getSectionStatus,
   getSectionStatusBadgeContent,
   getHighlightsFormValues,
-  scrollToBottom,
+  scrollToElement,
 };

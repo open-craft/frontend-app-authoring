@@ -34,7 +34,7 @@ import ConfigureModal from './configure-modal/ConfigureModal';
 import DeleteModal from './delete-modal/DeleteModal';
 import { useCourseOutline } from './hooks';
 import messages from './messages';
-import { scrollToBottom } from './utils';
+import { scrollToElement } from './utils';
 
 const CourseOutline = ({ courseId }) => {
   const listRef = useRef(null);
@@ -80,7 +80,7 @@ const CourseOutline = ({ courseId }) => {
   } = useCourseOutline({ courseId });
 
   useEffect(() => {
-    scrollToBottom(listRef);
+    scrollToElement(listRef);
   }, [sectionsList]);
 
   const {
