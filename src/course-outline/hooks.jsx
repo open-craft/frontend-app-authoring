@@ -14,6 +14,7 @@ import {
   getStatusBarData,
   getSectionsList,
   getCurrentItem,
+  getCurrentSection,
 } from './data/selectors';
 import {
   addNewCourseSectionQuery,
@@ -39,6 +40,7 @@ const useCourseOutline = ({ courseId }) => {
   const savingStatus = useSelector(getSavingStatus);
   const sectionsList = useSelector(getSectionsList);
   const currentItem = useSelector(getCurrentItem);
+  const currentSection = useSelector(getCurrentSection);
 
   const [isEnableHighlightsModalOpen, openEnableHighlightsModal, closeEnableHighlightsModal] = useToggle(false);
   const [isSectionsExpanded, setSectionsExpanded] = useState(true);
@@ -93,7 +95,7 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handlePublishSectionSubmit = () => {
-    dispatch(publishCourseSectionQuery(currentItem.id));
+    dispatch(publishCourseSectionQuery(currentItem.id, currentSection.id));
 
     closePublishModal();
   };

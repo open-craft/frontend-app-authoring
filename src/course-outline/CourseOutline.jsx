@@ -167,7 +167,7 @@ const CourseOutline = ({ courseId }) => {
                               {section.childInfo.children.map((subsection) => (
                                 <SubsectionCard
                                   key={subsection.id}
-                                  sectionId={section.id}
+                                  section={section}
                                   subsection={subsection}
                                   savingStatus={savingStatus}
                                   onOpenPublishModal={openPublishModal}

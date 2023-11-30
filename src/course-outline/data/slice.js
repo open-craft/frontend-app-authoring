@@ -26,6 +26,8 @@ const slice = createSlice({
       },
     },
     sectionsList: [],
+    currentSection: {},
+    currentSubsection: {},
     currentItem: {},
   },
   reducers: {
@@ -74,6 +76,12 @@ const slice = createSlice({
     },
     setCurrentItem: (state, { payload }) => {
       state.currentItem = payload;
+    },
+    setCurrentSection: (state, { payload }) => {
+      state.currentSection = payload;
+    },
+    setCurrentSubsection: (state, { payload }) => {
+      state.currentSubsection = payload;
     },
     addSection: (state, { payload }) => {
       state.sectionsList = [
@@ -134,6 +142,8 @@ export const {
   updateSavingStatus,
   updateSectionList,
   setCurrentItem,
+  setCurrentSection,
+  setCurrentSubsection,
   deleteItem,
   duplicateSection,
 } = slice.actions;
