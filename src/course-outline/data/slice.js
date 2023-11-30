@@ -98,6 +98,9 @@ const slice = createSlice({
           break;
         case COURSE_BLOCK_NAMES.sequential.id:
           state.sectionsList = state.sectionsList.map((section) => {
+            if (section.id !== payload.sectionId) {
+              return section;
+            }
             section.childInfo.children = section.childInfo.children.filter(
               ({ id }) => id !== payload.itemId
             );
@@ -105,14 +108,18 @@ const slice = createSlice({
           });
         case COURSE_BLOCK_NAMES.vertical.id:
           state.sectionsList = state.sectionsList.map((section) => {
-            section.childInfo.children = section.childInfo.children.map(
-              (subsection) => {
-                subsection.childInfo.children = subsection.childInfo.children.filter(
-                  ({ id }) => id !== payload.itemId
-                );
+            if (section.id !== payload.sectionId) {
+              return section;
+            }
+            section.childInfo.children = section.childInfo.children.map((subsection) => {
+              if (subsection.id !== payload.subsectionId) {
                 return subsection;
               }
-            );
+              subsection.childInfo.children = subsection.childInfo.children.filter(
+                ({ id }) => id !== payload.itemId
+              );
+              return subsection;
+            });
             return section;
           });
         default:

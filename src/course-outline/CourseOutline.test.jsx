@@ -254,12 +254,12 @@ describe('<CourseOutline />', () => {
     });
   });
 
-  it('check delete section when edit query is successfully', async () => {
+  it('check delete section when delete query is successfully', async () => {
     const { queryByText } = render(<RootWrapper />);
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[1];
 
     axiosMock.onDelete(getCourseItemApiUrl(section.id)).reply(200);
-    await executeThunk(deleteCourseItemQuery(section.id, section.category), store.dispatch);
+    await executeThunk(deleteCourseItemQuery(section.id, section.id, null, section.category), store.dispatch);
 
     await waitFor(() => {
       expect(queryByText(section.displayName)).not.toBeInTheDocument();

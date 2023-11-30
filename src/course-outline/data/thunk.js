@@ -218,14 +218,14 @@ export function editCourseItemQuery(itemId, sectionId, displayName) {
   };
 }
 
-export function deleteCourseItemQuery(itemId, category) {
+export function deleteCourseItemQuery(itemId, sectionId, subsectionId, category) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.deleting));
 
     try {
       await deleteCourseItem(itemId);
-      dispatch(deleteItem({ itemId, category }));
+      dispatch(deleteItem({ itemId, sectionId, subsectionId, category }));
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
     } catch (error) {
