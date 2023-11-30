@@ -5,14 +5,14 @@ import { useIntl } from '@edx/frontend-platform/i18n';
 import { Badge, Button, useToggle } from '@edx/paragon';
 import { Add as IconAdd } from '@edx/paragon/icons';
 
-import { setCurrentItem } from '../data/slice';
+import { setCurrentItem, setCurrentSection, setCurrentSubsection } from '../data/slice';
 import { RequestStatus } from '../../data/constants';
 import CardHeader from '../card-header/CardHeader';
 import { getItemStatus } from '../utils';
 import messages from './messages';
 
 const SubsectionCard = ({
-  sectionId,
+  section,
   subsection,
   children,
   onOpenPublishModal,
@@ -50,12 +50,14 @@ const SubsectionCard = ({
   };
 
   const handleClickMenuButton = () => {
+    dispatch(setCurrentSection(section));
+    dispatch(setCurrentSubsection(subsection));
     dispatch(setCurrentItem(subsection));
   };
 
   const handleEditSubmit = (titleValue) => {
     if (displayName !== titleValue) {
-      onEditSubmit(id, sectionId, titleValue);
+      onEditSubmit(id, section.id, titleValue);
       return;
     }
 
@@ -112,7 +114,16 @@ SubsectionCard.defaultProps = {
 };
 
 SubsectionCard.propTypes = {
-  sectionId: PropTypes.string.isRequired,
+  section: PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    displayName: PropTypes.string.isRequired,
+    published: PropTypes.bool.isRequired,
+    hasChanges: PropTypes.bool.isRequired,
+    releasedToStudents: PropTypes.bool.isRequired,
+    visibleToStaffOnly: PropTypes.bool,
+    visibilityState: PropTypes.string.isRequired,
+    staffOnlyMessage: PropTypes.bool.isRequired,
+  }).isRequired,
   subsection: PropTypes.shape({
     id: PropTypes.string.isRequired,
     displayName: PropTypes.string.isRequired,

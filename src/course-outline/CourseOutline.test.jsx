@@ -311,7 +311,7 @@ describe('<CourseOutline />', () => {
       })
       .reply(200);
 
-    await executeThunk(publishCourseSectionQuery(section.id), store.dispatch);
+    await executeThunk(publishCourseSectionQuery(section.id, section.id), store.dispatch);
 
     axiosMock
       .onGet(getXBlockApiUrl(section.id))
