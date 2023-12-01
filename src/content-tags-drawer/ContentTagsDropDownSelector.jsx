@@ -14,28 +14,36 @@ import './ContentTagsDropDownSelector.scss';
 import { useTaxonomyTagsData } from './data/apiHooks';
 
 const ContentTagsDropDownSelector = ({
-  taxonomyId, level, subTagsUrl, lineage, tagsTree,
+  taxonomyId, level, subTagsUrl, lineage, tagsTree, searchTerm,
 }) => {
   const intl = useIntl();
+
   // This object represents the states of the dropdowns on this level
   // The keys represent the index of the dropdown with
   // the value true (open) false (closed)
   const [dropdownStates, setDropdownStates] = useState({});
+  const isOpen = (i) => dropdownStates[i];
+  const closeAllDropdowns = () => {
+    const updatedStates = { ...dropdownStates };
+    // eslint-disable-next-line no-return-assign
+    Object.keys(updatedStates).map((key) => updatedStates[key] = false);
+    setDropdownStates(updatedStates);
+  };
 
   const [tags, setTags] = useState([]);
   const [nextPage, setNextPage] = useState(null);
 
-  // `fetchUrl` is initially `subTagsUrl` to fetch the initial data,
-  // however if it is null that means it is the root, and the apiHooks
-  // would automatically handle it. Later this url is set to the next
-  // page of results (if any)
-  //
-  // TODO: In the future we may need to refactor this to keep track
-  // of the count for how many times the user clicked on "load more" then
-  // use useQueries to load all the pages based on that.
-  const [fetchUrl, setFetchUrl] = useState(subTagsUrl);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
 
-  const isOpen = (i) => dropdownStates[i];
+  // Reset the page and tags state when search term changes
+  // and store search term to compare
+  if (prevSearchTerm !== searchTerm) {
+    setPrevSearchTerm(searchTerm);
+    setCurrentPage(1);
+    closeAllDropdowns();
+    setTags([]);
+  }
 
   const clickAndEnterHandler = (i) => {
     // This flips the state of the dropdown at index false (closed) -> true (open)
@@ -43,7 +51,10 @@ const ContentTagsDropDownSelector = ({
     setDropdownStates({ ...dropdownStates, [i]: !dropdownStates[i] });
   };
 
-  const { data: taxonomyTagsData, isSuccess: isTaxonomyTagsLoaded } = useTaxonomyTagsData(taxonomyId, fetchUrl);
+  const {
+    data: taxonomyTagsData,
+    isSuccess: isTaxonomyTagsLoaded,
+  } = useTaxonomyTagsData(taxonomyId, subTagsUrl, currentPage, searchTerm);
 
   const isImplicit = (tag) => {
     // Traverse the tags tree using the lineage
@@ -64,8 +75,8 @@ const ContentTagsDropDownSelector = ({
   }, [isTaxonomyTagsLoaded, taxonomyTagsData]);
 
   const loadMoreTags = useCallback(() => {
-    setFetchUrl(nextPage);
-  }, [nextPage]);
+    setCurrentPage(currentPage + 1);
+  }, [currentPage]);
 
   return (
     <>
@@ -139,6 +150,7 @@ const ContentTagsDropDownSelector = ({
 ContentTagsDropDownSelector.defaultProps = {
   subTagsUrl: undefined,
   lineage: [],
+  searchTerm: null,
 };
 
 ContentTagsDropDownSelector.propTypes = {
@@ -152,6 +164,7 @@ ContentTagsDropDownSelector.propTypes = {
       children: PropTypes.shape({}).isRequired,
     }).isRequired,
   ).isRequired,
+  searchTerm: PropTypes.string,
 };
 
 export default ContentTagsDropDownSelector;

@@ -6,10 +6,12 @@ import {
   Button,
   ModalPopup,
   useToggle,
+  SearchField,
 } from '@edx/paragon';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import { useIntl, FormattedMessage } from '@edx/frontend-platform/i18n';
+import { debounce } from './utils';
 import messages from './messages';
 import './ContentTagsCollapsible.scss';
 
@@ -117,8 +119,29 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
   const [isOpen, open, close] = useToggle(false);
   const [addTagsButtonRef, setAddTagsButtonRef] = React.useState(null);
 
+  const [searchTerm, setSearchTerm] = React.useState(null);
+
   const handleSelectableBoxChange = React.useCallback((e) => {
     tagChangeHandler(e.target.value, e.target.checked);
+  });
+
+  const handleSearch = debounce((term) => {
+    setSearchTerm(term.trim());
+  }, 500); // Perform search after 500ms
+
+  const handleSearchChange = React.useCallback((value) => {
+    if (value === '') {
+      // No need to debounce when search term cleared
+      setSearchTerm(null);
+    } else {
+      handleSearch(value);
+    }
+  });
+
+  const modalPopupOnCloseHandler = React.useCallback((event) => {
+    close(event);
+    // Clear search term
+    setSearchTerm(null);
   });
 
   return (
@@ -145,7 +168,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
           placement="bottom"
           positionRef={addTagsButtonRef}
           isOpen={isOpen}
-          onClose={close}
+          onClose={modalPopupOnCloseHandler}
         >
           <div className="bg-white p-3 shadow">
 
@@ -158,11 +181,17 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
               onChange={handleSelectableBoxChange}
               value={checkedTags}
             >
+              <SearchField
+                onSubmit={() => {}}
+                onChange={handleSearchChange}
+              />
+
               <ContentTagsDropDownSelector
                 key={`selector-${id}`}
                 taxonomyId={id}
                 level={0}
                 tagsTree={tagsTree}
+                searchTerm={searchTerm}
               />
             </SelectableBox.Set>
           </div>
