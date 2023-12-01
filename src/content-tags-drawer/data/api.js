@@ -3,7 +3,23 @@ import { camelCaseObject, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
 const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
-export const getTaxonomyTagsApiUrl = (taxonomyId) => new URL(`api/content_tagging/v1/taxonomies/${taxonomyId}/tags/`, getApiBaseUrl()).href;
+export const getTaxonomyTagsApiUrl = (taxonomyId, fullPathProvided, page, searchTerm) => {
+  let url;
+  if (fullPathProvided) {
+    url = new URL(fullPathProvided);
+  } else {
+    url = new URL(`api/content_tagging/v1/taxonomies/${taxonomyId}/tags/`, getApiBaseUrl());
+  }
+
+  if (page) {
+    url.searchParams.append('page', page);
+  }
+
+  if (searchTerm) {
+    url.searchParams.append('search_term', searchTerm);
+  }
+  return url.href;
+};
 export const getContentTaxonomyTagsApiUrl = (contentId) => new URL(`api/content_tagging/v1/object_tags/${contentId}/`, getApiBaseUrl()).href;
 export const getContentDataApiUrl = (contentId) => new URL(`/xblock/outline/${contentId}`, getApiBaseUrl()).href;
 
@@ -12,12 +28,13 @@ export const getContentDataApiUrl = (contentId) => new URL(`/xblock/outline/${co
  * @param {number} taxonomyId The id of the taxonomy to fetch tags for
  * @param {string} fullPathProvided Optional param that contains the full URL to fetch data
  *                 If provided, we use it instead of generating the URL. This is usually for fetching subTags
+ * @param {number} page The results pages number
+ * @param {string} searchTerm The term used to search tags
  * @returns {Promise<Object>}
  */
-export async function getTaxonomyTagsData(taxonomyId, fullPathProvided) {
-  const { data } = await getAuthenticatedHttpClient().get(
-    fullPathProvided ? new URL(`${fullPathProvided}`) : getTaxonomyTagsApiUrl(taxonomyId),
-  );
+export async function getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm) {
+  const url = getTaxonomyTagsApiUrl(taxonomyId, fullPathProvided, page, searchTerm);
+  const { data } = await getAuthenticatedHttpClient().get(url);
   return camelCaseObject(data);
 }
 

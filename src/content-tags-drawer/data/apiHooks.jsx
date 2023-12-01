@@ -12,12 +12,14 @@ import {
  * @param {number} taxonomyId The id of the taxonomy to fetch tags for
  * @param {string} fullPathProvided Optional param that contains the full URL to fetch data
  *                 If provided, we use it instead of generating the URL. This is usually for fetching subTags
+ * @param {number} page The results page number
+ * @param {string} searchTerm The term passed in to perform search on tags
  * @returns {import("@tanstack/react-query").UseQueryResult<import("./types.mjs").TaxonomyTagsData>}
  */
-export const useTaxonomyTagsData = (taxonomyId, fullPathProvided) => (
+export const useTaxonomyTagsData = (taxonomyId, fullPathProvided, page, searchTerm) => (
   useQuery({
-    queryKey: [`taxonomyTags${ fullPathProvided || taxonomyId }`],
-    queryFn: () => getTaxonomyTagsData(taxonomyId, fullPathProvided),
+    queryKey: ['taxonomyTags', taxonomyId, fullPathProvided, page, searchTerm],
+    queryFn: () => getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm),
   })
 );
 
