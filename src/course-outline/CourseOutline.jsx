@@ -80,6 +80,7 @@ const CourseOutline = ({ courseId }) => {
     handleDuplicateSubsectionSubmit,
     handleNewSectionSubmit,
     handleNewSubsectionSubmit,
+    handleDragNDrop,
   } = useCourseOutline({ courseId });
 
   useEffect(() => {
@@ -90,6 +91,31 @@ const CourseOutline = ({ courseId }) => {
     isShow: isShowProcessingNotification,
     title: processingNotificationTitle,
   } = useSelector(getProcessingNotification);
+
+  const dragItem = useRef();
+  const dragOverItem = useRef();
+
+  const dragStart = (e, position) => {
+    dragItem.current = position;
+  };
+
+  const dragEnter = (e, position) => {
+    dragOverItem.current = position;
+  };
+
+  const drop = (e) => {
+    const copyListItems = [...sectionsList];
+    const dragItemContent = copyListItems[dragItem.current];
+    copyListItems.splice(dragItem.current, 1);
+    copyListItems.splice(dragOverItem.current, 0, dragItemContent);
+    dragItem.current = null;
+    dragOverItem.current = null;
+    const idList = [];
+    for (let i = 0; i < copyListItems.length; i++) {
+      idList.push(copyListItems[i].id);
+    }
+    handleDragNDrop(idList, copyListItems);
+  };
 
   if (isLoading) {
     // eslint-disable-next-line react/jsx-no-useless-fragment
@@ -152,35 +178,43 @@ const CourseOutline = ({ courseId }) => {
                     <div className="pt-4">
                       {sectionsList.length ? (
                         <>
-                          {sectionsList.map((section) => (
-                            <SectionCard
-                              key={section.id}
-                              section={section}
-                              savingStatus={savingStatus}
-                              onOpenHighlightsModal={handleOpenHighlightsModal}
-                              onOpenPublishModal={openPublishModal}
-                              onOpenConfigureModal={openConfigureModal}
-                              onOpenDeleteModal={openDeleteModal}
-                              onEditSectionSubmit={handleEditSubmit}
-                              onDuplicateSubmit={handleDuplicateSectionSubmit}
-                              isSectionsExpanded={isSectionsExpanded}
-                              onNewSubsectionSubmit={handleNewSubsectionSubmit}
-                              ref={listRef}
+                          {sectionsList.map((section, index) => (
+                            <div
+                              onDragOver={(e) => e.preventDefault()}
+                              onDragStart={(e) => dragStart(e, index)}
+                              onDragEnter={(e) => dragEnter(e, index)}
+                              onDrop={(e) => drop(e)}
+                              draggable
                             >
-                              {section.childInfo.children.map((subsection) => (
-                                <SubsectionCard
-                                  key={subsection.id}
-                                  section={section}
-                                  subsection={subsection}
-                                  savingStatus={savingStatus}
-                                  onOpenPublishModal={openPublishModal}
-                                  onOpenDeleteModal={openDeleteModal}
-                                  onEditSubmit={handleEditSubmit}
-                                  onDuplicateSubmit={handleDuplicateSubsectionSubmit}
-                                  ref={listRef}
-                                />
-                              ))}
-                            </SectionCard>
+                              <SectionCard
+                                key={section.id}
+                                section={section}
+                                savingStatus={savingStatus}
+                                onOpenHighlightsModal={handleOpenHighlightsModal}
+                                onOpenPublishModal={openPublishModal}
+                                onOpenConfigureModal={openConfigureModal}
+                                onOpenDeleteModal={openDeleteModal}
+                                onEditSectionSubmit={handleEditSubmit}
+                                onDuplicateSubmit={handleDuplicateSectionSubmit}
+                                isSectionsExpanded={isSectionsExpanded}
+                                onNewSubsectionSubmit={handleNewSubsectionSubmit}
+                                ref={listRef}
+                              >
+                                {section.childInfo.children.map((subsection) => (
+                                  <SubsectionCard
+                                    key={subsection.id}
+                                    section={section}
+                                    subsection={subsection}
+                                    savingStatus={savingStatus}
+                                    onOpenPublishModal={openPublishModal}
+                                    onOpenDeleteModal={openDeleteModal}
+                                    onEditSubmit={handleEditSubmit}
+                                    onDuplicateSubmit={handleDuplicateSubsectionSubmit}
+                                    ref={listRef}
+                                  />
+                                ))}
+                              </SectionCard>
+                            </div>
                           ))}
                           <Button
                             data-testid="new-section-button"

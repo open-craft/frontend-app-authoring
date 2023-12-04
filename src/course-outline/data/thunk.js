@@ -23,6 +23,7 @@ import {
   configureCourseSection,
   restartIndexingOnCourse,
   updateCourseSectionHighlights,
+  setSectionOrderList,
 } from './api';
 import {
   addSection,
@@ -40,6 +41,7 @@ import {
   deleteSubsection,
   deleteUnit,
   duplicateSection,
+  reorderSectionList,
 } from './slice';
 
 export function fetchCourseOutlineIndexQuery(courseId) {
@@ -373,5 +375,26 @@ export function addNewSubsectionQuery(parentLocator) {
       COURSE_BLOCK_NAMES.sequential.name,
       (data) => addSubsection({ parentLocator, data }),
     ));
+  };
+}
+
+export function setSectionOrderListQuery(courseId, newListId) {
+  return async (dispatch) => {
+    dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
+    dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
+
+    try {
+      await setSectionOrderList(courseId, newListId).then(async (result) => {
+        if (result) {
+          const outlineIndex = await getCourseOutlineIndex(courseId);
+          dispatch(reorderSectionList(outlineIndex.courseStructure.childInfo.children));
+          dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
+          dispatch(hideProcessingNotification());
+        }
+      });
+    } catch (error) {
+      dispatch(hideProcessingNotification());
+      dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+    }
   };
 }
