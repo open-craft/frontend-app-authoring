@@ -81,12 +81,12 @@ const ContentTagsDropDownSelector = ({
   return (
     <>
       {tags.map((taxonomyTag, i) => (
-        <div className="d-flex flex-column" key={`selector-div-${taxonomyTag.value}`} style={{ paddingLeft: `${level * 1}rem` }}>
+        <div className="d-flex flex-column" key={`selector-div-${taxonomyTag.value}`} style={{ paddingLeft: `${level === 0 ? '0' : '1' }rem` }}>
           <div className="d-flex">
             <SelectableBox
               inputHidden={false}
               type="checkbox"
-              className="taxonomy-tags-selectable-box"
+              className="d-flex align-items-center taxonomy-tags-selectable-box"
               aria-label={`${taxonomyTag.value} checkbox`}
               data-selectable-box="taxonomy-tags"
               value={[...lineage, encodeURIComponent(taxonomyTag.value)].join(',')}
@@ -125,9 +125,10 @@ const ContentTagsDropDownSelector = ({
       { nextPage && isTaxonomyTagsLoaded
         ? (
           <Button
-            style={{ marginLeft: `${level * 1}rem` }}
+            style={{ marginLeft: `${level === 0 ? '0' : '1' }rem` }}
             variant="outline-primary"
             onClick={loadMoreTags}
+            className="mt-1 mb-1"
           >
             <FormattedMessage {...messages.loadMoreTagsButtonText} />
           </Button>
