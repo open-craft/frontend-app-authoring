@@ -370,6 +370,7 @@ const ContentTagsCollapsible = ({ contentId, taxonomyAndTagsData, editable }) =>
               <SearchField
                 onSubmit={() => {}}
                 onChange={handleSearchChange}
+                className="mb-2"
               />
 
               <ContentTagsDropDownSelector
