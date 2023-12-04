@@ -133,6 +133,7 @@ describe('<CourseOutline />', () => {
 
     element = await findAllByTestId('section-card');
     expect(element.length).toBe(5);
+    expect(window.HTMLElement.prototype.scrollIntoView).toBeCalled();
   });
 
   it('render error alert after failed reindex correctly', async () => {
