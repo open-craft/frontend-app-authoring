@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useToggle } from '@edx/paragon';
 
 import { RequestStatus } from '../data/constants';
+import { COURSE_BLOCK_NAMES } from './constants';
 import {
   setCurrentItem,
   updateSavingStatus,
@@ -18,7 +19,7 @@ import {
   getCurrentSubsection,
 } from './data/selectors';
 import {
-  addNewCourseSectionQuery,
+  addNewCourseItemQuery,
   deleteCourseItemQuery,
   editCourseItemQuery,
   duplicateCourseItemQuery,
@@ -55,7 +56,19 @@ const useCourseOutline = ({ courseId }) => {
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useToggle(false);
 
   const handleNewSectionSubmit = () => {
-    dispatch(addNewCourseSectionQuery(courseStructure.id));
+    dispatch(addNewCourseItemQuery(
+      courseStructure.id,
+      COURSE_BLOCK_NAMES.chapter.id,
+      COURSE_BLOCK_NAMES.chapter.name,
+    ));
+  };
+
+  const handleNewSubsectionSubmit = (sectionId) => {
+    dispatch(addNewCourseItemQuery(
+      sectionId,
+      COURSE_BLOCK_NAMES.sequential.id,
+      COURSE_BLOCK_NAMES.sequential.name,
+    ));
   };
 
   const headerNavigationsActions = {
@@ -185,6 +198,7 @@ const useCourseOutline = ({ courseId }) => {
     handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
     handleNewSectionSubmit,
+    handleNewSubsectionSubmit,
   };
 };
 

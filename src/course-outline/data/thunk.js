@@ -26,6 +26,7 @@ import {
 } from './api';
 import {
   addSection,
+  addSubsection,
   fetchOutlineIndexSuccess,
   updateOutlineIndexLoadingStatus,
   updateReindexLoadingStatus,
@@ -280,20 +281,24 @@ export function duplicateCourseItemQuery(itemId, subsectionId, sectionId, course
   };
 }
 
-export function addNewCourseSectionQuery(courseBlockId) {
+export function addNewCourseItemQuery(parentLocator, category, displayName) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
 
     try {
       await addNewCourseItem(
-        courseBlockId,
-        COURSE_BLOCK_NAMES.chapter.id,
-        COURSE_BLOCK_NAMES.chapter.name,
+        parentLocator,
+        category,
+        displayName,
       ).then(async (result) => {
         if (result) {
           const data = await getCourseItem(result.locator);
-          dispatch(addSection(data));
+          if (category === COURSE_BLOCK_NAMES.chapter.id) {
+            dispatch(addSection(data));
+          } else if (category === COURSE_BLOCK_NAMES.sequential.id) {
+            dispatch(addSubsection({ parentLocator, data }));
+          }
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
           dispatch(hideProcessingNotification());
         }

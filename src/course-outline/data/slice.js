@@ -89,6 +89,17 @@ const slice = createSlice({
         payload,
       ];
     },
+    addSubsection: (state, { payload }) => {
+      state.sectionsList = state.sectionsList.map((section) => {
+        if (section.id === payload.parentLocator) {
+          section.childInfo.children = [
+            ...section.childInfo.children,
+            payload.data,
+          ];
+        }
+        return section;
+      });;
+    },
     deleteItem: (state, { payload }) => {
       switch (payload.category) {
         case COURSE_BLOCK_NAMES.chapter.id:
@@ -139,6 +150,7 @@ const slice = createSlice({
 
 export const {
   addSection,
+  addSubsection,
   fetchOutlineIndexSuccess,
   updateOutlineIndexLoadingStatus,
   updateReindexLoadingStatus,

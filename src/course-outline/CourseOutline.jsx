@@ -78,6 +78,7 @@ const CourseOutline = ({ courseId }) => {
     handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
     handleNewSectionSubmit,
+    handleNewSubsectionSubmit,
   } = useCourseOutline({ courseId });
 
   useEffect(() => {
@@ -162,6 +163,7 @@ const CourseOutline = ({ courseId }) => {
                               onEditSectionSubmit={handleEditSubmit}
                               onDuplicateSubmit={handleDuplicateSectionSubmit}
                               isSectionsExpanded={isSectionsExpanded}
+                              onNewSubsectionSubmit={handleNewSubsectionSubmit}
                               ref={listRef}
                             >
                               {section.childInfo.children.map((subsection) => (

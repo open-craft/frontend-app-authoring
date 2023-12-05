@@ -26,6 +26,7 @@ const SectionCard = forwardRef(({
   onOpenDeleteModal,
   onDuplicateSubmit,
   isSectionsExpanded,
+  onNewSubsectionSubmit,
 }, lastItemRef) => {
   const intl = useIntl();
   const dispatch = useDispatch();
@@ -79,6 +80,10 @@ const SectionCard = forwardRef(({
     onOpenHighlightsModal(section);
   };
 
+  const handleNewSubsectionSubmit = () => {
+    onNewSubsectionSubmit(id);
+  };
+
   useEffect(() => {
     if (savingStatus === RequestStatus.SUCCESSFUL) {
       closeForm();
@@ -130,6 +135,7 @@ const SectionCard = forwardRef(({
             variant="outline-primary"
             iconBefore={IconAdd}
             block
+            onClick={handleNewSubsectionSubmit}
           >
             {intl.formatMessage(messages.newSubsectionButton)}
           </Button>
@@ -164,6 +170,7 @@ SectionCard.propTypes = {
   onOpenDeleteModal: PropTypes.func.isRequired,
   onDuplicateSubmit: PropTypes.func.isRequired,
   isSectionsExpanded: PropTypes.bool.isRequired,
+  onNewSubsectionSubmit: PropTypes.func.isRequired,
 };
 
 export default SectionCard;
