@@ -13,7 +13,9 @@
  * @property {number} id
  * @property {string | null} parentValue
  * @property {string | null} subTagsUrl
- * @property {string} value
+ * @property {string} value Unique ID for this tag, also its display text
+ * @property {number?} usageCount
+ * @property {string?} _id Database ID. Don't rely on this, as it is not present for free-text tags.
  */
 
 /**

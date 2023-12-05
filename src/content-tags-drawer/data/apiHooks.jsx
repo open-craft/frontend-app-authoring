@@ -1,5 +1,11 @@
 // @ts-check
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import {
+  useQuery,
+  useQueries,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query';
 import {
   getTaxonomyTagsData,
   getContentTaxonomyTagsData,
@@ -10,18 +16,89 @@ import {
 /**
  * Builds the query to get the taxonomy tags
  * @param {number} taxonomyId The id of the taxonomy to fetch tags for
- * @param {string} fullPathProvided Optional param that contains the full URL to fetch data
- *                 If provided, we use it instead of generating the URL. This is usually for fetching subTags
- * @param {number} page The results page number
+ * @param {string|null} parentTag The tag whose children we're loading, if any
  * @param {string} searchTerm The term passed in to perform search on tags
- * @returns {import("@tanstack/react-query").UseQueryResult<import("./types.mjs").TaxonomyTagsData>}
+ * @param {number} numPages How many pages of tags to load at this level
+ * @returns {{
+ *  hasMorePages: boolean,
+ *  tagPages: {
+ *    isLoading: boolean,
+ *    isError: boolean,
+ *    data: import("../../taxonomy/tag-list/data/types.mjs").TagListData[]}[]
+ * }}
  */
-export const useTaxonomyTagsData = (taxonomyId, fullPathProvided, page, searchTerm) => (
-  useQuery({
-    queryKey: ['taxonomyTags', taxonomyId, fullPathProvided, page, searchTerm],
-    queryFn: () => getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm),
-  })
-);
+export const useTaxonomyTagsData = (taxonomyId, parentTag = null, numPages = 1, searchTerm = '') => {
+  const queryClient = useQueryClient();
+
+  const queryFn = async ({ queryKey }) => {
+    const page = queryKey[3];
+    return getTaxonomyTagsData(taxonomyId, { parentTag: parentTag || '', searchTerm, page });
+  };
+
+  const queries = [];
+  for (let page = 1; page <= numPages; page++) {
+    queries.push(
+      { queryKey: ['taxonomyTags', taxonomyId, parentTag, page, searchTerm], queryFn, staleTime: Infinity },
+    );
+  }
+
+  /** @type {import("@tanstack/react-query").UseQueryResult<
+   *    import("../../taxonomy/tag-list/data/types.mjs").TagData
+   *  >[]}
+   */
+  const dataPages = useQueries({ queries });
+
+  const totalPages = dataPages[0]?.data?.numPages || 1;
+  const hasMorePages = numPages < totalPages;
+
+  const tagPages = useMemo(() => {
+    /** @type {{
+     *    isLoading: boolean,
+     *    isError: boolean,
+     *    data: import("../../taxonomy/tag-list/data/types.mjs").TagListData[]}[]
+     * }
+     */
+    const newTags = [];
+
+    // Pre-load desendants if possible
+    const preLoadedData = new Map();
+
+    dataPages.forEach(result => {
+      /** @type {import("../../taxonomy/tag-list/data/types.mjs").TagListData[]} */
+      const simplifiedTagsList = [];
+
+      result.data?.results?.forEach((tag) => {
+        if (tag.parentValue === parentTag) {
+          simplifiedTagsList.push(tag);
+        } else if (!preLoadedData.has(tag.parentValue)) {
+          preLoadedData.set(tag.parentValue, [tag]);
+        } else {
+          preLoadedData.get(tag.parentValue).push(tag);
+        }
+      });
+
+      newTags.push({ ...result, data: simplifiedTagsList });
+    });
+
+    // Store the pre-loaded descendants into the query cache:
+    preLoadedData.forEach((tags, parentValue) => {
+      const queryKey = ['taxonomyTags', taxonomyId, parentValue, 1, searchTerm];
+      queryClient.setQueryData(queryKey, {
+        next: '',
+        previous: '',
+        count: tags.length,
+        numPages: 1,
+        currentPage: 1,
+        start: 0,
+        results: tags,
+      });
+    });
+
+    return newTags;
+  }, [dataPages]);
+
+  return { hasMorePages, tagPages };
+};
 
 /**
  * Builds the query to get the taxonomy tags applied to the content object

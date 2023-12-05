@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// @ts-check
+import React, { useState, useCallback } from 'react';
 import {
   SelectableBox,
   Icon,
@@ -14,7 +15,7 @@ import './ContentTagsDropDownSelector.scss';
 import { useTaxonomyTagsData } from './data/apiHooks';
 
 const ContentTagsDropDownSelector = ({
-  taxonomyId, level, subTagsUrl, lineage, tagsTree, searchTerm,
+  taxonomyId, level, lineage, tagsTree, searchTerm,
 }) => {
   const intl = useIntl();
 
@@ -22,39 +23,26 @@ const ContentTagsDropDownSelector = ({
   // The keys represent the index of the dropdown with
   // the value true (open) false (closed)
   const [dropdownStates, setDropdownStates] = useState({});
-  const isOpen = (i) => dropdownStates[i];
-  const closeAllDropdowns = () => {
-    const updatedStates = { ...dropdownStates };
-    // eslint-disable-next-line no-return-assign
-    Object.keys(updatedStates).map((key) => updatedStates[key] = false);
-    setDropdownStates(updatedStates);
-  };
+  const isOpen = (tagValue) => dropdownStates[tagValue];
 
-  const [tags, setTags] = useState([]);
-  const [nextPage, setNextPage] = useState(null);
+  const [numPages, setNumPages] = useState(1);
+  const parentTagValue = lineage.length ? decodeURIComponent(lineage[lineage.length - 1]) : null;
+  const { hasMorePages, tagPages } = useTaxonomyTagsData(taxonomyId, parentTagValue, numPages, searchTerm);
 
-  const [currentPage, setCurrentPage] = useState(1);
   const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
 
   // Reset the page and tags state when search term changes
   // and store search term to compare
   if (prevSearchTerm !== searchTerm) {
     setPrevSearchTerm(searchTerm);
-    setCurrentPage(1);
-    closeAllDropdowns();
-    setTags([]);
+    setNumPages(1);
   }
 
-  const clickAndEnterHandler = (i) => {
+  const clickAndEnterHandler = (tagValue) => {
     // This flips the state of the dropdown at index false (closed) -> true (open)
     // and vice versa. Initially they are undefined which is falsy.
-    setDropdownStates({ ...dropdownStates, [i]: !dropdownStates[i] });
+    setDropdownStates({ ...dropdownStates, [tagValue]: !dropdownStates[tagValue] });
   };
-
-  const {
-    data: taxonomyTagsData,
-    isSuccess: isTaxonomyTagsLoaded,
-  } = useTaxonomyTagsData(taxonomyId, subTagsUrl, currentPage, searchTerm);
 
   const isImplicit = (tag) => {
     // Traverse the tags tree using the lineage
@@ -67,98 +55,98 @@ const ContentTagsDropDownSelector = ({
     return (traversal[tag.value] && !traversal[tag.value].explicit) || false;
   };
 
-  useEffect(() => {
-    if (isTaxonomyTagsLoaded && taxonomyTagsData) {
-      setTags([...tags, ...taxonomyTagsData.results]);
-      setNextPage(taxonomyTagsData.next);
-    }
-  }, [isTaxonomyTagsLoaded, taxonomyTagsData]);
-
   const loadMoreTags = useCallback(() => {
-    setCurrentPage(currentPage + 1);
-  }, [currentPage]);
+    setNumPages((x) => x + 1);
+  }, []);
 
   return (
-    <>
-      {tags.map((taxonomyTag, i) => (
-        <>
-          <div
-            className="d-flex flex-row"
-            key={`selector-div-${taxonomyTag.value}`}
-            style={{
-              paddingLeft: `${level * 1}rem`,
-              minHeight: '44px',
-            }}
-          >
-            <div className="d-flex">
-              <SelectableBox
-                inputHidden={false}
-                type="checkbox"
-                className="d-flex align-items-center taxonomy-tags-selectable-box"
-                aria-label={`${taxonomyTag.value} checkbox`}
-                data-selectable-box="taxonomy-tags"
-                value={[...lineage, encodeURIComponent(taxonomyTag.value)].join(',')}
-                isIndeterminate={isImplicit(taxonomyTag)}
-                disabled={isImplicit(taxonomyTag)}
-              >
-                {taxonomyTag.value}
-              </SelectableBox>
-              { taxonomyTag.subTagsUrl
-                && (
-                  <div className="d-flex align-items-center taxonomy-tags-arrow-drop-down" data-link={taxonomyTag.subTagsUrl}>
-                    <Icon
-                      src={isOpen(i) ? ArrowDropUp : ArrowDropDown}
-                      onClick={() => clickAndEnterHandler(i)}
-                      tabIndex="0"
-                      onKeyPress={(event) => (event.key === 'Enter' ? clickAndEnterHandler(i) : null)}
-                    />
-                  </div>
-                )}
+    <div style={{ marginLeft: `${level * 1 }rem` }}>
+      {tagPages.map((tagPage, pageNum) => (
+        <React.Fragment key={`tag-page-${pageNum}`}>
+          {tagPage.isLoading ? (
+            <div className="d-flex justify-content-center align-items-center flex-row">
+              <Spinner
+                animation="border"
+                size="xl"
+                screenReaderText={intl.formatMessage(messages.loadingTagsDropdownMessage)}
+              />
             </div>
+          ) : null }
+          {tagPage.isError ? 'Error...' : null /* TODO: show a proper error message */}
 
-          </div>
+          {tagPage.data?.map((tagData) => (
+            <React.Fragment key={tagData.value}>
+              <div
+                className="d-flex flex-row"
+                style={{
+                  // paddingLeft: `${level * 1}rem`,
+                  minHeight: '44px',
+                }}
+              >
+                <div className="d-flex">
+                  <SelectableBox
+                    inputHidden={false}
+                    type="checkbox"
+                    className="d-flex align-items-center taxonomy-tags-selectable-box"
+                    aria-label={`${tagData.value} checkbox`}
+                    data-selectable-box="taxonomy-tags"
+                    value={[...lineage, encodeURIComponent(tagData.value)].join(',')}
+                    isIndeterminate={isImplicit(tagData)}
+                    disabled={isImplicit(tagData)}
+                  >
+                    {tagData.value}
+                  </SelectableBox>
+                  { tagData.childCount > 0
+                    && (
+                      <div className="d-flex align-items-center taxonomy-tags-arrow-drop-down">
+                        <Icon
+                          src={isOpen(tagData.value) ? ArrowDropUp : ArrowDropDown}
+                          onClick={() => clickAndEnterHandler(tagData.value)}
+                          tabIndex="0"
+                          onKeyPress={(event) => (event.key === 'Enter' ? clickAndEnterHandler(tagData.value) : null)}
+                        />
+                      </div>
+                    )}
+                </div>
 
-          { taxonomyTag.subTagsUrl && isOpen(i) && (
-            <ContentTagsDropDownSelector
-              key={`selector-${taxonomyTag.value}`}
-              taxonomyId={taxonomyId}
-              subTagsUrl={taxonomyTag.subTagsUrl}
-              level={level + 1}
-              lineage={[...lineage, encodeURIComponent(taxonomyTag.value)]}
-              tagsTree={tagsTree}
-            />
-          )}
-        </>
+              </div>
+
+              { tagData.childCount > 0 && isOpen(tagData.value) && (
+                <ContentTagsDropDownSelector
+                  taxonomyId={taxonomyId}
+                  level={level + 1}
+                  lineage={[...lineage, encodeURIComponent(tagData.value)]}
+                  tagsTree={tagsTree}
+                  searchTerm={searchTerm}
+                />
+              )}
+
+            </React.Fragment>
+          ))}
+
+        </React.Fragment>
       ))}
 
-      { nextPage && isTaxonomyTagsLoaded
+      { hasMorePages
         ? (
-          <Button
-            style={{ marginLeft: `${level * 1 }rem` }}
-            variant="outline-primary"
-            onClick={loadMoreTags}
-            className="mb-2"
-          >
-            <FormattedMessage {...messages.loadMoreTagsButtonText} />
-          </Button>
+          <div className="d-flex justify-content-center align-items-center flex-row">
+            <Button
+              // style={{ marginLeft: `${level * 1 }rem` }}
+              variant="outline-primary"
+              onClick={loadMoreTags}
+              className="mb-2 taxonomy-tags-load-more-button"
+            >
+              <FormattedMessage {...messages.loadMoreTagsButtonText} />
+            </Button>
+          </div>
         )
         : null}
 
-      { !isTaxonomyTagsLoaded ? (
-        <div className="d-flex justify-content-center align-items-center flex-row">
-          <Spinner
-            animation="border"
-            size="xl"
-            screenReaderText={intl.formatMessage(messages.loadingTagsDropdownMessage)}
-          />
-        </div>
-      ) : null}
-    </>
+    </div>
   );
 };
 
 ContentTagsDropDownSelector.defaultProps = {
-  subTagsUrl: undefined,
   lineage: [],
   searchTerm: null,
 };
@@ -166,7 +154,6 @@ ContentTagsDropDownSelector.defaultProps = {
 ContentTagsDropDownSelector.propTypes = {
   taxonomyId: PropTypes.number.isRequired,
   level: PropTypes.number.isRequired,
-  subTagsUrl: PropTypes.string,
   lineage: PropTypes.arrayOf(PropTypes.string),
   tagsTree: PropTypes.objectOf(
     PropTypes.shape({
