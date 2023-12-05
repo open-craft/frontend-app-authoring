@@ -8,6 +8,7 @@ import { initializeMockApp } from '@edx/frontend-platform';
 import MockAdapter from 'axios-mock-adapter';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
+import { COURSE_BLOCK_NAMES } from './constants';
 import {
   getCourseBestPracticesApiUrl,
   getCourseLaunchApiUrl,
@@ -21,7 +22,7 @@ import {
 import {
   addNewCourseSectionQuery,
   deleteCourseItemQuery,
-  duplicateCourseSectionQuery,
+  duplicateCourseItemQuery,
   editCourseItemQuery,
   enableCourseHighlightsEmailsQuery,
   fetchCourseBestPracticesQuery,
@@ -277,7 +278,13 @@ describe('<CourseOutline />', () => {
         duplicate_source_locator: section.id,
         parent_locator: courseBlockId,
       });
-    await executeThunk(duplicateCourseSectionQuery(section.id, courseBlockId), store.dispatch);
+    await executeThunk(duplicateCourseItemQuery(
+      section.id,
+      null,
+      section.id,
+      courseBlockId,
+      COURSE_BLOCK_NAMES.chapter.id
+    ), store.dispatch);
 
     await waitFor(() => {
       expect(getAllByTestId('section-card')).toHaveLength(4);

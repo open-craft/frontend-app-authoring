@@ -129,7 +129,7 @@ const slice = createSlice({
     duplicateSection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.reduce((result, currentValue) => {
         if (currentValue.id === payload.id) {
-          return [...result, currentValue, payload.duplicatedSection];
+          return [...result, currentValue, payload.duplicatedItem];
         }
         return [...result, currentValue];
       }, []);

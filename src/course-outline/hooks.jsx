@@ -21,7 +21,7 @@ import {
   addNewCourseSectionQuery,
   deleteCourseItemQuery,
   editCourseItemQuery,
-  duplicateCourseSectionQuery,
+  duplicateCourseItemQuery,
   enableCourseHighlightsEmailsQuery,
   fetchCourseBestPracticesQuery,
   fetchCourseLaunchQuery,
@@ -123,7 +123,13 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleDuplicateSectionSubmit = () => {
-    dispatch(duplicateCourseSectionQuery(currentItem.id, courseStructure.id));
+    dispatch(duplicateCourseItemQuery(
+      currentItem.id,
+      currentSubsection.id,
+      currentSection.id,
+      courseStructure.id,
+      currentItem.category
+    ));
   };
 
   useEffect(() => {
