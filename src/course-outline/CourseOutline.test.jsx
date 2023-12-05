@@ -21,7 +21,8 @@ import {
 } from './data/api';
 import {
   addNewCourseItemQuery,
-  deleteCourseItemQuery,
+  deleteCourseSectionQuery,
+  deleteCourseSubsectionQuery,
   duplicateSectionQuery,
   duplicateSubsectionQuery,
   editCourseItemQuery,
@@ -286,15 +287,34 @@ describe('<CourseOutline />', () => {
     });
   });
 
-  it('check delete section when delete query is successfully', async () => {
+  it('check whether section is deleted when delete query is successfully', async () => {
     const { queryByText } = render(<RootWrapper />);
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[1];
+    await waitFor(() => {
+      expect(queryByText(section.displayName)).toBeInTheDocument();
+    });
 
     axiosMock.onDelete(getCourseItemApiUrl(section.id)).reply(200);
-    await executeThunk(deleteCourseItemQuery(section.id, section.id, null, section.category), store.dispatch);
+    await executeThunk(deleteCourseSectionQuery(section.id), store.dispatch);
 
     await waitFor(() => {
       expect(queryByText(section.displayName)).not.toBeInTheDocument();
+    });
+  });
+
+  it('check whether subsection is deleted when delete query is successfully', async () => {
+    const { queryByText } = render(<RootWrapper />);
+    const section = courseOutlineIndexMock.courseStructure.childInfo.children[1];
+    const [subsection] = section.childInfo.children;
+    await waitFor(() => {
+      expect(queryByText(subsection.displayName)).toBeInTheDocument();
+    });
+
+    axiosMock.onDelete(getCourseItemApiUrl(subsection.id)).reply(200);
+    await executeThunk(deleteCourseSubsectionQuery(subsection.id, section.id), store.dispatch);
+
+    await waitFor(() => {
+      expect(queryByText(subsection.displayName)).not.toBeInTheDocument();
     });
   });
 

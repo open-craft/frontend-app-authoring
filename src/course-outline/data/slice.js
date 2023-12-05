@@ -1,7 +1,6 @@
 /* eslint-disable no-param-reassign */
 import { createSlice } from '@reduxjs/toolkit';
 
-import { COURSE_BLOCK_NAMES } from '../constants';
 import { RequestStatus } from '../../data/constants';
 
 const slice = createSlice({
@@ -100,42 +99,38 @@ const slice = createSlice({
         return section;
       });;
     },
-    deleteItem: (state, { payload }) => {
-      switch (payload.category) {
-        case COURSE_BLOCK_NAMES.chapter.id:
-          state.sectionsList = state.sectionsList.filter(
+    deleteSection: (state, { payload }) => {
+      state.sectionsList = state.sectionsList.filter(
+        ({ id }) => id !== payload.itemId
+      );
+    },
+    deleteSubsection: (state, { payload }) => {
+      state.sectionsList = state.sectionsList.map((section) => {
+        if (section.id !== payload.sectionId) {
+          return section;
+        }
+        section.childInfo.children = section.childInfo.children.filter(
+          ({ id }) => id !== payload.itemId
+        );
+        return section;
+      });
+    },
+    deleteUnit: (state, { payload }) => {
+      state.sectionsList = state.sectionsList.map((section) => {
+        if (section.id !== payload.sectionId) {
+          return section;
+        }
+        section.childInfo.children = section.childInfo.children.map((subsection) => {
+          if (subsection.id !== payload.subsectionId) {
+            return subsection;
+          }
+          subsection.childInfo.children = subsection.childInfo.children.filter(
             ({ id }) => id !== payload.itemId
           );
-          break;
-        case COURSE_BLOCK_NAMES.sequential.id:
-          state.sectionsList = state.sectionsList.map((section) => {
-            if (section.id !== payload.sectionId) {
-              return section;
-            }
-            section.childInfo.children = section.childInfo.children.filter(
-              ({ id }) => id !== payload.itemId
-            );
-            return section;
-          });
-        case COURSE_BLOCK_NAMES.vertical.id:
-          state.sectionsList = state.sectionsList.map((section) => {
-            if (section.id !== payload.sectionId) {
-              return section;
-            }
-            section.childInfo.children = section.childInfo.children.map((subsection) => {
-              if (subsection.id !== payload.subsectionId) {
-                return subsection;
-              }
-              subsection.childInfo.children = subsection.childInfo.children.filter(
-                ({ id }) => id !== payload.itemId
-              );
-              return subsection;
-            });
-            return section;
-          });
-        default:
-          break;
-      }
+          return subsection;
+        });
+        return section;
+      });
     },
     duplicateSection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.reduce((result, currentValue) => {
@@ -163,7 +158,9 @@ export const {
   setCurrentItem,
   setCurrentSection,
   setCurrentSubsection,
-  deleteItem,
+  deleteSection,
+  deleteSubsection,
+  deleteUnit,
   duplicateSection,
 } = slice.actions;
 

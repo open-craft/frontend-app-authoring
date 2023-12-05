@@ -20,7 +20,9 @@ import {
 } from './data/selectors';
 import {
   addNewCourseItemQuery,
-  deleteCourseItemQuery,
+  deleteCourseSectionQuery,
+  deleteCourseSubsectionQuery,
+  deleteCourseUnitQuery,
   editCourseItemQuery,
   duplicateSectionQuery,
   duplicateSubsectionQuery,
@@ -127,12 +129,23 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleDeleteItemSubmit = () => {
-    dispatch(deleteCourseItemQuery(
-      currentItem.id,
-      currentSection.id,
-      currentSubsection.id,
-      currentItem.category
-    ));
+    switch (currentItem.category) {
+      case COURSE_BLOCK_NAMES.chapter.id:
+        dispatch(deleteCourseSectionQuery(currentItem.id));
+        break;
+      case COURSE_BLOCK_NAMES.sequential.id:
+        dispatch(deleteCourseSubsectionQuery(currentItem.id, currentSection.id));
+        break;
+      case COURSE_BLOCK_NAMES.vertical.id:
+        dispatch(deleteCourseSubsectionQuery(
+          currentItem.id,
+          currentSubsection.id,
+          currentSection.id
+        ));
+        break;
+      default:
+        return;
+    }
     closeDeleteModal();
   };
 
