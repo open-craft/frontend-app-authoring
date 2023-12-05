@@ -3,23 +3,34 @@ import { camelCaseObject, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
 const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
-export const getTaxonomyTagsApiUrl = (taxonomyId, fullPathProvided, page, searchTerm) => {
+
+/**
+ * Get the URL used to fetch tags data from the "taxonomy tags" REST API
+ * @param {number} taxonomyId 
+ * @param {{fullPathProvided: string}|{page?: number, searchTerm?: string, parentTag?: string}} options 
+ * @returns {string} the URL
+ */
+export const getTaxonomyTagsApiUrl = (taxonomyId, options = {}) => {
   let url;
-  if (fullPathProvided) {
-    url = new URL(fullPathProvided);
+  if ("fullPathProvided" in options) {
+    url = new URL(options.fullPathProvided);
   } else {
     url = new URL(`api/content_tagging/v1/taxonomies/${taxonomyId}/tags/`, getApiBaseUrl());
+    if (options.parentTag) {
+      url.searchParams.append('parent_tag', options.parentTag);
+    }
+    if (options.page) {
+      url.searchParams.append('page', String(options.page));
+    }
+    if (options.searchTerm) {
+      url.searchParams.append('search_term', options.searchTerm);
+    }
   }
 
-  url.searchParams.append('full_depth_threshold', 1000);
+  // Load in the full tree if children at once, if we can:
+  // Note: do not combine this with page_size (we currently aren't using page_size)
+  url.searchParams.append('full_depth_threshold', "1000");
 
-  if (page) {
-    url.searchParams.append('page', page);
-  }
-
-  if (searchTerm) {
-    url.searchParams.append('search_term', searchTerm);
-  }
   return url.href;
 };
 export const getContentTaxonomyTagsApiUrl = (contentId) => new URL(`api/content_tagging/v1/object_tags/${contentId}/`, getApiBaseUrl()).href;
@@ -28,14 +39,11 @@ export const getContentDataApiUrl = (contentId) => new URL(`/xblock/outline/${co
 /**
  * Get all tags that belong to taxonomy.
  * @param {number} taxonomyId The id of the taxonomy to fetch tags for
- * @param {string} fullPathProvided Optional param that contains the full URL to fetch data
- *                 If provided, we use it instead of generating the URL. This is usually for fetching subTags
- * @param {number} page The results pages number
- * @param {string} searchTerm The term used to search tags
+ * @param {{fullPathProvided: string}|{page?: number, searchTerm?: string, parentTag?: string}} options 
  * @returns {Promise<Object>}
  */
-export async function getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm) {
-  const url = getTaxonomyTagsApiUrl(taxonomyId, fullPathProvided, page, searchTerm);
+export async function getTaxonomyTagsData(taxonomyId, options) {
+  const url = getTaxonomyTagsApiUrl(taxonomyId, options);
   const { data } = await getAuthenticatedHttpClient().get(url);
   return camelCaseObject(data);
 }

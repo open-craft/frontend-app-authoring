@@ -1,5 +1,6 @@
 // @ts-check
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getTaxonomyTagsData,
   getContentTaxonomyTagsData,
@@ -10,45 +11,77 @@ import {
 /**
  * Builds the query to get the taxonomy tags
  * @param {number} taxonomyId The id of the taxonomy to fetch tags for
- * @param {string} fullPathProvided Optional param that contains the full URL to fetch data
- *                 If provided, we use it instead of generating the URL. This is usually for fetching subTags
- * @param {number} page The results page number
+ * @param {string|null} parentTag The tag whose children we're loading, if any
  * @param {string} searchTerm The term passed in to perform search on tags
- * @returns {import("@tanstack/react-query").UseQueryResult<import("./types.mjs").TaxonomyTagsData>}
+ * @param {number} numPages How many pages of tags to load at this level
+ * @returns {{hasMorePages: boolean, tagPages: {isLoading: boolean, isError: boolean, data: import("./types.mjs").TaxonomyTagData[]}[]}}
  */
-export const useTaxonomyTagsData = (taxonomyId, fullPathProvided, page, parentTag, level, searchTerm) => {
+export const useTaxonomyTagsData = (taxonomyId, parentTag = null, numPages = 1, searchTerm = "") => {
   const queryClient = useQueryClient();
-  return useQuery({
-    queryKey: ['taxonomyTags', taxonomyId, parentTag, page, searchTerm],
-    queryFn: async () => {
 
-      const data = await getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm);
+  const queryFn = async ({queryKey}) => {
+    const page = queryKey[3];
+    // await new Promise(r => setTimeout(r, 800)); // useful to simulate a slow API response
+    return await getTaxonomyTagsData(taxonomyId, { parentTag: parentTag || "", searchTerm, page });
+  };
 
-      // check if results contain (grand) children, store them in cache
-      const grandChildren = {};
-      data.results.filter(tag => tag.depth !== level).map((tag) => {
-        if (grandChildren[tag.parentValue] === undefined) {
-          grandChildren[tag.parentValue] = [];
+  const queries = [];
+  for (let page = 1; page <= numPages; page++) {
+    queries.push({ queryKey: ['taxonomyTags', taxonomyId, parentTag, page, searchTerm], queryFn });
+  }
+
+  /** @type {import("@tanstack/react-query").UseQueryResult<import("./types.mjs").TaxonomyTagsData>[]} */
+  const dataPages = useQueries({queries});
+
+
+  const totalPages = dataPages[0]?.data?.numPages || 1;
+  const hasMorePages = numPages < totalPages;
+
+  const tagPages = useMemo(() => {
+
+    /** @type {{isLoading: boolean, isError: boolean, data: import("./types.mjs").TaxonomyTagData[]}[]} */
+    const newTags = [];
+
+    // Pre-load desendants if possible
+    const preLoadedData = new Map();
+
+    dataPages.forEach(result => {
+      /** @type {import("./types.mjs").TaxonomyTagData[]} */
+      let simplifiedTagsList = [];
+
+      result.data?.results?.forEach((tag) => {
+        if (tag.parentValue === parentTag) {
+          simplifiedTagsList.push(tag);
+        } else {
+          if (!preLoadedData.has(tag.parentValue)) {
+            preLoadedData.set(tag.parentValue, [tag]);
+          } else {
+            preLoadedData.get(tag.parentValue).push(tag);
+          }
         }
-        grandChildren[tag.parentValue].push(tag);
+      })
+
+      newTags.push({...result, data: simplifiedTagsList});
+    });
+
+    // Store the pre-loaded descendants into the query cache:
+    preLoadedData.forEach((tags, parentValue) => {
+      const queryKey = ['taxonomyTags', taxonomyId, parentValue, 1, searchTerm];
+      queryClient.setQueryData(queryKey, {
+        next: "",
+        previous: "",
+        count: tags.length,
+        numPages: 1,
+        currentPage: 1,
+        start: 0,
+        results: tags,
       });
+    });
 
-      Object.keys(grandChildren).map((parentValue) => {
-        const children = grandChildren[parentValue];
-        const childrenResults = {
-          next: null,
-          results: children,
-        };
+    return newTags;
+  }, [dataPages]);
 
-        queryClient.setQueryData(
-          ['taxonomyTags', taxonomyId, parentValue, page, searchTerm],
-          childrenResults,
-        );
-      });
-
-      return data;
-    },
-  });
+  return {hasMorePages, tagPages};
 };
 
 /**
