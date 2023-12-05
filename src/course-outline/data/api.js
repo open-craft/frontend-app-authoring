@@ -284,10 +284,10 @@ export async function duplicateCourseItem(itemId, parentId) {
  * @param {string} courseBlockId
  * @returns {Promise<Object>}
  */
-export async function addNewCourseItem(courseBlockId, category, displayName) {
+export async function addNewCourseItem(parentLocator, category, displayName) {
   const { data } = await getAuthenticatedHttpClient()
     .post(getXBlockBaseApiUrl(), {
-      parent_locator: courseBlockId,
+      parent_locator: parentLocator,
       category,
       display_name: displayName,
     });

@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  render, waitFor, cleanup, fireEvent,
+  render, waitFor, cleanup, fireEvent, within,
 } from '@testing-library/react';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
@@ -20,7 +20,7 @@ import {
   getXBlockBaseApiUrl,
 } from './data/api';
 import {
-  addNewCourseSectionQuery,
+  addNewCourseItemQuery,
   deleteCourseItemQuery,
   duplicateCourseItemQuery,
   editCourseItemQuery,
@@ -40,6 +40,7 @@ import {
   courseBestPracticesMock,
   courseLaunchMock,
   courseSectionMock,
+  courseSubsectionMock,
 } from './__mocks__';
 import { executeThunk } from '../utils';
 import CourseOutline from './CourseOutline';
@@ -130,11 +131,40 @@ describe('<CourseOutline />', () => {
     axiosMock
       .onGet(getXBlockApiUrl(courseSectionMock.id))
       .reply(200, courseSectionMock);
-    await executeThunk(addNewCourseSectionQuery(courseId), store.dispatch);
+    await executeThunk(addNewCourseItemQuery(
+      courseId,
+      COURSE_BLOCK_NAMES.chapter.id,
+      COURSE_BLOCK_NAMES.chapter.name
+    ), store.dispatch);
 
     element = await findAllByTestId('section-card');
     expect(element.length).toBe(5);
     expect(window.HTMLElement.prototype.scrollIntoView).toBeCalled();
+  });
+
+  it('adds new subsection correctly', async () => {
+    const { findAllByTestId } = render(<RootWrapper />);
+    const sectionId = courseOutlineIndexMock.courseStructure.childInfo.children[0].id;
+    const [section] = await findAllByTestId('section-card');
+    let subsections = await within(section).findAllByTestId('subsection-card');
+    expect(subsections.length).toBe(1);
+
+    axiosMock
+      .onPost(getXBlockBaseApiUrl())
+      .reply(200, {
+        locator: courseSubsectionMock.id,
+      });
+    axiosMock
+      .onGet(getXBlockApiUrl(courseSubsectionMock.id))
+      .reply(200, courseSubsectionMock);
+    await executeThunk(addNewCourseItemQuery(
+      sectionId,
+      COURSE_BLOCK_NAMES.sequential.id,
+      COURSE_BLOCK_NAMES.sequential.name
+    ), store.dispatch);
+
+    subsections = await within(section).findAllByTestId('subsection-card');
+    expect(subsections.length).toBe(2);
   });
 
   it('render error alert after failed reindex correctly', async () => {
