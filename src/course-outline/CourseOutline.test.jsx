@@ -22,7 +22,8 @@ import {
 import {
   addNewCourseItemQuery,
   deleteCourseItemQuery,
-  duplicateCourseItemQuery,
+  duplicateSectionQuery,
+  duplicateSubsectionQuery,
   editCourseItemQuery,
   enableCourseHighlightsEmailsQuery,
   fetchCourseBestPracticesQuery,
@@ -297,28 +298,56 @@ describe('<CourseOutline />', () => {
     });
   });
 
-  it('check duplicate section when duplicate query is successfully', async () => {
-    const { getAllByTestId } = render(<RootWrapper />);
+  it('check whether section is duplicated successfully', async () => {
+    const { findAllByTestId } = render(<RootWrapper />);
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[0];
+    const sectionId = section.id;
     const courseBlockId = courseOutlineIndexMock.courseStructure.id;
+    expect(await findAllByTestId('section-card')).toHaveLength(4);
 
     axiosMock
       .onPost(getXBlockBaseApiUrl())
       .reply(200, {
-        duplicate_source_locator: section.id,
-        parent_locator: courseBlockId,
+        locator: courseSectionMock.id,
       });
-    await executeThunk(duplicateCourseItemQuery(
-      section.id,
-      null,
-      section.id,
-      courseBlockId,
-      COURSE_BLOCK_NAMES.chapter.id
-    ), store.dispatch);
+    section.id = courseSectionMock.id,
+    axiosMock
+      .onGet(getXBlockApiUrl(section.id))
+      .reply(200, {
+        ...section,
+      });
+    await executeThunk(duplicateSectionQuery(sectionId, courseBlockId), store.dispatch);
 
-    await waitFor(() => {
-      expect(getAllByTestId('section-card')).toHaveLength(4);
-    });
+    expect(await findAllByTestId('section-card')).toHaveLength(5);
+  });
+
+  it('check whether subsection is duplicated successfully', async () => {
+    const { findAllByTestId } = render(<RootWrapper />);
+    const section = courseOutlineIndexMock.courseStructure.childInfo.children[0];
+    let [sectionElement] = await findAllByTestId('section-card');
+    const [subsection] = section.childInfo.children;
+    const subsectionId = subsection.id;
+    let subsections = await within(sectionElement).findAllByTestId('subsection-card');
+    expect(subsections.length).toBe(1);
+
+    axiosMock
+      .onPost(getXBlockBaseApiUrl())
+      .reply(200, {
+        locator: courseSubsectionMock.id,
+      });
+    subsection.id = courseSubsectionMock.id;
+    section.childInfo.children = [...section.childInfo.children, subsection];
+    axiosMock
+      .onGet(getXBlockApiUrl(section.id))
+      .reply(200, {
+        ...section,
+      });
+
+    await executeThunk(duplicateSubsectionQuery(subsectionId, section.id), store.dispatch);
+
+    [sectionElement] = await findAllByTestId('section-card');
+    subsections = await within(sectionElement).findAllByTestId('subsection-card');
+    expect(subsections.length).toBe(2);
   });
 
   it('check publish section when publish query is successfully', async () => {
