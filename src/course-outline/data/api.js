@@ -177,7 +177,7 @@ export async function restartIndexingOnCourse(reindexLink) {
  * @param {string} sectionId
  * @returns {Promise<section>}
  */
-export async function getCourseSection(sectionId) {
+export async function getCourseItem(sectionId) {
   const { data } = await getAuthenticatedHttpClient()
     .get(getXBlockApiUrl(sectionId));
   return camelCaseObject(data);
@@ -269,11 +269,11 @@ export async function deleteCourseItem(itemId) {
  * @param {string} courseBlockId
  * @returns {Promise<Object>}
  */
-export async function duplicateCourseSection(sectionId, courseBlockId) {
+export async function duplicateCourseItem(itemId, parentId) {
   const { data } = await getAuthenticatedHttpClient()
     .post(getXBlockBaseApiUrl(), {
-      duplicate_source_locator: sectionId,
-      parent_locator: courseBlockId,
+      duplicate_source_locator: itemId,
+      parent_locator: parentId,
     });
 
   return data;

@@ -12,13 +12,13 @@ import {
 import {
   addNewCourseItem,
   deleteCourseItem,
-  duplicateCourseSection,
+  duplicateCourseItem,
   editItemDisplayName,
   enableCourseHighlightsEmails,
   getCourseBestPractices,
   getCourseLaunch,
   getCourseOutlineIndex,
-  getCourseSection,
+  getCourseItem,
   publishCourseSection,
   configureCourseSection,
   restartIndexingOnCourse,
@@ -37,6 +37,8 @@ import {
   updateFetchSectionLoadingStatus,
   deleteItem,
   duplicateSection,
+  duplicateSubsection,
+  duplicateUnit,
 } from './slice';
 
 export function fetchCourseOutlineIndexQuery(courseId) {
@@ -129,7 +131,7 @@ export function fetchCourseSectionQuery(sectionId) {
     dispatch(updateFetchSectionLoadingStatus({ status: RequestStatus.IN_PROGRESS }));
 
     try {
-      const data = await getCourseSection(sectionId);
+      const data = await getCourseItem(sectionId);
       dispatch(updateSectionList(data));
       dispatch(updateFetchSectionLoadingStatus({ status: RequestStatus.SUCCESSFUL }));
     } catch (error) {
@@ -235,16 +237,38 @@ export function deleteCourseItemQuery(itemId, sectionId, subsectionId, category)
   };
 }
 
-export function duplicateCourseSectionQuery(sectionId, courseBlockId) {
+export function duplicateCourseItemQuery(itemId, subsectionId, sectionId, courseBlockId, category) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
+    let parentLocator;
+    let duplicateFn;
+    switch (category) {
+      case COURSE_BLOCK_NAMES.chapter.id:
+        parentLocator = courseBlockId;
+        duplicateFn = duplicateSection
+        break;
+      case COURSE_BLOCK_NAMES.sequential.id:
+        parentLocator = sectionId;
+        duplicateFn = null;
+        break;
+      case COURSE_BLOCK_NAMES.vertical.id:
+        parentLocator = subsectionId;
+        duplicateFn = null;
+      default:
+        return;
+    }
 
     try {
-      await duplicateCourseSection(sectionId, courseBlockId).then(async (result) => {
+      await duplicateCourseItem(itemId, parentLocator).then(async (result) => {
         if (result) {
-          const duplicatedSection = await getCourseSection(result.locator);
-          dispatch(duplicateSection({ id: sectionId, duplicatedSection }));
+          const duplicatedItem = await getCourseItem(result.locator);
+          if (duplicateFn) {
+            dispatch(duplicateFn({ id: itemId, sectionId, subsectionId, duplicatedItem }));
+          } else {
+            // update full section to update publish status
+            await dispatch(fetchCourseSectionQuery(sectionId));
+          }
           dispatch(hideProcessingNotification());
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
         }
@@ -268,7 +292,7 @@ export function addNewCourseSectionQuery(courseBlockId) {
         COURSE_BLOCK_NAMES.chapter.name,
       ).then(async (result) => {
         if (result) {
-          const data = await getCourseSection(result.locator);
+          const data = await getCourseItem(result.locator);
           dispatch(addSection(data));
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
           dispatch(hideProcessingNotification());
