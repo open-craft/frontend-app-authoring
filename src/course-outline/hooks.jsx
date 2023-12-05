@@ -22,7 +22,8 @@ import {
   addNewCourseItemQuery,
   deleteCourseItemQuery,
   editCourseItemQuery,
-  duplicateCourseItemQuery,
+  duplicateSectionQuery,
+  duplicateSubsectionQuery,
   enableCourseHighlightsEmailsQuery,
   fetchCourseBestPracticesQuery,
   fetchCourseLaunchQuery,
@@ -136,13 +137,11 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleDuplicateSectionSubmit = () => {
-    dispatch(duplicateCourseItemQuery(
-      currentItem.id,
-      currentSubsection.id,
-      currentSection.id,
-      courseStructure.id,
-      currentItem.category
-    ));
+    dispatch(duplicateSectionQuery(currentSection.id, courseStructure.id));
+  };
+
+  const handleDuplicateSubsectionSubmit = () => {
+    dispatch(duplicateSubsectionQuery(currentSubsection.id, currentSection.id));
   };
 
   useEffect(() => {
@@ -197,6 +196,7 @@ const useCourseOutline = ({ courseId }) => {
     openDeleteModal,
     handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
+    handleDuplicateSubsectionSubmit,
     handleNewSectionSubmit,
     handleNewSubsectionSubmit,
   };

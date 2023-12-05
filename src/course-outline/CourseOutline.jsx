@@ -77,6 +77,7 @@ const CourseOutline = ({ courseId }) => {
     handleEditSubmit,
     handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
+    handleDuplicateSubsectionSubmit,
     handleNewSectionSubmit,
     handleNewSubsectionSubmit,
   } = useCourseOutline({ courseId });
@@ -175,7 +176,7 @@ const CourseOutline = ({ courseId }) => {
                                   onOpenPublishModal={openPublishModal}
                                   onOpenDeleteModal={openDeleteModal}
                                   onEditSubmit={handleEditSubmit}
-                                  onDuplicateSubmit={handleDuplicateSectionSubmit}
+                                  onDuplicateSubmit={handleDuplicateSubsectionSubmit}
                                 />
                               ))}
                             </SectionCard>

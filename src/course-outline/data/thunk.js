@@ -238,38 +238,22 @@ export function deleteCourseItemQuery(itemId, sectionId, subsectionId, category)
   };
 }
 
-export function duplicateCourseItemQuery(itemId, subsectionId, sectionId, courseBlockId, category) {
+/**
+ * Generic function for duplicate any course item. See wrapper functions below for specific implementations.
+ * @param {string} itemId
+ * @param {string} parentLocator
+ * @param {() => Promise<any>} duplicateFn
+ * @returns {}
+ */
+function duplicateCourseItemQuery(itemId, parentLocator, duplicateFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
-    let parentLocator;
-    let duplicateFn;
-    switch (category) {
-      case COURSE_BLOCK_NAMES.chapter.id:
-        parentLocator = courseBlockId;
-        duplicateFn = duplicateSection
-        break;
-      case COURSE_BLOCK_NAMES.sequential.id:
-        parentLocator = sectionId;
-        duplicateFn = null;
-        break;
-      case COURSE_BLOCK_NAMES.vertical.id:
-        parentLocator = subsectionId;
-        duplicateFn = null;
-      default:
-        return;
-    }
 
     try {
       await duplicateCourseItem(itemId, parentLocator).then(async (result) => {
         if (result) {
-          const duplicatedItem = await getCourseItem(result.locator);
-          if (duplicateFn) {
-            dispatch(duplicateFn({ id: itemId, sectionId, subsectionId, duplicatedItem }));
-          } else {
-            // update full section to update publish status
-            await dispatch(fetchCourseSectionQuery(sectionId));
-          }
+          await duplicateFn(result.locator);
           dispatch(hideProcessingNotification());
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
         }
@@ -278,6 +262,29 @@ export function duplicateCourseItemQuery(itemId, subsectionId, sectionId, course
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
     }
+  };
+}
+
+export function duplicateSectionQuery(sectionId, courseBlockId) {
+  return async (dispatch) => {
+    dispatch(duplicateCourseItemQuery(
+      sectionId,
+      courseBlockId,
+      async (locator) => {
+        const duplicatedItem = await getCourseItem(locator);
+        dispatch(duplicateSection({ id: sectionId, duplicatedItem }));
+      },
+    ));
+  };
+}
+
+export function duplicateSubsectionQuery(subsectionId, sectionId) {
+  return async (dispatch) => {
+    dispatch(duplicateCourseItemQuery(
+      subsectionId,
+      sectionId,
+      async (_) => dispatch(fetchCourseSectionQuery(sectionId)),
+    ));
   };
 }
 
