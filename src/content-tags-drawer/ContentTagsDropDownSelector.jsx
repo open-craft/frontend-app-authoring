@@ -51,10 +51,12 @@ const ContentTagsDropDownSelector = ({
     setDropdownStates({ ...dropdownStates, [i]: !dropdownStates[i] });
   };
 
+  const parentTag = subTagsUrl ? new URL(subTagsUrl).searchParams.get('parent_tag') : null;
+
   const {
     data: taxonomyTagsData,
     isSuccess: isTaxonomyTagsLoaded,
-  } = useTaxonomyTagsData(taxonomyId, subTagsUrl, currentPage, searchTerm);
+  } = useTaxonomyTagsData(taxonomyId, subTagsUrl, currentPage, parentTag, level, searchTerm);
 
   const isImplicit = (tag) => {
     // Traverse the tags tree using the lineage
@@ -69,7 +71,7 @@ const ContentTagsDropDownSelector = ({
 
   useEffect(() => {
     if (isTaxonomyTagsLoaded && taxonomyTagsData) {
-      setTags([...tags, ...taxonomyTagsData.results]);
+      setTags([...tags, ...taxonomyTagsData.results.filter(t => t.depth === level)]);
       setNextPage(taxonomyTagsData.next);
     }
   }, [isTaxonomyTagsLoaded, taxonomyTagsData]);

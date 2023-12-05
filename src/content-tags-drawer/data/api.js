@@ -11,6 +11,8 @@ export const getTaxonomyTagsApiUrl = (taxonomyId, fullPathProvided, page, search
     url = new URL(`api/content_tagging/v1/taxonomies/${taxonomyId}/tags/`, getApiBaseUrl());
   }
 
+  url.searchParams.append('full_depth_threshold', 1000);
+
   if (page) {
     url.searchParams.append('page', page);
   }

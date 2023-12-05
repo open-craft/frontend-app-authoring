@@ -16,12 +16,40 @@ import {
  * @param {string} searchTerm The term passed in to perform search on tags
  * @returns {import("@tanstack/react-query").UseQueryResult<import("./types.mjs").TaxonomyTagsData>}
  */
-export const useTaxonomyTagsData = (taxonomyId, fullPathProvided, page, searchTerm) => (
-  useQuery({
-    queryKey: ['taxonomyTags', taxonomyId, fullPathProvided, page, searchTerm],
-    queryFn: () => getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm),
-  })
-);
+export const useTaxonomyTagsData = (taxonomyId, fullPathProvided, page, parentTag, level, searchTerm) => {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: ['taxonomyTags', taxonomyId, parentTag, page, searchTerm],
+    queryFn: async () => {
+
+      const data = await getTaxonomyTagsData(taxonomyId, fullPathProvided, page, searchTerm);
+
+      // check if results contain (grand) children, store them in cache
+      const grandChildren = {};
+      data.results.filter(tag => tag.depth !== level).map((tag) => {
+        if (grandChildren[tag.parentValue] === undefined) {
+          grandChildren[tag.parentValue] = [];
+        }
+        grandChildren[tag.parentValue].push(tag);
+      });
+
+      Object.keys(grandChildren).map((parentValue) => {
+        const children = grandChildren[parentValue];
+        const childrenResults = {
+          next: null,
+          results: children,
+        };
+
+        queryClient.setQueryData(
+          ['taxonomyTags', taxonomyId, parentValue, page, searchTerm],
+          childrenResults,
+        );
+      });
+
+      return data;
+    },
+  });
+};
 
 /**
  * Builds the query to get the taxonomy tags applied to the content object
