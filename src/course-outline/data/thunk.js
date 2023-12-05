@@ -36,7 +36,9 @@ import {
   updateSavingStatus,
   updateSectionList,
   updateFetchSectionLoadingStatus,
-  deleteItem,
+  deleteSection,
+  deleteSubsection,
+  deleteUnit,
   duplicateSection,
   duplicateSubsection,
   duplicateUnit,
@@ -221,20 +223,53 @@ export function editCourseItemQuery(itemId, sectionId, displayName) {
   };
 }
 
-export function deleteCourseItemQuery(itemId, sectionId, subsectionId, category) {
+/**
+ * Generic function to delete course item, see below wrapper funcs for specific implementations.
+ * @param {string} itemId
+ * @param {() => {}} deleteItemFn
+ * @returns {}
+ */
+function deleteCourseItemQuery(itemId, deleteItemFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.deleting));
 
     try {
       await deleteCourseItem(itemId);
-      dispatch(deleteItem({ itemId, sectionId, subsectionId, category }));
+      dispatch(deleteItemFn());
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
     } catch (error) {
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
     }
+  };
+}
+
+export function deleteCourseSectionQuery(sectionId) {
+  return async (dispatch) => {
+    dispatch(deleteCourseItemQuery(
+      sectionId,
+      () => deleteSection({ itemId: sectionId }),
+    ));
+  };
+}
+
+export function deleteCourseSubsectionQuery(subsectionId, sectionId) {
+  return async (dispatch) => {
+    dispatch(deleteCourseItemQuery(
+      subsectionId,
+      () => deleteSubsection({ itemId: subsectionId, sectionId }),
+    ));
+  };
+}
+
+export function deleteCourseUnitQuery(unitId, subsectionId, sectionId) {
+  return async (dispatch) => {
+    dispatch(deleteCourseItemQuery(
+      unitId,
+      () => deleteUnit({ itemId: unitId, subsectionId, sectionId }),
+    ));
   };
 }
 
