@@ -81,31 +81,41 @@ const ContentTagsDropDownSelector = ({
   return (
     <>
       {tags.map((taxonomyTag, i) => (
-        <div className="d-flex flex-column" key={`selector-div-${taxonomyTag.value}`} style={{ paddingLeft: `${level === 0 ? '0' : '1' }rem` }}>
-          <div className="d-flex">
-            <SelectableBox
-              inputHidden={false}
-              type="checkbox"
-              className="d-flex align-items-center taxonomy-tags-selectable-box"
-              aria-label={`${taxonomyTag.value} checkbox`}
-              data-selectable-box="taxonomy-tags"
-              value={[...lineage, encodeURIComponent(taxonomyTag.value)].join(',')}
-              isIndeterminate={isImplicit(taxonomyTag)}
-              disabled={isImplicit(taxonomyTag)}
-            >
-              {taxonomyTag.value}
-            </SelectableBox>
-            { taxonomyTag.subTagsUrl
-              && (
-                <div className="d-flex align-items-center taxonomy-tags-arrow-drop-down" data-link={taxonomyTag.subTagsUrl}>
-                  <Icon
-                    src={isOpen(i) ? ArrowDropUp : ArrowDropDown}
-                    onClick={() => clickAndEnterHandler(i)}
-                    tabIndex="0"
-                    onKeyPress={(event) => (event.key === 'Enter' ? clickAndEnterHandler(i) : null)}
-                  />
-                </div>
-              )}
+        <>
+          <div
+            className="d-flex flex-row"
+            key={`selector-div-${taxonomyTag.value}`}
+            style={{
+              paddingLeft: `${level * 1}rem`,
+              minHeight: '44px',
+            }}
+          >
+            <div className="d-flex">
+              <SelectableBox
+                inputHidden={false}
+                type="checkbox"
+                className="d-flex align-items-center taxonomy-tags-selectable-box"
+                aria-label={`${taxonomyTag.value} checkbox`}
+                data-selectable-box="taxonomy-tags"
+                value={[...lineage, encodeURIComponent(taxonomyTag.value)].join(',')}
+                isIndeterminate={isImplicit(taxonomyTag)}
+                disabled={isImplicit(taxonomyTag)}
+              >
+                {taxonomyTag.value}
+              </SelectableBox>
+              { taxonomyTag.subTagsUrl
+                && (
+                  <div className="d-flex align-items-center taxonomy-tags-arrow-drop-down" data-link={taxonomyTag.subTagsUrl}>
+                    <Icon
+                      src={isOpen(i) ? ArrowDropUp : ArrowDropDown}
+                      onClick={() => clickAndEnterHandler(i)}
+                      tabIndex="0"
+                      onKeyPress={(event) => (event.key === 'Enter' ? clickAndEnterHandler(i) : null)}
+                    />
+                  </div>
+                )}
+            </div>
+
           </div>
 
           { taxonomyTag.subTagsUrl && isOpen(i) && (
@@ -118,17 +128,16 @@ const ContentTagsDropDownSelector = ({
               tagsTree={tagsTree}
             />
           )}
-
-        </div>
+        </>
       ))}
 
       { nextPage && isTaxonomyTagsLoaded
         ? (
           <Button
-            style={{ marginLeft: `${level === 0 ? '0' : '1' }rem` }}
+            style={{ marginLeft: `${level * 1 }rem` }}
             variant="outline-primary"
             onClick={loadMoreTags}
-            className="mt-1 mb-1"
+            className="mb-2"
           >
             <FormattedMessage {...messages.loadMoreTagsButtonText} />
           </Button>
@@ -136,7 +145,7 @@ const ContentTagsDropDownSelector = ({
         : null}
 
       { !isTaxonomyTagsLoaded ? (
-        <div className="d-flex justify-content-center align-items-center flex-column">
+        <div className="d-flex justify-content-center align-items-center flex-row">
           <Spinner
             animation="border"
             size="xl"
