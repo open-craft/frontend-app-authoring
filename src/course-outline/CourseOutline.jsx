@@ -107,14 +107,13 @@ const CourseOutline = ({ courseId }) => {
           [hoverIndex, 0, prevSections[dragIndex]],
         ],
       });
-      const idList = [];
-      for (let i = 0; i < newList.length; i++) {
-        idList.push(newList[i].id);
-      }
-      handleDragNDrop(idList);
       return newList;
     });
   }, []);
+
+  const finalizeSectionOrder = () => {
+    handleDragNDrop(sections.map((section) => section.id));
+  }
 
   useEffect(() => {
     if (sectionsList) {
@@ -201,6 +200,7 @@ const CourseOutline = ({ courseId }) => {
                                 isSectionsExpanded={isSectionsExpanded}
                                 onNewSubsectionSubmit={handleNewSubsectionSubmit}
                                 moveSection={moveSection}
+                                finalizeSectionOrder={finalizeSectionOrder}
                                 ref={listRef}
                               >
                                 {section.childInfo.children.map((subsection) => (
@@ -217,7 +217,7 @@ const CourseOutline = ({ courseId }) => {
                                   />
                                 ))}
                               </SectionCard>
-                          ))}
+                            ))}
                           </DndProvider>
                           <Button
                             data-testid="new-section-button"

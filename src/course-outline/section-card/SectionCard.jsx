@@ -27,6 +27,7 @@ const SectionCard = forwardRef(({
   isSectionsExpanded,
   onNewSubsectionSubmit,
   moveSection,
+  finalizeSectionOrder,
 }, lastItemRef) => {
   const intl = useIntl();
   const dispatch = useDispatch();
@@ -103,6 +104,9 @@ const SectionCard = forwardRef(({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
+    end: () => {
+      finalizeSectionOrder();
+    },
   });
   const opacity = isDragging ? 0 : 1;
   drag(drop(moveRef));
@@ -239,6 +243,7 @@ SectionCard.propTypes = {
   isSectionsExpanded: PropTypes.bool.isRequired,
   onNewSubsectionSubmit: PropTypes.func.isRequired,
   moveSection: PropTypes.func.isRequired,
+  finalizeSectionOrder: PropTypes.func.isRequired,
 };
 
 export default SectionCard;
