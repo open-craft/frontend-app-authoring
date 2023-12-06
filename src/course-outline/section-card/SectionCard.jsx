@@ -1,8 +1,5 @@
-import {
-  forwardRef,
-  useEffect,
-  useState,
-} from 'react';
+import React, { forwardRef, useEffect, useState, useRef } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 import PropTypes from 'prop-types';
 import { useDispatch } from 'react-redux';
 import { useIntl } from '@edx/frontend-platform/i18n';
@@ -14,9 +11,11 @@ import { RequestStatus } from '../../data/constants';
 import CardHeader from '../card-header/CardHeader';
 import { getItemStatus } from '../utils';
 import messages from './messages';
+import ItemTypes from './itemTypes';
 
 const SectionCard = forwardRef(({
   section,
+  index,
   children,
   onOpenHighlightsModal,
   onOpenPublishModal,
@@ -27,6 +26,7 @@ const SectionCard = forwardRef(({
   onDuplicateSubmit,
   isSectionsExpanded,
   onNewSubsectionSubmit,
+  moveSection,
 }, lastItemRef) => {
   const intl = useIntl();
   const dispatch = useDispatch();
@@ -48,6 +48,64 @@ const SectionCard = forwardRef(({
     staffOnlyMessage,
     highlights,
   } = section;
+
+  const moveRef = useRef(null);
+
+  const [{ handlerId }, drop] = useDrop({
+    accept: ItemTypes.SECTION,
+    collect(monitor) {
+      return {
+        handlerId: monitor.getHandlerId(),
+      };
+    },
+    hover(item, monitor) {
+      if (!moveRef.current) {
+        return;
+      }
+      const dragIndex = item.index;
+      const hoverIndex = index;
+      // Don't replace items with themselves
+      if (dragIndex === hoverIndex) {
+        return;
+      }
+      // Determine rectangle on screen
+      const hoverBoundingRect = moveRef.current?.getBoundingClientRect();
+      // Get vertical middle
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+      // Determine mouse position
+      const clientOffset = monitor.getClientOffset();
+      // Get pixels to the top
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+      // Only perform the move when the mouse has crossed half of the items height
+      // When dragging downwards, only move when the cursor is below 50%
+      // When dragging upwards, only move when the cursor is above 50%
+      // Dragging downwards
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
+        return;
+      }
+      // Dragging upwards
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
+        return;
+      }
+      // Time to actually perform the action
+      moveSection(dragIndex, hoverIndex);
+      // Note: we're mutating the monitor item here!
+      // Generally it's better to avoid mutations,
+      // but it's good here for the sake of performance
+      // to avoid expensive index searches.
+      // eslint-disable-next-line no-param-reassign
+      item.index = hoverIndex;
+    },
+  });
+  const [{ isDragging }, drag] = useDrag({
+    type: ItemTypes.SECTION,
+    item: () => ({ id, index }),
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+  const opacity = isDragging ? 0 : 1;
+  drag(drop(moveRef));
 
   const sectionStatus = getItemStatus({
     published,
@@ -91,56 +149,64 @@ const SectionCard = forwardRef(({
   }, [savingStatus]);
 
   return (
-    <div className="section-card" data-testid="section-card" ref={lastItemRef}>
-      <CardHeader
-        sectionId={id}
-        title={displayName}
-        status={sectionStatus}
-        hasChanges={hasChanges}
-        isExpanded={isExpanded}
-        onExpand={handleExpandContent}
-        onClickMenuButton={handleClickMenuButton}
-        onClickPublish={onOpenPublishModal}
-        onClickConfigure={onOpenConfigureModal}
-        onClickEdit={openForm}
-        onClickDelete={onOpenDeleteModal}
-        isFormOpen={isFormOpen}
-        closeForm={closeForm}
-        onEditSubmit={handleEditSubmit}
-        isDisabledEditField={savingStatus === RequestStatus.IN_PROGRESS}
-        onClickDuplicate={onDuplicateSubmit}
-        namePrefix="section"
-      />
-      <div className="section-card__content" data-testid="section-card__content">
-        <div className="outline-section__status">
-          <Button
-            className="section-card__highlights"
-            data-destid="section-card-highlights-button"
-            variant="tertiary"
-            onClick={handleOpenHighlightsModal}
-          >
-            <Badge className="highlights-badge">{highlights.length}</Badge>
-            <p className="m-0 text-black">{messages.sectionHighlightsBadge.defaultMessage}</p>
-          </Button>
-        </div>
-      </div>
-      {isExpanded && (
-        <>
-          <div data-testid="section-card__subsections" className="section-card__subsections">
-            {children}
+    <div
+      className="section-card"
+      data-testid="section-card"
+      data-handler-id={handlerId}
+      style={{ opacity }}
+      ref={moveRef}
+    >
+      <div ref={lastItemRef}>
+        <CardHeader
+          sectionId={id}
+          title={displayName}
+          status={sectionStatus}
+          hasChanges={hasChanges}
+          isExpanded={isExpanded}
+          onExpand={handleExpandContent}
+          onClickMenuButton={handleClickMenuButton}
+          onClickPublish={onOpenPublishModal}
+          onClickConfigure={onOpenConfigureModal}
+          onClickEdit={openForm}
+          onClickDelete={onOpenDeleteModal}
+          isFormOpen={isFormOpen}
+          closeForm={closeForm}
+          onEditSubmit={handleEditSubmit}
+          isDisabledEditField={savingStatus === RequestStatus.IN_PROGRESS}
+          onClickDuplicate={onDuplicateSubmit}
+          namePrefix="section"
+        />
+        <div className="section-card__content" data-testid="section-card__content">
+          <div className="outline-section__status">
+            <Button
+              className="section-card__highlights"
+              data-destid="section-card-highlights-button"
+              variant="tertiary"
+              onClick={handleOpenHighlightsModal}
+            >
+              <Badge className="highlights-badge">{highlights.length}</Badge>
+              <p className="m-0 text-black">{messages.sectionHighlightsBadge.defaultMessage}</p>
+            </Button>
           </div>
-          <Button
-            data-testid="new-subsection-button"
-            className="mt-4"
-            variant="outline-primary"
-            iconBefore={IconAdd}
-            block
-            onClick={handleNewSubsectionSubmit}
-          >
-            {intl.formatMessage(messages.newSubsectionButton)}
-          </Button>
-        </>
-      )}
+        </div>
+        {isExpanded && (
+          <>
+            <div data-testid="section-card__subsections" className="section-card__subsections">
+              {children}
+            </div>
+            <Button
+              data-testid="new-subsection-button"
+              className="mt-4"
+              variant="outline-primary"
+              iconBefore={IconAdd}
+              block
+              onClick={handleNewSubsectionSubmit}
+            >
+              {intl.formatMessage(messages.newSubsectionButton)}
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 });
@@ -152,6 +218,7 @@ SectionCard.defaultProps = {
 SectionCard.propTypes = {
   section: PropTypes.shape({
     id: PropTypes.string.isRequired,
+    index: PropTypes.number.isRequired,
     displayName: PropTypes.string.isRequired,
     published: PropTypes.bool.isRequired,
     hasChanges: PropTypes.bool.isRequired,
@@ -171,6 +238,7 @@ SectionCard.propTypes = {
   onDuplicateSubmit: PropTypes.func.isRequired,
   isSectionsExpanded: PropTypes.bool.isRequired,
   onNewSubsectionSubmit: PropTypes.func.isRequired,
+  moveSection: PropTypes.func.isRequired,
 };
 
 export default SectionCard;

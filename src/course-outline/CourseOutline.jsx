@@ -1,4 +1,9 @@
-import { React, useEffect, useRef } from 'react';
+import {
+  React, useState, useCallback, useEffect, useRef
+} from 'react';
+import update from 'immutability-helper';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import PropTypes from 'prop-types';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
@@ -86,36 +91,36 @@ const CourseOutline = ({ courseId }) => {
   useEffect(() => {
     scrollToElement(listRef);
   }, [sectionsList]);
+  document.title = getPageHeadTitle(courseName, intl.formatMessage(messages.headingTitle));
+  const [sections, setSections] = useState(sectionsList);
 
   const {
     isShow: isShowProcessingNotification,
     title: processingNotificationTitle,
   } = useSelector(getProcessingNotification);
 
-  const dragItem = useRef();
-  const dragOverItem = useRef();
+  const moveSection = useCallback((dragIndex, hoverIndex) => {
+    setSections((prevSections) => {
+      const newList = update(prevSections, {
+        $splice: [
+          [dragIndex, 1],
+          [hoverIndex, 0, prevSections[dragIndex]],
+        ],
+      });
+      const idList = [];
+      for (let i = 0; i < newList.length; i++) {
+        idList.push(newList[i].id);
+      }
+      handleDragNDrop(idList);
+      return newList;
+    });
+  }, []);
 
-  const dragStart = (e, position) => {
-    dragItem.current = position;
-  };
-
-  const dragEnter = (e, position) => {
-    dragOverItem.current = position;
-  };
-
-  const drop = (e) => {
-    const copyListItems = [...sectionsList];
-    const dragItemContent = copyListItems[dragItem.current];
-    copyListItems.splice(dragItem.current, 1);
-    copyListItems.splice(dragOverItem.current, 0, dragItemContent);
-    dragItem.current = null;
-    dragOverItem.current = null;
-    const idList = [];
-    for (let i = 0; i < copyListItems.length; i++) {
-      idList.push(copyListItems[i].id);
+  useEffect(() => {
+    if (sectionsList) {
+      setSections(sectionsList);
     }
-    handleDragNDrop(idList, copyListItems);
-  };
+  }, [sectionsList]);
 
   if (isLoading) {
     // eslint-disable-next-line react/jsx-no-useless-fragment
@@ -176,18 +181,15 @@ const CourseOutline = ({ courseId }) => {
                       openEnableHighlightsModal={openEnableHighlightsModal}
                     />
                     <div className="pt-4">
-                      {sectionsList.length ? (
+                      {sections.length ? (
                         <>
-                          {sectionsList.map((section, index) => (
-                            <div
-                              onDragOver={(e) => e.preventDefault()}
-                              onDragStart={(e) => dragStart(e, index)}
-                              onDragEnter={(e) => dragEnter(e, index)}
-                              onDrop={(e) => drop(e)}
-                              draggable
-                            >
+                          <DndProvider
+                            backend={HTML5Backend}
+                          >
+                            {sections.map((section, index) => (
                               <SectionCard
                                 key={section.id}
+                                index={index}
                                 section={section}
                                 savingStatus={savingStatus}
                                 onOpenHighlightsModal={handleOpenHighlightsModal}
@@ -198,6 +200,7 @@ const CourseOutline = ({ courseId }) => {
                                 onDuplicateSubmit={handleDuplicateSectionSubmit}
                                 isSectionsExpanded={isSectionsExpanded}
                                 onNewSubsectionSubmit={handleNewSubsectionSubmit}
+                                moveSection={moveSection}
                                 ref={listRef}
                               >
                                 {section.childInfo.children.map((subsection) => (
@@ -214,8 +217,8 @@ const CourseOutline = ({ courseId }) => {
                                   />
                                 ))}
                               </SectionCard>
-                            </div>
                           ))}
+                          </DndProvider>
                           <Button
                             data-testid="new-section-button"
                             className="mt-4"

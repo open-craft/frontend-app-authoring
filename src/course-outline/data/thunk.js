@@ -386,8 +386,6 @@ export function setSectionOrderListQuery(courseId, newListId) {
     try {
       await setSectionOrderList(courseId, newListId).then(async (result) => {
         if (result) {
-          const outlineIndex = await getCourseOutlineIndex(courseId);
-          dispatch(reorderSectionList(outlineIndex.courseStructure.childInfo.children));
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
           dispatch(hideProcessingNotification());
         }
