@@ -218,7 +218,6 @@ SectionCard.defaultProps = {
 SectionCard.propTypes = {
   section: PropTypes.shape({
     id: PropTypes.string.isRequired,
-    index: PropTypes.number.isRequired,
     displayName: PropTypes.string.isRequired,
     published: PropTypes.bool.isRequired,
     hasChanges: PropTypes.bool.isRequired,
@@ -228,6 +227,7 @@ SectionCard.propTypes = {
     staffOnlyMessage: PropTypes.bool.isRequired,
     highlights: PropTypes.arrayOf(PropTypes.string).isRequired,
   }).isRequired,
+  index: PropTypes.number.isRequired,
   children: PropTypes.node,
   onOpenHighlightsModal: PropTypes.func.isRequired,
   onOpenPublishModal: PropTypes.func.isRequired,
