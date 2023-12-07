@@ -19,7 +19,8 @@ import {
   getCurrentSubsection,
 } from './data/selectors';
 import {
-  addNewCourseItemQuery,
+  addNewSectionQuery,
+  addNewSubsectionQuery,
   deleteCourseSectionQuery,
   deleteCourseSubsectionQuery,
   deleteCourseUnitQuery,
@@ -59,19 +60,11 @@ const useCourseOutline = ({ courseId }) => {
   const [isDeleteModalOpen, openDeleteModal, closeDeleteModal] = useToggle(false);
 
   const handleNewSectionSubmit = () => {
-    dispatch(addNewCourseItemQuery(
-      courseStructure.id,
-      COURSE_BLOCK_NAMES.chapter.id,
-      COURSE_BLOCK_NAMES.chapter.name,
-    ));
+    dispatch(addNewSectionQuery(courseStructure.id));
   };
 
   const handleNewSubsectionSubmit = (sectionId) => {
-    dispatch(addNewCourseItemQuery(
-      sectionId,
-      COURSE_BLOCK_NAMES.sequential.id,
-      COURSE_BLOCK_NAMES.sequential.name,
-    ));
+    dispatch(addNewSubsectionQuery(sectionId));
   };
 
   const headerNavigationsActions = {
