@@ -49,7 +49,7 @@ const ContentTagsDropDownSelector = ({
     let traversal = tagsTree;
     lineage.forEach(t => {
       // We need to decode the tag to traverse the tree since the lineage value is encoded
-      traversal = traversal[decodeURIComponent(t)]?.children || {};
+      traversal = traversal[t]?.children || {};
     });
 
     return (traversal[tag.value] && !traversal[tag.value].explicit) || false;
@@ -90,7 +90,7 @@ const ContentTagsDropDownSelector = ({
                     className="d-flex align-items-center taxonomy-tags-selectable-box"
                     aria-label={`${tagData.value} checkbox`}
                     data-selectable-box="taxonomy-tags"
-                    value={[...lineage, encodeURIComponent(tagData.value)].join(',')}
+                    value={[...lineage, tagData.value].map(t => encodeURIComponent(t)).join(',')}
                     isIndeterminate={isImplicit(tagData)}
                     disabled={isImplicit(tagData)}
                   >
@@ -115,7 +115,7 @@ const ContentTagsDropDownSelector = ({
                 <ContentTagsDropDownSelector
                   taxonomyId={taxonomyId}
                   level={level + 1}
-                  lineage={[...lineage, encodeURIComponent(tagData.value)]}
+                  lineage={[...lineage, tagData.value]}
                   tagsTree={tagsTree}
                   searchTerm={searchTerm}
                 />
