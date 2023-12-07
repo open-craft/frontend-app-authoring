@@ -274,10 +274,10 @@ export function deleteCourseUnitQuery(unitId, subsectionId, sectionId) {
 }
 
 /**
- * Generic function for duplicate any course item. See wrapper functions below for specific implementations.
+ * Generic function to duplicate any course item. See wrapper functions below for specific implementations.
  * @param {string} itemId
  * @param {string} parentLocator
- * @param {() => Promise<any>} duplicateFn
+ * @param {(locator) => Promise<any>} duplicateFn
  * @returns {}
  */
 function duplicateCourseItemQuery(itemId, parentLocator, duplicateFn) {
@@ -323,7 +323,15 @@ export function duplicateSubsectionQuery(subsectionId, sectionId) {
   };
 }
 
-export function addNewCourseItemQuery(parentLocator, category, displayName) {
+/**
+ * Generic function to add any course item. See wrapper functions below for specific implementations.
+ * @param {string} parentLocator
+ * @param {string} category
+ * @param {string} displayName
+ * @param {(data) => {}} addItemFn
+ * @returns {}
+ */
+function addNewCourseItemQuery(parentLocator, category, displayName, addItemFn) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
@@ -336,11 +344,7 @@ export function addNewCourseItemQuery(parentLocator, category, displayName) {
       ).then(async (result) => {
         if (result) {
           const data = await getCourseItem(result.locator);
-          if (category === COURSE_BLOCK_NAMES.chapter.id) {
-            dispatch(addSection(data));
-          } else if (category === COURSE_BLOCK_NAMES.sequential.id) {
-            dispatch(addSubsection({ parentLocator, data }));
-          }
+          dispatch(addItemFn(data));
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
           dispatch(hideProcessingNotification());
         }
@@ -349,5 +353,27 @@ export function addNewCourseItemQuery(parentLocator, category, displayName) {
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
     }
+  };
+}
+
+export function addNewSectionQuery(parentLocator) {
+  return async (dispatch) => {
+    dispatch(addNewCourseItemQuery(
+      parentLocator,
+      COURSE_BLOCK_NAMES.chapter.id,
+      COURSE_BLOCK_NAMES.chapter.name,
+      (data) => addSection(data),
+    ));
+  };
+}
+
+export function addNewSubsectionQuery(parentLocator) {
+  return async (dispatch) => {
+    dispatch(addNewCourseItemQuery(
+      parentLocator,
+      COURSE_BLOCK_NAMES.sequential.id,
+      COURSE_BLOCK_NAMES.sequential.name,
+      (data) => addSubsection({ parentLocator, data }),
+    ));
   };
 }
