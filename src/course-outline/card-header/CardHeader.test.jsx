@@ -47,8 +47,8 @@ describe('<CardHeader />', () => {
 
     expect(await findByText(cardHeaderProps.title)).toBeInTheDocument();
     expect(await findByTestId('section-card-header__expanded-btn')).toBeInTheDocument();
-    expect(await findByTestId('item-card-header__badge-status')).toBeInTheDocument();
-    expect(await findByTestId('item-card-header__menu')).toBeInTheDocument();
+    expect(await findByTestId('section-card-header__badge-status')).toBeInTheDocument();
+    expect(await findByTestId('section-card-header__menu')).toBeInTheDocument();
     await waitFor(() => {
       expect(queryByTestId('edit field')).not.toBeInTheDocument();
     });
@@ -62,7 +62,7 @@ describe('<CardHeader />', () => {
   it('render status badge as published_not_live', async () => {
     const { findByText } = renderComponent({
       ...cardHeaderProps,
-      sectionStatus: ITEM_BADGE_STATUS.publishedNotLive,
+      status: ITEM_BADGE_STATUS.publishedNotLive,
     });
 
     expect(await findByText(messages.statusBadgePublishedNotLive.defaultMessage)).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('<CardHeader />', () => {
   it('render status badge as staff_only', async () => {
     const { findByText } = renderComponent({
       ...cardHeaderProps,
-      sectionStatus: ITEM_BADGE_STATUS.staffOnly,
+      status: ITEM_BADGE_STATUS.staffOnly,
     });
 
     expect(await findByText(messages.statusBadgeStaffOnly.defaultMessage)).toBeInTheDocument();
@@ -80,7 +80,7 @@ describe('<CardHeader />', () => {
   it('render status badge as draft', async () => {
     const { findByText } = renderComponent({
       ...cardHeaderProps,
-      sectionStatus: ITEM_BADGE_STATUS.draft,
+      status: ITEM_BADGE_STATUS.draft,
     });
 
     expect(await findByText(messages.statusBadgeDraft.defaultMessage)).toBeInTheDocument();
@@ -89,10 +89,10 @@ describe('<CardHeader />', () => {
   it('check publish menu item is disabled when section status is live or published not live and it has no changes', async () => {
     const { findByText, findByTestId } = renderComponent({
       ...cardHeaderProps,
-      sectionStatus: ITEM_BADGE_STATUS.publishedNotLive,
+      status: ITEM_BADGE_STATUS.publishedNotLive,
     });
 
-    const menuButton = await findByTestId('item-card-header__menu-button');
+    const menuButton = await findByTestId('section-card-header__menu-button');
     fireEvent.click(menuButton);
     expect(await findByText(messages.menuPublish.defaultMessage)).toHaveAttribute('aria-disabled', 'true');
   });
@@ -100,11 +100,11 @@ describe('<CardHeader />', () => {
   it('check publish menu item is enabled when section status is live or published not live and it has changes', async () => {
     const { findByText, findByTestId } = renderComponent({
       ...cardHeaderProps,
-      sectionStatus: ITEM_BADGE_STATUS.publishedNotLive,
+      status: ITEM_BADGE_STATUS.publishedNotLive,
       hasChanges: true,
     });
 
-    const menuButton = await findByTestId('item-card-header__menu-button');
+    const menuButton = await findByTestId('section-card-header__menu-button');
     fireEvent.click(menuButton);
     expect(await findByText(messages.menuPublish.defaultMessage)).not.toHaveAttribute('aria-disabled');
   });
@@ -120,7 +120,7 @@ describe('<CardHeader />', () => {
   it('calls onClickMenuButton when menu is clicked', async () => {
     const { findByTestId } = renderComponent();
 
-    const menuButton = await findByTestId('item-card-header__menu-button');
+    const menuButton = await findByTestId('section-card-header__menu-button');
     fireEvent.click(menuButton);
     waitFor(() => {
       expect(onClickMenuButtonMock).toHaveBeenCalled();
@@ -130,10 +130,10 @@ describe('<CardHeader />', () => {
   it('calls onClickPublish when item is clicked', async () => {
     const { findByText, findByTestId } = renderComponent({
       ...cardHeaderProps,
-      sectionStatus: ITEM_BADGE_STATUS.draft,
+      status: ITEM_BADGE_STATUS.draft,
     });
 
-    const menuButton = await findByTestId('item-card-header__menu-button');
+    const menuButton = await findByTestId('section-card-header__menu-button');
     fireEvent.click(menuButton);
 
     const publishMenuItem = await findByText(messages.menuPublish.defaultMessage);
@@ -179,7 +179,7 @@ describe('<CardHeader />', () => {
   it('calls onClickDelete when item is clicked', async () => {
     const { findByText, findByTestId } = renderComponent();
 
-    const menuButton = await findByTestId('item-card-header__menu-button');
+    const menuButton = await findByTestId('section-card-header__menu-button');
     fireEvent.click(menuButton);
 
     const deleteMenuItem = await findByText(messages.menuDelete.defaultMessage);
@@ -192,7 +192,7 @@ describe('<CardHeader />', () => {
   it('calls onClickDuplicate when item is clicked', async () => {
     const { findByText, findByTestId } = renderComponent();
 
-    const menuButton = await findByTestId('item-card-header__menu-button');
+    const menuButton = await findByTestId('section-card-header__menu-button');
     fireEvent.click(menuButton);
 
     const duplicateMenuItem = await findByText(messages.menuDuplicate.defaultMessage);
