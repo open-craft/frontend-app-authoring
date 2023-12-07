@@ -14,17 +14,16 @@ import messages from './messages';
 // eslint-disable-next-line no-unused-vars
 let axiosMock;
 let store;
-const mockPathname = '/foo-bar';
 
 jest.mock('react-redux', () => ({
   ...jest.requireActual('react-redux'),
   useSelector: jest.fn(),
 }));
 
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useLocation: () => ({
-    pathname: mockPathname,
+jest.mock('@edx/frontend-platform/i18n', () => ({
+  ...jest.requireActual('@edx/frontend-platform/i18n'),
+  useIntl: () => ({
+    formatMessage: (message) => message.defaultMessage,
   }),
 }));
 
@@ -108,7 +107,7 @@ describe('<PublishModal />', () => {
   it('renders PublishModal component correctly', () => {
     const { getByText, getByRole, queryByText } = renderComponent();
 
-    expect(getByText(`Publish ${currentItemMock.displayName}`)).toBeInTheDocument();
+    expect(getByText(messages.title.defaultMessage)).toBeInTheDocument();
     expect(getByText(messages.description.defaultMessage)).toBeInTheDocument();
     expect(getByText(/Subsection 1/i)).toBeInTheDocument();
     expect(getByText(/Subsection_1 Unit 1/i)).toBeInTheDocument();
