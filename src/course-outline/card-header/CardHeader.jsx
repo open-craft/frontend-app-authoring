@@ -103,7 +103,7 @@ const CardHeader = ({
                   <Icon
                     src={badgeIcon}
                     size="sm"
-                    className={classNames({'text-success-500': status === ITEM_BADGE_STATUS.live })}
+                    className={classNames({ 'text-success-500': status === ITEM_BADGE_STATUS.live })}
                   />
                 )}
                 <span className="small">{badgeTitle}</span>

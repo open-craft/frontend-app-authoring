@@ -97,11 +97,11 @@ const slice = createSlice({
           ];
         }
         return section;
-      });;
+      });
     },
     deleteSection: (state, { payload }) => {
       state.sectionsList = state.sectionsList.filter(
-        ({ id }) => id !== payload.itemId
+        ({ id }) => id !== payload.itemId,
       );
     },
     deleteSubsection: (state, { payload }) => {
@@ -110,7 +110,7 @@ const slice = createSlice({
           return section;
         }
         section.childInfo.children = section.childInfo.children.filter(
-          ({ id }) => id !== payload.itemId
+          ({ id }) => id !== payload.itemId,
         );
         return section;
       });
@@ -125,7 +125,7 @@ const slice = createSlice({
             return subsection;
           }
           subsection.childInfo.children = subsection.childInfo.children.filter(
-            ({ id }) => id !== payload.itemId
+            ({ id }) => id !== payload.itemId,
           );
           return subsection;
         });

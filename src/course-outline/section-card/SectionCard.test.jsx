@@ -38,6 +38,7 @@ const renderComponent = (props) => render(
         onEditSectionSubmit={jest.fn()}
         onDuplicateSubmit={jest.fn()}
         isSectionsExpanded
+        namePrefix="section"
         {...props}
       >
         <span>children</span>

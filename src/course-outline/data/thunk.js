@@ -40,8 +40,6 @@ import {
   deleteSubsection,
   deleteUnit,
   duplicateSection,
-  duplicateSubsection,
-  duplicateUnit,
 } from './slice';
 
 export function fetchCourseOutlineIndexQuery(courseId) {
@@ -318,7 +316,7 @@ export function duplicateSubsectionQuery(subsectionId, sectionId) {
     dispatch(duplicateCourseItemQuery(
       subsectionId,
       sectionId,
-      async (_) => dispatch(fetchCourseSectionQuery(sectionId)),
+      async () => dispatch(fetchCourseSectionQuery(sectionId)),
     ));
   };
 }
