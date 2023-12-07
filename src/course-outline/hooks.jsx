@@ -31,7 +31,7 @@ import {
   fetchCourseLaunchQuery,
   fetchCourseOutlineIndexQuery,
   fetchCourseReindexQuery,
-  publishCourseSectionQuery,
+  publishCourseItemQuery,
   updateCourseSectionHighlightsQuery,
   configureCourseSectionQuery,
 } from './data/thunk';
@@ -104,8 +104,8 @@ const useCourseOutline = ({ courseId }) => {
     closeHighlightsModal();
   };
 
-  const handlePublishSectionSubmit = () => {
-    dispatch(publishCourseSectionQuery(currentItem.id, currentSection.id));
+  const handlePublishItemSubmit = () => {
+    dispatch(publishCourseItemQuery(currentItem.id, currentSection.id));
 
     closePublishModal();
   };
@@ -183,8 +183,8 @@ const useCourseOutline = ({ courseId }) => {
     headerNavigationsActions,
     handleEnableHighlightsSubmit,
     handleHighlightsFormSubmit,
-    handlePublishSectionSubmit,
     handleConfigureSectionSubmit,
+    handlePublishItemSubmit,
     handleEditSubmit,
     statusBarData,
     isEnableHighlightsModalOpen,
