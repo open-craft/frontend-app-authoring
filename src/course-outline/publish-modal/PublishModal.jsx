@@ -53,12 +53,12 @@ const PublishModal = ({
               ))}
             </React.Fragment>
           ) : (
-              <div
-                key={child.id}
-                className="small border border-light-400 p-2 publish-modal__subsection"
-              >
-                {child.displayName}
-              </div>
+            <div
+              key={child.id}
+              className="small border border-light-400 p-2 publish-modal__subsection"
+            >
+              {child.displayName}
+            </div>
           );
         })}
       </ModalDialog.Body>

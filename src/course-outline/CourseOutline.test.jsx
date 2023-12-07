@@ -8,7 +8,6 @@ import { initializeMockApp } from '@edx/frontend-platform';
 import MockAdapter from 'axios-mock-adapter';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
-import { COURSE_BLOCK_NAMES } from './constants';
 import {
   getCourseBestPracticesApiUrl,
   getCourseLaunchApiUrl,
@@ -20,7 +19,8 @@ import {
   getXBlockBaseApiUrl,
 } from './data/api';
 import {
-  addNewCourseItemQuery,
+  addNewSectionQuery,
+  addNewSubsectionQuery,
   deleteCourseSectionQuery,
   deleteCourseSubsectionQuery,
   duplicateSectionQuery,
@@ -133,11 +133,7 @@ describe('<CourseOutline />', () => {
     axiosMock
       .onGet(getXBlockApiUrl(courseSectionMock.id))
       .reply(200, courseSectionMock);
-    await executeThunk(addNewCourseItemQuery(
-      courseId,
-      COURSE_BLOCK_NAMES.chapter.id,
-      COURSE_BLOCK_NAMES.chapter.name
-    ), store.dispatch);
+    await executeThunk(addNewSectionQuery(courseId), store.dispatch);
 
     element = await findAllByTestId('section-card');
     expect(element.length).toBe(5);
@@ -159,11 +155,7 @@ describe('<CourseOutline />', () => {
     axiosMock
       .onGet(getXBlockApiUrl(courseSubsectionMock.id))
       .reply(200, courseSubsectionMock);
-    await executeThunk(addNewCourseItemQuery(
-      sectionId,
-      COURSE_BLOCK_NAMES.sequential.id,
-      COURSE_BLOCK_NAMES.sequential.name
-    ), store.dispatch);
+    await executeThunk(addNewSubsectionQuery(sectionId), store.dispatch);
 
     subsections = await within(section).findAllByTestId('subsection-card');
     expect(subsections.length).toBe(2);
@@ -330,7 +322,7 @@ describe('<CourseOutline />', () => {
       .reply(200, {
         locator: courseSectionMock.id,
       });
-    section.id = courseSectionMock.id,
+    section.id = courseSectionMock.id;
     axiosMock
       .onGet(getXBlockApiUrl(section.id))
       .reply(200, {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch } from 'react-redux';
 import { useIntl } from '@edx/frontend-platform/i18n';
-import { Badge, Button, useToggle } from '@edx/paragon';
+import { Button, useToggle } from '@edx/paragon';
 import { Add as IconAdd } from '@edx/paragon/icons';
 
 import { setCurrentItem, setCurrentSection, setCurrentSubsection } from '../data/slice';
@@ -87,10 +87,10 @@ const SubsectionCard = ({
         onEditSubmit={handleEditSubmit}
         isDisabledEditField={savingStatus === RequestStatus.IN_PROGRESS}
         onClickDuplicate={onDuplicateSubmit}
-        namePrefix={'subsection'}
+        namePrefix="subsection"
       />
       {isExpanded && (
-        <React.Fragment>
+        <>
           <div data-testid="subsection-card__units" className="subsection-card__units">
             {children}
           </div>
@@ -103,7 +103,7 @@ const SubsectionCard = ({
           >
             {intl.formatMessage(messages.newUnitButton)}
           </Button>
-        </React.Fragment>
+        </>
       )}
     </div>
   );

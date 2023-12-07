@@ -23,7 +23,6 @@ import {
   addNewSubsectionQuery,
   deleteCourseSectionQuery,
   deleteCourseSubsectionQuery,
-  deleteCourseUnitQuery,
   editCourseItemQuery,
   duplicateSectionQuery,
   duplicateSubsectionQuery,
@@ -123,21 +122,21 @@ const useCourseOutline = ({ courseId }) => {
 
   const handleDeleteItemSubmit = () => {
     switch (currentItem.category) {
-      case COURSE_BLOCK_NAMES.chapter.id:
-        dispatch(deleteCourseSectionQuery(currentItem.id));
-        break;
-      case COURSE_BLOCK_NAMES.sequential.id:
-        dispatch(deleteCourseSubsectionQuery(currentItem.id, currentSection.id));
-        break;
-      case COURSE_BLOCK_NAMES.vertical.id:
-        dispatch(deleteCourseSubsectionQuery(
-          currentItem.id,
-          currentSubsection.id,
-          currentSection.id
-        ));
-        break;
-      default:
-        return;
+    case COURSE_BLOCK_NAMES.chapter.id:
+      dispatch(deleteCourseSectionQuery(currentItem.id));
+      break;
+    case COURSE_BLOCK_NAMES.sequential.id:
+      dispatch(deleteCourseSubsectionQuery(currentItem.id, currentSection.id));
+      break;
+    case COURSE_BLOCK_NAMES.vertical.id:
+      dispatch(deleteCourseSubsectionQuery(
+        currentItem.id,
+        currentSubsection.id,
+        currentSection.id,
+      ));
+      break;
+    default:
+      return;
     }
     closeDeleteModal();
   };

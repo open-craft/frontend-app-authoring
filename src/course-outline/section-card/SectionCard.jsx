@@ -109,7 +109,7 @@ const SectionCard = forwardRef(({
         onEditSubmit={handleEditSubmit}
         isDisabledEditField={savingStatus === RequestStatus.IN_PROGRESS}
         onClickDuplicate={onDuplicateSubmit}
-        namePrefix={'section'}
+        namePrefix="section"
       />
       <div className="section-card__content" data-testid="section-card__content">
         <div className="outline-section__status">
