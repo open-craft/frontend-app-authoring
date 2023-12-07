@@ -72,8 +72,8 @@ const CourseOutline = ({ courseId }) => {
     handleInternetConnectionFailed,
     handleOpenHighlightsModal,
     handleHighlightsFormSubmit,
-    handlePublishSectionSubmit,
     handleConfigureSectionSubmit,
+    handlePublishItemSubmit,
     handleEditSubmit,
     handleDeleteItemSubmit,
     handleDuplicateSectionSubmit,
@@ -218,7 +218,7 @@ const CourseOutline = ({ courseId }) => {
         <PublishModal
           isOpen={isPublishModalOpen}
           onClose={closePublishModal}
-          onPublishSubmit={handlePublishSectionSubmit}
+          onPublishSubmit={handlePublishItemSubmit}
         />
         <ConfigureModal
           isOpen={isConfigureModalOpen}

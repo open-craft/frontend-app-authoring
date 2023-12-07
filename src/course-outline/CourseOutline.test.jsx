@@ -32,7 +32,7 @@ import {
   fetchCourseOutlineIndexQuery,
   fetchCourseReindexQuery,
   fetchCourseSectionQuery,
-  publishCourseSectionQuery,
+  publishCourseItemQuery,
   updateCourseSectionHighlightsQuery,
 } from './data/thunk';
 import initializeStore from '../store';
@@ -389,7 +389,7 @@ describe('<CourseOutline />', () => {
       })
       .reply(200);
 
-    await executeThunk(publishCourseSectionQuery(section.id, section.id), store.dispatch);
+    await executeThunk(publishCourseItemQuery(section.id, section.id), store.dispatch);
 
     axiosMock
       .onGet(getXBlockApiUrl(section.id))
