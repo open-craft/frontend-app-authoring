@@ -77,10 +77,8 @@ const slice = createSlice({
       state.currentItem = payload;
     },
     reorderSectionList: (state, { payload }) => {
-      let sectionsList = [...state.sectionsList];
-      sectionsList.sort(function(a, b){
-        return payload.indexOf(a.id) - payload.indexOf(b.id);
-      });
+      const sectionsList = [...state.sectionsList];
+      sectionsList.sort((a, b) => payload.indexOf(a.id) - payload.indexOf(b.id));
 
       state.sectionsList = [...sectionsList];
     },
