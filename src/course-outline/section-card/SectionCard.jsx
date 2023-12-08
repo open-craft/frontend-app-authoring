@@ -106,6 +106,7 @@ const SectionCard = forwardRef(({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
+    canDrag: () => !isFormOpen,
     end: (item) => {
       const { startingIndex } = item;
       if (index !== startingIndex) {
@@ -184,6 +185,7 @@ const SectionCard = forwardRef(({
           isDisabledEditField={savingStatus === RequestStatus.IN_PROGRESS}
           onClickDuplicate={onDuplicateSubmit}
           namePrefix="section"
+          className="nodrag"
         />
         <div className="section-card__content" data-testid="section-card__content">
           <div className="outline-section__status">
