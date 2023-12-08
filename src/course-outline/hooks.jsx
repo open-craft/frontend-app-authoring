@@ -6,6 +6,7 @@ import { RequestStatus } from '../data/constants';
 import { COURSE_BLOCK_NAMES } from './constants';
 import {
   setCurrentItem,
+  setCurrentSection,
   updateSavingStatus,
 } from './data/slice';
 import {
@@ -95,6 +96,7 @@ const useCourseOutline = ({ courseId }) => {
 
   const handleOpenHighlightsModal = (section) => {
     dispatch(setCurrentItem(section));
+    dispatch(setCurrentSection(section));
     openHighlightsModal();
   };
 
