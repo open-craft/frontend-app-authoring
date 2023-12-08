@@ -30,6 +30,7 @@ const renderComponent = (props) => render(
     <IntlProvider locale="en">
       <SectionCard
         section={section}
+        index={0}
         onOpenPublishModal={jest.fn()}
         onOpenHighlightsModal={jest.fn()}
         onOpenDeleteModal={jest.fn()}
@@ -39,6 +40,8 @@ const renderComponent = (props) => render(
         onDuplicateSubmit={jest.fn()}
         isSectionsExpanded
         namePrefix="section"
+        moveSection={jest.fn()}
+        finalizeSectionOrder={jest.fn()}
         {...props}
       >
         <span>children</span>
