@@ -23,6 +23,7 @@ import {
   addNewSubsectionQuery,
   deleteCourseSectionQuery,
   deleteCourseSubsectionQuery,
+  deleteCourseUnitQuery,
   editCourseItemQuery,
   duplicateSectionQuery,
   duplicateSubsectionQuery,
@@ -129,7 +130,7 @@ const useCourseOutline = ({ courseId }) => {
       dispatch(deleteCourseSubsectionQuery(currentItem.id, currentSection.id));
       break;
     case COURSE_BLOCK_NAMES.vertical.id:
-      dispatch(deleteCourseSubsectionQuery(
+      dispatch(deleteCourseUnitQuery(
         currentItem.id,
         currentSubsection.id,
         currentSection.id,
