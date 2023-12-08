@@ -153,8 +153,8 @@ const useCourseOutline = ({ courseId }) => {
     dispatch(duplicateSubsectionQuery(currentSubsection.id, currentSection.id));
   };
 
-  const handleDragNDrop = (newListId) => {
-    dispatch(setSectionOrderListQuery(courseId, newListId));
+  const handleDragNDrop = (newListId, restoreCallback) => {
+    dispatch(setSectionOrderListQuery(courseId, newListId, restoreCallback));
   };
 
   useEffect(() => {

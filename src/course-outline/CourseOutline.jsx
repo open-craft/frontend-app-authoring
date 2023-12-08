@@ -94,6 +94,8 @@ const CourseOutline = ({ courseId }) => {
   document.title = getPageHeadTitle(courseName, intl.formatMessage(messages.headingTitle));
   const [sections, setSections] = useState(sectionsList);
 
+  const initialSections = [...sections];
+
   const {
     isShow: isShowProcessingNotification,
     title: processingNotificationTitle,
@@ -112,8 +114,10 @@ const CourseOutline = ({ courseId }) => {
   }, []);
 
   const finalizeSectionOrder = () => {
-    handleDragNDrop(sections.map((section) => section.id));
-  }
+    handleDragNDrop(sections.map((section) => section.id), () => {
+      setSections(() => initialSections);
+    });
+  };
 
   useEffect(() => {
     if (sectionsList) {

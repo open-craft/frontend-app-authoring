@@ -98,14 +98,19 @@ const SectionCard = forwardRef(({
       item.index = hoverIndex;
     },
   });
+
+  const indexCopy = index;
   const [{ isDragging }, drag] = useDrag({
     type: ItemTypes.SECTION,
-    item: () => ({ id, index }),
+    item: () => ({ id, index, startingIndex: indexCopy }),
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-    end: () => {
-      finalizeSectionOrder();
+    end: (item) => {
+      const { startingIndex } = item;
+      if (index !== startingIndex) {
+        finalizeSectionOrder();
+      }
     },
   });
   const opacity = isDragging ? 0 : 1;

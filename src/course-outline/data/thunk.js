@@ -378,7 +378,7 @@ export function addNewSubsectionQuery(parentLocator) {
   };
 }
 
-export function setSectionOrderListQuery(courseId, newListId) {
+export function setSectionOrderListQuery(courseId, newListId, restoreCallback) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
     dispatch(showProcessingNotification(NOTIFICATION_MESSAGES.saving));
@@ -393,6 +393,7 @@ export function setSectionOrderListQuery(courseId, newListId) {
     } catch (error) {
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
+      restoreCallback();
     }
   };
 }
