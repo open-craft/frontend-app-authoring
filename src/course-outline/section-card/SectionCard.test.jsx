@@ -42,6 +42,8 @@ const renderComponent = (props) => render(
         namePrefix="section"
         moveSection={jest.fn()}
         finalizeSectionOrder={jest.fn()}
+        connectDragSource={(el) => el}
+        isDragging
         {...props}
       >
         <span>children</span>
