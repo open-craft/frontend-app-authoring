@@ -386,14 +386,15 @@ export function setSectionOrderListQuery(courseId, newListId, restoreCallback) {
     try {
       await setSectionOrderList(courseId, newListId).then(async (result) => {
         if (result) {
+          dispatch(reorderSectionList(newListId));
           dispatch(updateSavingStatus({ status: RequestStatus.SUCCESSFUL }));
           dispatch(hideProcessingNotification());
         }
       });
     } catch (error) {
+      restoreCallback();
       dispatch(hideProcessingNotification());
       dispatch(updateSavingStatus({ status: RequestStatus.FAILED }));
-      restoreCallback();
     }
   };
 }

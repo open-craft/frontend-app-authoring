@@ -94,7 +94,7 @@ const CourseOutline = ({ courseId }) => {
   document.title = getPageHeadTitle(courseName, intl.formatMessage(messages.headingTitle));
   const [sections, setSections] = useState(sectionsList);
 
-  const initialSections = [...sections];
+  const initialSections = [...sectionsList];
 
   const {
     isShow: isShowProcessingNotification,
