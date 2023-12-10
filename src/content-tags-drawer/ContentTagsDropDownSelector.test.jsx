@@ -8,8 +8,12 @@ import { useTaxonomyTagsData } from './data/apiHooks';
 
 jest.mock('./data/apiHooks', () => ({
   useTaxonomyTagsData: jest.fn(() => ({
-    isSuccess: false,
-    data: {},
+    hasMorePages: false,
+    tagPages: [{
+      isLoading: true,
+      isError: false,
+      data: [],
+    }],
   })),
 }));
 
@@ -68,14 +72,22 @@ describe('<ContentTagsDropDownSelector />', () => {
 
   it('should render taxonomy tags drop down selector with no sub tags', async () => {
     useTaxonomyTagsData.mockReturnValue({
-      isSuccess: true,
-      data: {
-        results: [{
+      hasMorePages: false,
+      tagPages: [{
+        isLoading: false,
+        isError: false,
+        data: [{
           value: 'Tag 1',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12345,
           subTagsUrl: null,
         }],
-      },
+      }],
     });
+
     await act(async () => {
       const { container, getByText } = render(
         <ContentTagsDropDownSelectorComponent
@@ -94,14 +106,22 @@ describe('<ContentTagsDropDownSelector />', () => {
 
   it('should render taxonomy tags drop down selector with sub tags', async () => {
     useTaxonomyTagsData.mockReturnValue({
-      isSuccess: true,
-      data: {
-        results: [{
+      hasMorePages: false,
+      tagPages: [{
+        isLoading: false,
+        isError: false,
+        data: [{
           value: 'Tag 2',
-          subTagsUrl: 'https://example.com',
+          externalId: null,
+          childCount: 1,
+          depth: 0,
+          parentValue: null,
+          id: 12345,
+          subTagsUrl: 'http://localhost:18010/api/content_tagging/v1/taxonomies/4/tags/?parent_tag=Tag%202',
         }],
-      },
+      }],
     });
+
     await act(async () => {
       const { container, getByText } = render(
         <ContentTagsDropDownSelectorComponent

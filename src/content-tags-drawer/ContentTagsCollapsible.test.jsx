@@ -18,8 +18,12 @@ jest.mock('./data/apiHooks', () => ({
     mutate: jest.fn(),
   })),
   useTaxonomyTagsData: jest.fn(() => ({
-    isSuccess: false,
-    data: {},
+    hasMorePages: false,
+    tagPages: [{
+      isLoading: true,
+      isError: false,
+      data: [],
+    }],
   })),
 }));
 
@@ -83,19 +87,36 @@ describe('<ContentTagsCollapsible />', () => {
 
   it('should render new tags as they are checked in the dropdown', async () => {
     useTaxonomyTagsData.mockReturnValue({
-      isSuccess: true,
-      data: {
-        results: [{
+      hasMorePages: false,
+      tagPages: [{
+        isLoading: false,
+        isError: false,
+        data: [{
           value: 'Tag 1',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12345,
           subTagsUrl: null,
         }, {
           value: 'Tag 2',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12346,
           subTagsUrl: null,
         }, {
           value: 'Tag 3',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12347,
           subTagsUrl: null,
         }],
-      },
+      }],
     });
 
     await act(async () => {
@@ -141,19 +162,36 @@ describe('<ContentTagsCollapsible />', () => {
 
   it('should remove tag when they are unchecked in the dropdown', async () => {
     useTaxonomyTagsData.mockReturnValue({
-      isSuccess: true,
-      data: {
-        results: [{
+      hasMorePages: false,
+      tagPages: [{
+        isLoading: false,
+        isError: false,
+        data: [{
           value: 'Tag 1',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12345,
           subTagsUrl: null,
         }, {
           value: 'Tag 2',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12346,
           subTagsUrl: null,
         }, {
           value: 'Tag 3',
+          externalId: null,
+          childCount: 0,
+          depth: 0,
+          parentValue: null,
+          id: 12347,
           subTagsUrl: null,
         }],
-      },
+      }],
     });
 
     await act(async () => {

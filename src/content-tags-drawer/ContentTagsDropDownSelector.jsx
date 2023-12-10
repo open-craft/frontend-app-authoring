@@ -62,6 +62,8 @@ const ContentTagsDropDownSelector = ({
   return (
     <div style={{ marginLeft: `${level * 1 }rem` }}>
       {tagPages.map((tagPage, pageNum) => (
+        // Array index represents the page number
+        // eslint-disable-next-line react/no-array-index-key
         <React.Fragment key={`tag-page-${pageNum}`}>
           {tagPage.isLoading ? (
             <div className="d-flex justify-content-center align-items-center flex-row">
@@ -79,7 +81,6 @@ const ContentTagsDropDownSelector = ({
               <div
                 className="d-flex flex-row"
                 style={{
-                  // paddingLeft: `${level * 1}rem`,
                   minHeight: '44px',
                 }}
               >
@@ -131,7 +132,6 @@ const ContentTagsDropDownSelector = ({
         ? (
           <div className="d-flex justify-content-center align-items-center flex-row">
             <Button
-              // style={{ marginLeft: `${level * 1 }rem` }}
               variant="outline-primary"
               onClick={loadMoreTags}
               className="mb-2 taxonomy-tags-load-more-button"
