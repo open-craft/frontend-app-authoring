@@ -174,12 +174,12 @@ export async function restartIndexingOnCourse(reindexLink) {
 
 /**
  * Get course section
- * @param {string} sectionId
+ * @param {string} itemId
  * @returns {Promise<section>}
  */
-export async function getCourseItem(sectionId) {
+export async function getCourseItem(itemId) {
   const { data } = await getAuthenticatedHttpClient()
-    .get(getXBlockApiUrl(sectionId));
+    .get(getXBlockApiUrl(itemId));
   return camelCaseObject(data);
 }
 
@@ -236,7 +236,7 @@ export async function configureCourseSection(sectionId, isVisibleToStaffOnly, st
 
 /**
  * Edit course section
- * @param {string} sectionId
+ * @param {string} itemId
  * @param {string} displayName
  * @returns {Promise<Object>}
  */
@@ -253,7 +253,7 @@ export async function editItemDisplayName(itemId, displayName) {
 
 /**
  * Delete course section
- * @param {string} sectionId
+ * @param {string} itemId
  * @returns {Promise<Object>}
  */
 export async function deleteCourseItem(itemId) {
@@ -265,8 +265,8 @@ export async function deleteCourseItem(itemId) {
 
 /**
  * Duplicate course section
- * @param {string} sectionId
- * @param {string} courseBlockId
+ * @param {string} itemId
+ * @param {string} parentId
  * @returns {Promise<Object>}
  */
 export async function duplicateCourseItem(itemId, parentId) {
@@ -281,7 +281,9 @@ export async function duplicateCourseItem(itemId, parentId) {
 
 /**
  * Add new course item like section, subsection or unit.
- * @param {string} courseBlockId
+ * @param {string} parentLocator
+ * @param {string} category
+ * @param {string} displayName
  * @returns {Promise<Object>}
  */
 export async function addNewCourseItem(parentLocator, category, displayName) {
