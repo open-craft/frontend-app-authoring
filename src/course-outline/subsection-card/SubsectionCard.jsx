@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useDispatch } from 'react-redux';
 import { useIntl } from '@edx/frontend-platform/i18n';
@@ -11,7 +11,7 @@ import CardHeader from '../card-header/CardHeader';
 import { getItemStatus } from '../utils';
 import messages from './messages';
 
-const SubsectionCard = ({
+const SubsectionCard = forwardRef(({
   section,
   subsection,
   children,
@@ -20,7 +20,7 @@ const SubsectionCard = ({
   savingStatus,
   onOpenDeleteModal,
   onDuplicateSubmit,
-}) => {
+}, lastItemRef) => {
   const intl = useIntl();
   const dispatch = useDispatch();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -71,7 +71,7 @@ const SubsectionCard = ({
   }, [savingStatus]);
 
   return (
-    <div className="subsection-card" data-testid="subsection-card">
+    <div className="subsection-card" data-testid="subsection-card" ref={lastItemRef}>
       <CardHeader
         title={displayName}
         status={subsectionStatus}
@@ -107,7 +107,7 @@ const SubsectionCard = ({
       )}
     </div>
   );
-};
+});
 
 SubsectionCard.defaultProps = {
   children: null,

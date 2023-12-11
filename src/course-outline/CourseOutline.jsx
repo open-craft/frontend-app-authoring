@@ -177,6 +177,7 @@ const CourseOutline = ({ courseId }) => {
                                   onOpenDeleteModal={openDeleteModal}
                                   onEditSubmit={handleEditSubmit}
                                   onDuplicateSubmit={handleDuplicateSubsectionSubmit}
+                                  ref={listRef}
                                 />
                               ))}
                             </SectionCard>
