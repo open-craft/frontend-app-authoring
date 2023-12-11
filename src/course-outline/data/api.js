@@ -222,7 +222,7 @@ export async function publishCourseSection(sectionId) {
  */
 export async function configureCourseSection(sectionId, isVisibleToStaffOnly, startDatetime) {
   const { data } = await getAuthenticatedHttpClient()
-    .post(getUpdateCourseSectionApiUrl(sectionId), {
+    .post(getCourseItemApiUrl(sectionId), {
       publish: 'republish',
       metadata: {
         // The backend expects metadata.visible_to_staff_only to either true or null

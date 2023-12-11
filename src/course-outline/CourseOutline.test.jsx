@@ -411,7 +411,7 @@ describe('<CourseOutline />', () => {
     const section = courseOutlineIndexMock.courseStructure.childInfo.children[0];
     const newReleaseDate = '2025-08-10T10:00:00Z';
     axiosMock
-      .onPost(getUpdateCourseSectionApiUrl(section.id), {
+      .onPost(getCourseItemApiUrl(section.id), {
         id: section.id,
         data: null,
         metadata: {
