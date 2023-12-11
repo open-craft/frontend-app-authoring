@@ -110,7 +110,11 @@ const getHighlightsFormValues = (currentHighlights) => {
 };
 
 const scrollToElement = (ref) => {
-  ref.current?.scrollIntoView({ behavior: 'smooth' });
+  ref.current?.scrollIntoView({
+    block: 'end',
+    inline: 'nearest',
+    behavior: 'smooth',
+  });
 };
 
 export {
