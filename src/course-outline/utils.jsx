@@ -13,7 +13,7 @@ import { SECTION_BADGE_STATUTES, STAFF_ONLY } from './constants';
  * @param {bool} visibleToStaffOnly - value from section info
  * @param {string} visibilityState - value from section info
  * @param {bool} staffOnlyMessage - value from section info
- * @returns {typeof SECTION_BADGE_STATUTES}
+ * @returns {SECTION_BADGE_STATUTES[keyof SECTION_BADGE_STATUTES]}
  */
 const getSectionStatus = ({
   published,
