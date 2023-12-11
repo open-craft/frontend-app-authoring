@@ -58,7 +58,7 @@ const getSectionStatusBadgeContent = (status, messages, intl) => {
     };
   case SECTION_BADGE_STATUTES.staffOnly:
     return {
-      badgeTitle: intl.formatMessage(messages.statusBadgeStuffOnly),
+      badgeTitle: intl.formatMessage(messages.statusBadgeStaffOnly),
       badgeIcon: LockIcon,
     };
   case SECTION_BADGE_STATUTES.draft:

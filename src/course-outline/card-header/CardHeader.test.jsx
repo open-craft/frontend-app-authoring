@@ -73,7 +73,7 @@ describe('<CardHeader />', () => {
       sectionStatus: SECTION_BADGE_STATUTES.staffOnly,
     });
 
-    expect(await findByText(messages.statusBadgeStuffOnly.defaultMessage)).toBeInTheDocument();
+    expect(await findByText(messages.statusBadgeStaffOnly.defaultMessage)).toBeInTheDocument();
   });
 
   it('render status badge as draft', async () => {

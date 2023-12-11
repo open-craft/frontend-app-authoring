@@ -106,7 +106,7 @@ const SectionCard = ({
             onClick={handleOpenHighlightsModal}
           >
             <Badge className="highlights-badge">{highlights.length}</Badge>
-            <p className="m-0 text-black">Section highlights</p>
+            <p className="m-0 text-black">{messages.sectionHighlightsBadge.defaultMessage}</p>
           </Button>
         </div>
       </div>
