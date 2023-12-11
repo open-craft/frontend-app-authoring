@@ -7,6 +7,7 @@ import {
   Layout,
   TransitionReplace,
 } from '@edx/paragon';
+import { Helmet } from 'react-helmet';
 import {
   Add as IconAdd,
   CheckCircle as CheckCircleIcon,
@@ -71,8 +72,6 @@ const CourseOutline = ({ courseId }) => {
     handleNewSectionSubmit,
   } = useCourseOutline({ courseId });
 
-  document.title = getPageHeadTitle(courseName, intl.formatMessage(messages.headingTitle));
-
   const {
     isShow: isShowProcessingNotification,
     title: processingNotificationTitle,
@@ -85,6 +84,9 @@ const CourseOutline = ({ courseId }) => {
 
   return (
     <>
+      <Helmet>
+        <title>{getPageHeadTitle(courseName, intl.formatMessage(messages.headingTitle))}</title>
+      </Helmet>
       <Container size="xl" className="px-4">
         <section className="course-outline-container mb-4 mt-5">
           <TransitionReplace>
