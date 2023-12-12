@@ -1,5 +1,5 @@
 import {
-  React, useState, useCallback, useEffect, useRef
+  React, useState, useCallback, useEffect, useRef,
 } from 'react';
 import update from 'immutability-helper';
 import { DndProvider } from 'react-dnd';
@@ -88,9 +88,6 @@ const CourseOutline = ({ courseId }) => {
     handleDragNDrop,
   } = useCourseOutline({ courseId });
 
-  useEffect(() => {
-    scrollToElement(listRef);
-  }, [sectionsList]);
   document.title = getPageHeadTitle(courseName, intl.formatMessage(messages.headingTitle));
   const [sections, setSections] = useState(sectionsList);
 
@@ -121,7 +118,12 @@ const CourseOutline = ({ courseId }) => {
 
   useEffect(() => {
     if (sectionsList) {
-      setSections(sectionsList);
+      setSections((prevSections) => {
+        if(prevSections.length < sectionsList.length) {
+          scrollToElement(listRef);
+        }
+        return sectionsList
+      });
     }
   }, [sectionsList]);
 
