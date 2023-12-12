@@ -299,8 +299,8 @@ export async function addNewCourseItem(parentLocator, category, displayName) {
 
 /**
  * Set order for the list of the sections
- * @param {string} courseBlockId
- * @param {Array<string>} list of sections id's
+ * @param {string} courseId
+ * @param {Array<string>} children list of sections id's
  * @returns {Promise<Object>}
 */
 export async function setSectionOrderList(courseId, children) {

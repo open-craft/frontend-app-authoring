@@ -1,4 +1,6 @@
-import React, { forwardRef, useEffect, useState, useRef } from 'react';
+import React, {
+  forwardRef, useEffect, useState, useRef,
+} from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import PropTypes from 'prop-types';
 import { useDispatch } from 'react-redux';

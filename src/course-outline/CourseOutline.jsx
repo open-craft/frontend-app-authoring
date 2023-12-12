@@ -119,10 +119,10 @@ const CourseOutline = ({ courseId }) => {
   useEffect(() => {
     if (sectionsList) {
       setSections((prevSections) => {
-        if(prevSections.length < sectionsList.length) {
+        if (prevSections.length < sectionsList.length) {
           scrollToElement(listRef);
         }
-        return sectionsList
+        return sectionsList;
       });
     }
   }, [sectionsList]);
