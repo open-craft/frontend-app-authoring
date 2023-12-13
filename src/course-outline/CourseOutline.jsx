@@ -98,7 +98,7 @@ const CourseOutline = ({ courseId }) => {
     title: processingNotificationTitle,
   } = useSelector(getProcessingNotification);
 
-  const moveSection = useCallback((dragIndex, hoverIndex) => {
+  const moveSection = useCallback((dragIndex, hoverIndex, dragElement) => {
     setSections((prevSections) => {
       const newList = update(prevSections, {
         $splice: [
@@ -106,6 +106,9 @@ const CourseOutline = ({ courseId }) => {
           [hoverIndex, 0, prevSections[dragIndex]],
         ],
       });
+      // set listRef to element that was dragged to make sure scrolling
+      // uses the correct element while calculating visibility.
+      listRef.current = dragElement;
       return newList;
     });
   }, []);
@@ -117,15 +120,15 @@ const CourseOutline = ({ courseId }) => {
   };
 
   useEffect(() => {
-    if (sectionsList) {
-      setSections((prevSections) => {
-        if (prevSections.length < sectionsList.length) {
-          scrollToElement(listRef);
-        }
-        return sectionsList;
-      });
-    }
+    setSections(sectionsList);
   }, [sectionsList]);
+
+  useEffect(() => {
+    // scrollToElement called in another useEffect to make sure sections are rendered first.
+    if (listRef.current) {
+      scrollToElement(listRef.current);
+    }
+  }, [sections]);
 
   if (isLoading) {
     // eslint-disable-next-line react/jsx-no-useless-fragment

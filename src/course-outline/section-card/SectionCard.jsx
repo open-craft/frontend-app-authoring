@@ -91,7 +91,7 @@ const SectionCard = forwardRef(({
         return;
       }
       // Time to actually perform the action
-      moveSection(dragIndex, hoverIndex);
+      moveSection(dragIndex, hoverIndex, moveRef.current);
       // Note: we're mutating the monitor item here!
       // Generally it's better to avoid mutations,
       // but it's good here for the sake of performance
