@@ -1,6 +1,12 @@
 .sub-header {
   display: flex;
 
+  .sub-header-title-actions {
+    .pgn__menu-item:focus {
+      font-weight: bold;
+    }
+  }
+
   .sub-header-actions {
     margin-bottom: 1.75rem;
     align-self: flex-end;

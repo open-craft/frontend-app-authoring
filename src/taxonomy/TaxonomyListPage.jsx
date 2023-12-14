@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   Button,
   CardView,
@@ -8,9 +8,12 @@ import {
   OverlayTrigger,
   Spinner,
   Tooltip,
+  SelectMenu,
+  MenuItem,
 } from '@edx/paragon';
 import {
   Add,
+  Check,
 } from '@edx/paragon/icons';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { Helmet } from 'react-helmet';
@@ -20,6 +23,7 @@ import messages from './messages';
 import TaxonomyCard from './taxonomy-card';
 import { getTaxonomyTemplateApiUrl } from './data/api';
 import { useTaxonomyListDataResponse, useIsTaxonomyListDataLoaded, useDeleteTaxonomy } from './data/apiHooks';
+import { useOrganizationListData } from '../generic/data/apiHooks';
 import { TaxonomyContext } from './common/context';
 
 const TaxonomyListHeaderButtons = () => {
@@ -68,6 +72,7 @@ const TaxonomyListPage = () => {
   const intl = useIntl();
   const deleteTaxonomy = useDeleteTaxonomy();
   const { setToastMessage } = useContext(TaxonomyContext);
+  const [selectedOrgFilter, setSelectedOrgFilter] = useState('All taxonomies');
 
   const onDeleteTaxonomy = React.useCallback((id, name) => {
     deleteTaxonomy({ pk: id }, {
@@ -80,18 +85,77 @@ const TaxonomyListPage = () => {
     });
   }, [setToastMessage]);
 
+  const {
+    data: organizationListData,
+    isSuccess: isOrganizationListLoaded,
+  } = useOrganizationListData();
+
   const useTaxonomyListData = () => {
-    const taxonomyListData = useTaxonomyListDataResponse();
-    const isLoaded = useIsTaxonomyListDataLoaded();
+    const taxonomyListData = useTaxonomyListDataResponse(selectedOrgFilter);
+    const isLoaded = useIsTaxonomyListDataLoaded(selectedOrgFilter);
     return { taxonomyListData, isLoaded };
   };
   const { taxonomyListData, isLoaded } = useTaxonomyListData();
 
-  const getOrgSelect = () => (
+  const isOrgSelected = (value) => (value === selectedOrgFilter ? <Check /> : null);
+
+  const getOrgSelect = () => {
     // Organization select component
-    // TODO Add functionality to this component
-    undefined
-  );
+
+    const selectOptions = [
+      <MenuItem
+        key="all-orgs-taxonomies"
+        className="x-small"
+        iconAfter={() => isOrgSelected('All taxonomies')}
+        onClick={() => setSelectedOrgFilter('All taxonomies')}
+      >
+        { isOrgSelected('All taxonomies')
+          ? intl.formatMessage(messages.orgInputSelectDefaultValue)
+          : intl.formatMessage(messages.orgAllValue)}
+      </MenuItem>,
+      <MenuItem
+        key="unassigned-taxonomies"
+        className="x-small"
+        iconAfter={() => isOrgSelected('Unassigned')}
+        onClick={() => setSelectedOrgFilter('Unassigned')}
+      >
+        { intl.formatMessage(messages.orgUnassignedValue) }
+      </MenuItem>,
+    ];
+
+    if (isOrganizationListLoaded && organizationListData) {
+      organizationListData.map(org => (
+        selectOptions.push(
+          <MenuItem
+            key={`${org}-taxonomies`}
+            className="x-small"
+            iconAfter={() => isOrgSelected(org)}
+            onClick={() => setSelectedOrgFilter(org)}
+          >
+            {org}
+          </MenuItem>,
+        )
+      ));
+    }
+
+    return (
+      <SelectMenu
+        className="flex-d x-small"
+        variant="tertiary"
+        defaultMessage={intl.formatMessage(messages.orgInputSelectDefaultValue)}
+      >
+        { isOrganizationListLoaded
+          ? selectOptions
+          : (
+            <Spinner
+              animation="border"
+              size="xl"
+              screenReaderText={intl.formatMessage(messages.usageLoadingMessage)}
+            />
+          )}
+      </SelectMenu>
+    );
+  };
 
   return (
     <>
