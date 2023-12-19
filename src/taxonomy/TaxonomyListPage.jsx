@@ -143,6 +143,7 @@ const TaxonomyListPage = () => {
         className="flex-d x-small"
         variant="tertiary"
         defaultMessage={intl.formatMessage(messages.orgInputSelectDefaultValue)}
+        data-testid="taxonomy-orgs-filter-selector"
       >
         { isOrganizationListLoaded
           ? selectOptions

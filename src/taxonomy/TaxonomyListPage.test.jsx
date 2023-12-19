@@ -8,6 +8,7 @@ import initializeStore from '../store';
 import { getTaxonomyTemplateApiUrl } from './data/api';
 import TaxonomyListPage from './TaxonomyListPage';
 import { useTaxonomyListDataResponse, useIsTaxonomyListDataLoaded } from './data/apiHooks';
+import { useOrganizationListData } from '../generic/data/apiHooks';
 import { TaxonomyContext } from './common/context';
 
 let store;
@@ -18,11 +19,18 @@ const taxonomies = [{
   name: 'Taxonomy',
   description: 'This is a description',
 }];
+const organizations = ['Org 1', 'Org 2'];
 
 jest.mock('./data/apiHooks', () => ({
   useTaxonomyListDataResponse: jest.fn(),
   useIsTaxonomyListDataLoaded: jest.fn(),
   useDeleteTaxonomy: () => mockDeleteTaxonomy,
+}));
+jest.mock('../generic/data/apiHooks', () => ({
+  useOrganizationListData: jest.fn(() => ({
+    data: [],
+    isSuccess: true,
+  })),
 }));
 jest.mock('./taxonomy-card/TaxonomyCardMenu', () => jest.fn(({ onClickMenuItem }) => (
   // eslint-disable-next-line jsx-a11y/control-has-associated-label
@@ -46,7 +54,7 @@ const RootWrapper = () => {
   );
 };
 
-describe('<TaxonomyListPage />', async () => {
+describe('<TaxonomyListPage />', () => {
   beforeEach(async () => {
     initializeMockApp({
       authenticatedUser: {
@@ -117,5 +125,85 @@ describe('<TaxonomyListPage />', async () => {
 
     expect(mockDeleteTaxonomy).toBeCalledTimes(1);
     expect(mockSetToastMessage).toBeCalledWith(`"${taxonomies[0].name}" deleted`);
+  });
+
+  it('should show all "All taxonomies", "Unassigned" and org names in taxonomy org filter', async () => {
+    useIsTaxonomyListDataLoaded.mockReturnValue(true);
+    useTaxonomyListDataResponse.mockReturnValue({
+      results: taxonomies,
+    });
+    useOrganizationListData.mockReturnValue({
+      data: organizations,
+      isSuccess: true,
+    });
+
+    const {
+      getByTestId,
+      getByText,
+      findByRole,
+      getAllByText,
+    } = render(<RootWrapper />);
+
+    await act(async () => {
+      expect(getByTestId('taxonomy-orgs-filter-selector')).toBeInTheDocument();
+      // Check that the default filter is set to 'All taxonomies' when page is loaded
+      expect(getByText('All taxonomies')).toBeInTheDocument();
+    });
+
+    // Open the taxonomies org filter select menu
+    const taxonomiesFilterSelectMenu = await findByRole('button', { name: 'All taxonomies' });
+    fireEvent.click(taxonomiesFilterSelectMenu);
+    // Check that the select menu shows 'All taxonomies' option
+    // along with the default selected one
+    expect(getAllByText('All taxonomies').length).toBe(2);
+    // Check that the select manu shows 'Unassigned' option
+    expect(getByText('Unassigned')).toBeInTheDocument();
+    // Check that the select menu shows the 'Org 1' option
+    expect(getByText('Org 1')).toBeInTheDocument();
+    // Check that the select mnu shows the 'Org 2' option
+    expect(getByText('Org 2')).toBeInTheDocument();
+  });
+
+  it('should fetch taxonomies with correct params for org filters', async () => {
+    useIsTaxonomyListDataLoaded.mockReturnValue(true);
+    useTaxonomyListDataResponse.mockReturnValue({
+      results: taxonomies,
+    });
+
+    const { findByRole } = render(<RootWrapper />);
+
+    // Open the taxonomies org filter select menu
+    const taxonomiesFilterSelectMenu = await findByRole('button', { name: 'All taxonomies' });
+    fireEvent.click(taxonomiesFilterSelectMenu);
+
+    // Check that the 'Unassigned' option is corrected called
+    const unassignedOption = await findByRole('link', { name: 'Unassigned' });
+    fireEvent.click(unassignedOption);
+    expect(useTaxonomyListDataResponse).toBeCalledWith('Unassigned');
+
+    // Open the taxonomies org filter select menu again
+    fireEvent.click(taxonomiesFilterSelectMenu);
+
+    // Check that the 'Org 1' option is corrected called
+    const org1Option = await findByRole('link', { name: 'Org 1' });
+    fireEvent.click(org1Option);
+    expect(useTaxonomyListDataResponse).toBeCalledWith('Org 1');
+
+    // Open the taxonomies org filter select menu again
+    fireEvent.click(taxonomiesFilterSelectMenu);
+
+    // Check that the 'Org 2' option is corrected called
+    const org2Option = await findByRole('link', { name: 'Org 2' });
+    fireEvent.click(org2Option);
+    expect(useTaxonomyListDataResponse).toBeCalledWith('Org 2');
+
+    // Open the taxonomies org filter select menu again
+    fireEvent.click(taxonomiesFilterSelectMenu);
+
+    // Check that the 'All' option is corrected called, it should show as
+    // 'All' rather than 'All taxonomies' in the select menu since its not selected
+    const allOption = await findByRole('link', { name: 'All' });
+    fireEvent.click(allOption);
+    expect(useTaxonomyListDataResponse).toBeCalledWith('All taxonomies');
   });
 });
