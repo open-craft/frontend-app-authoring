@@ -14,6 +14,7 @@ import { executeThunk } from './utils';
 import { fetchCourseApps } from './pages-and-resources/data/thunks';
 
 const courseId = 'course-v1:edX+TestX+Test_Course';
+const notFoundCourseId = 'course-v1:edX+TestX+Wrong_Course';
 let mockPathname = '/evilguy/';
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -32,6 +33,14 @@ describe('Editor Pages Load no header', () => {
       response: { status: 200 },
     });
     await executeThunk(fetchCourseApps(courseId), store.dispatch);
+  };
+  const mockStoreNotFound = async () => {
+    const apiBaseUrl = getConfig().STUDIO_BASE_URL;
+    const courseAppsApiUrl = `${apiBaseUrl}/api/course_apps/v1/apps`;
+    axiosMock.onGet(`${courseAppsApiUrl}/${notFoundCourseId}`).reply(404, {
+      response: { status: 404 },
+    });
+    await executeThunk(fetchCourseApps(notFoundCourseId), store.dispatch);
   };
   beforeEach(() => {
     initializeMockApp({
@@ -74,5 +83,19 @@ describe('Editor Pages Load no header', () => {
       ,
     );
     expect(wrapper.queryByRole('status')).toBeInTheDocument();
+  });
+  test('renders not found page on non-existent course key', async () => {
+    await mockStoreNotFound();
+    const wrapper = render(
+      <AppProvider store={store}>
+        <IntlProvider locale="en">
+          <CourseAuthoringPage courseId={notFoundCourseId}>
+            <PagesAndResources courseId={notFoundCourseId} />
+          </CourseAuthoringPage>
+        </IntlProvider>
+      </AppProvider>
+      ,
+    );
+    expect(wrapper.queryByTestId('notFoundAlert')).toBeInTheDocument();
   });
 });
