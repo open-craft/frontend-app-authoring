@@ -149,6 +149,12 @@ TaxonomyCard.propTypes = {
     systemDefined: PropTypes.bool,
     orgsCount: PropTypes.number,
     tagsCount: PropTypes.number,
+    userPermissions: PropTypes.shape({
+      canAdd: PropTypes.bool.isRequired,
+      canView: PropTypes.bool.isRequired,
+      canChange: PropTypes.bool.isRequired,
+      canDelete: PropTypes.bool.isRequired,
+    }).isRequired,
   }).isRequired,
 };
 

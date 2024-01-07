@@ -15,6 +15,12 @@ module.exports = {
       allowFreeText: false,
       systemDefined: true,
       visibleToAuthors: false,
+      userPermissions: {
+        canAdd: true,
+        canView: true,
+        canChange: false,
+        canDelete: false,
+      },
     },
     {
       id: -1,
@@ -25,6 +31,12 @@ module.exports = {
       allowFreeText: false,
       systemDefined: true,
       visibleToAuthors: true,
+      userPermissions: {
+        canAdd: true,
+        canView: true,
+        canChange: false,
+        canDelete: false,
+      },
     },
     {
       id: 1,
@@ -35,6 +47,12 @@ module.exports = {
       allowFreeText: false,
       systemDefined: false,
       visibleToAuthors: true,
+      userPermissions: {
+        canAdd: true,
+        canView: true,
+        canChange: true,
+        canDelete: true,
+      },
     },
     {
       id: 2,
@@ -45,6 +63,12 @@ module.exports = {
       allowFreeText: false,
       systemDefined: false,
       visibleToAuthors: true,
+      userPermissions: {
+        canAdd: true,
+        canView: true,
+        canChange: true,
+        canDelete: true,
+      },
     },
   ],
 };

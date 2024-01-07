@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { initializeMockApp } from '@edx/frontend-platform';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
-import { render } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 
 import { useTaxonomyDetailData } from './data/api';
 import initializeStore from '../../store';
@@ -89,10 +89,60 @@ describe('<TaxonomyDetailPage />', async () => {
         name: 'Test taxonomy',
         description: 'This is a description',
         systemDefined: true,
+        userPreferences: {
+          canAdd: true,
+          canView: true,
+          canChange: true,
+          canDelete: true,
+        },
       },
     });
     const { getByRole } = render(<RootWrapper />);
     expect(getByRole('heading')).toHaveTextContent('Test taxonomy');
+  });
+
+  it('should show the Action menu with options', () => {
+    useTaxonomyDetailData.mockReturnValue({
+      isSuccess: true,
+      isFetched: true,
+      isError: false,
+      data: {
+        id: 1,
+        name: 'Test taxonomy',
+        description: 'This is a description',
+        systemDefined: true,
+        userPreferences: {
+          canAdd: true,
+          canView: true,
+          canChange: true,
+          canDelete: true,
+        },
+      },
+    });
+    const { getByTestId, queryByTestId } = render(<RootWrapper />);
+
+    // Menu closed/doesn't exist yet
+    expect(queryByTestId('taxonomy-menu')).not.toBeInTheDocument();
+
+    // Click on the menu button to open
+    fireEvent.click(getByTestId('taxonomy-menu-button'));
+
+    // Menu opened
+    expect(getByTestId('taxonomy-menu')).toBeVisible();
+    expect(getByTestId('taxonomy-menu-import')).toBeVisible();
+    expect(getByTestId('taxonomy-menu-export')).toBeVisible();
+    expect(getByTestId('taxonomy-menu-delete')).toBeVisible();
+
+    // Click on button again to close the menu
+    fireEvent.click(getByTestId('taxonomy-menu-button'));
+
+    // Menu closed
+    // Jest bug: toBeVisible() isn't checking opacity correctly
+    // expect(getByTestId('taxonomy-menu')).not.toBeVisible();
+    expect(getByTestId('taxonomy-menu').style.opacity).toEqual('0');
+
+    // Menu button still visible
+    expect(getByTestId('taxonomy-menu-button')).toBeVisible();
   });
 
   it('should show system defined badge', async () => {
@@ -105,6 +155,7 @@ describe('<TaxonomyDetailPage />', async () => {
         name: 'Test taxonomy',
         description: 'This is a description',
         systemDefined: true,
+        userPreferences: {},
       },
     });
     const { getByText } = render(<RootWrapper />);
@@ -121,6 +172,7 @@ describe('<TaxonomyDetailPage />', async () => {
         name: 'Test taxonomy',
         description: 'This is a description',
         systemDefined: false,
+        userPreferences: {},
       },
     });
     const { queryByText } = render(<RootWrapper />);

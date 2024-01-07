@@ -1,6 +1,14 @@
 // @ts-check
 
 /**
+ * @typedef {Object} UserPermissions
+ * @property {boolean} canAdd
+ * @property {boolean} canView
+ * @property {boolean} canChange
+ * @property {boolean} canDelete
+ **/
+
+/**
  * @typedef {Object} TaxonomyData
  * @property {number} id
  * @property {string} name
@@ -12,6 +20,7 @@
  * @property {boolean} visibleToAuthors
  * @property {number} tagsCount
  * @property {string[]} orgs
+ * @property {UserPermissions} userPermissions
  */
 
 /**

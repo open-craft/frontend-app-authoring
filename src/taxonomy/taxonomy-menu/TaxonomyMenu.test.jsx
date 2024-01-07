@@ -32,9 +32,11 @@ const queryClient = new QueryClient();
 const mockSetToastMessage = jest.fn();
 
 const TaxonomyMenuComponent = ({
-  systemDefined,
-  allowFreeText,
   iconMenu,
+  canAdd,
+  canView,
+  canChange,
+  canDelete,
 }) => {
   const context = useMemo(() => ({
     toastMessage: null,
@@ -50,9 +52,10 @@ const TaxonomyMenuComponent = ({
               taxonomy={{
                 id: taxonomyId,
                 name: taxonomyName,
-                systemDefined,
-                allowFreeText,
                 tagsCount: 0,
+                userPermissions: {
+                  canAdd, canView, canChange, canDelete,
+                },
               }}
               iconMenu={iconMenu}
             />
@@ -65,13 +68,17 @@ const TaxonomyMenuComponent = ({
 
 TaxonomyMenuComponent.propTypes = {
   iconMenu: PropTypes.bool.isRequired,
-  systemDefined: PropTypes.bool,
-  allowFreeText: PropTypes.bool,
+  canAdd: PropTypes.bool,
+  canView: PropTypes.bool,
+  canChange: PropTypes.bool,
+  canDelete: PropTypes.bool,
 };
 
 TaxonomyMenuComponent.defaultProps = {
-  systemDefined: false,
-  allowFreeText: false,
+  canAdd: true,
+  canView: true,
+  canChange: true,
+  canDelete: true,
 };
 
 each([true, false]).describe('<TaxonomyMenu iconMenu=%s />', async (iconMenu) => {
@@ -115,36 +122,36 @@ each([true, false]).describe('<TaxonomyMenu iconMenu=%s />', async (iconMenu) =>
     expect(getByTestId('taxonomy-menu-button')).toBeVisible();
   });
 
-  test('doesnt show systemDefined taxonomies disabled menus', () => {
-    const { getByTestId, queryByTestId } = render(<TaxonomyMenuComponent iconMenu={iconMenu} systemDefined />);
-
-    // Menu closed/doesn't exist yet
-    expect(queryByTestId('taxonomy-menu')).not.toBeInTheDocument();
+  test('Shows menu actions that user is permitted', () => {
+    const { getByTestId, queryByTestId } = render(<TaxonomyMenuComponent iconMenu={iconMenu} />);
 
     // Click on the menu button to open
     fireEvent.click(getByTestId('taxonomy-menu-button'));
 
-    // Menu opened
-    expect(getByTestId('taxonomy-menu')).toBeVisible();
-
-    // Check that the import menu is not show
-    expect(queryByTestId('taxonomy-menu-import')).not.toBeInTheDocument();
+    // Ensure that the menu items are present
+    expect(queryByTestId('taxonomy-menu-export')).toBeInTheDocument();
+    expect(queryByTestId('taxonomy-menu-import')).toBeInTheDocument();
+    expect(queryByTestId('taxonomy-menu-delete')).toBeInTheDocument();
   });
 
-  test('doesnt show freeText taxonomies disabled menus', () => {
-    const { getByTestId, queryByTestId } = render(<TaxonomyMenuComponent iconMenu={iconMenu} allowFreeText />);
-
-    // Menu closed/doesn't exist yet
-    expect(queryByTestId('taxonomy-menu')).not.toBeInTheDocument();
+  test('Hides menu actions that user is not permitted', () => {
+    const { getByTestId, queryByTestId } = render(
+      <TaxonomyMenuComponent
+        iconMenu={iconMenu}
+        canAdd={false}
+        canView={false}
+        canChange={false}
+        canDelete={false}
+      />,
+    );
 
     // Click on the menu button to open
     fireEvent.click(getByTestId('taxonomy-menu-button'));
 
-    // Menu opened
-    expect(getByTestId('taxonomy-menu')).toBeVisible();
-
-    // Check that the import menu is not show
+    // Ensure no menu items are found
+    expect(queryByTestId('taxonomy-menu-export')).not.toBeInTheDocument();
     expect(queryByTestId('taxonomy-menu-import')).not.toBeInTheDocument();
+    expect(queryByTestId('taxonomy-menu-delete')).not.toBeInTheDocument();
   });
 
   test('should open export modal on export menu click', () => {
