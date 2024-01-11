@@ -80,7 +80,7 @@ const CourseOutline = ({ courseId }) => {
     handleInternetConnectionFailed,
     handleOpenHighlightsModal,
     handleHighlightsFormSubmit,
-    handleConfigureSectionSubmit,
+    handleConfigureSubmit,
     handlePublishItemSubmit,
     handleEditSubmit,
     handleDeleteItemSubmit,
@@ -95,7 +95,6 @@ const CourseOutline = ({ courseId }) => {
   } = useCourseOutline({ courseId });
 
   const [sections, setSections] = useState(sectionsList);
-
   const initialSections = [...sectionsList];
 
   const {
@@ -218,6 +217,7 @@ const CourseOutline = ({ courseId }) => {
                                       onEditSubmit={handleEditSubmit}
                                       onDuplicateSubmit={handleDuplicateSubsectionSubmit}
                                       onNewUnitSubmit={handleNewUnitSubmit}
+                                      onOpenConfigureModal={openConfigureModal}
                                     >
                                       {subsection.childInfo.children.map((unit) => (
                                         <UnitCard
@@ -281,7 +281,7 @@ const CourseOutline = ({ courseId }) => {
         <ConfigureModal
           isOpen={isConfigureModalOpen}
           onClose={closeConfigureModal}
-          onConfigureSubmit={handleConfigureSectionSubmit}
+          onConfigureSubmit={handleConfigureSubmit}
         />
         <DeleteModal
           isOpen={isDeleteModalOpen}
