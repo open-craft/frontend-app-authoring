@@ -7,10 +7,29 @@ import {
 } from '@openedx/paragon';
 import { AppContext } from '@edx/frontend-platform/react';
 
+import TagCount from '../../generic/tag-count';
 import { useHelpUrls } from '../../help-urls/hooks';
 import { VIDEO_SHARING_OPTIONS } from '../constants';
 import messages from './messages';
 import { getVideoSharingOptionText } from '../utils';
+
+const StatusBarItem = ({ title, children }) => (
+  <div className="d-flex flex-column justify-content-between">
+    <h5>{title}</h5>
+    <div className="d-flex align-items-center">
+      {children}
+    </div>
+  </div>
+);
+
+StatusBarItem.propTypes = {
+  title: PropTypes.string.isRequired,
+  children: PropTypes.node,
+};
+
+StatusBarItem.defaultProps = {
+  children: null,
+};
 
 const StatusBar = ({
   statusBarData,
@@ -55,8 +74,7 @@ const StatusBar = ({
 
   return (
     <Stack direction="horizontal" gap={3.5} className="d-flex align-items-stretch outline-status-bar" data-testid="outline-status-bar">
-      <div className="d-flex flex-column justify-content-between">
-        <h5>{intl.formatMessage(messages.startDateTitle)}</h5>
+      <StatusBarItem title={intl.formatMessage(messages.startDateTitle)}>
         <Hyperlink
           className="small"
           destination={scheduleDestination()}
@@ -73,17 +91,15 @@ const StatusBar = ({
             />
           ) : courseReleaseDate}
         </Hyperlink>
-      </div>
-      <div className="d-flex flex-column justify-content-between">
-        <h5>{intl.formatMessage(messages.pacingTypeTitle)}</h5>
+      </StatusBarItem>
+      <StatusBarItem title={intl.formatMessage(messages.pacingTypeTitle)}>
         <span className="small">
           {isSelfPaced
             ? intl.formatMessage(messages.pacingTypeSelfPaced)
             : intl.formatMessage(messages.pacingTypeInstructorPaced)}
         </span>
-      </div>
-      <div className="d-flex flex-column justify-content-between">
-        <h5>{intl.formatMessage(messages.checklistTitle)}</h5>
+      </StatusBarItem>
+      <StatusBarItem title={intl.formatMessage(messages.checklistTitle)}>
         <Hyperlink
           className="small"
           destination={checklistDestination()}
@@ -91,9 +107,8 @@ const StatusBar = ({
         >
           {checkListTitle} {intl.formatMessage(messages.checklistCompleted)}
         </Hyperlink>
-      </div>
-      <div className="d-flex flex-column justify-content-between">
-        <h5>{intl.formatMessage(messages.highlightEmailsTitle)}</h5>
+      </StatusBarItem>
+      <StatusBarItem title={intl.formatMessage(messages.highlightEmailsTitle)}>
         <div className="d-flex align-items-center">
           {highlightsEnabledForMessaging ? (
             <span data-testid="highlights-enabled-span" className="small">
@@ -113,7 +128,19 @@ const StatusBar = ({
             {intl.formatMessage(messages.highlightEmailsLink)}
           </Hyperlink>
         </div>
-      </div>
+      </StatusBarItem>
+      <StatusBarItem title={intl.formatMessage(messages.courseTagsTitle)}>
+        <div className="d-flex align-items-center">
+          <TagCount count={0} />
+          <Button
+            className="small ml-2"
+            href="#"
+            onClick={(e) => e.preventDefault()}
+          >
+            {intl.formatMessage(messages.courseManageTagsLink)}
+          </Button>
+        </div>
+      </StatusBarItem>
       {videoSharingEnabled && (
         <Form.Group
           size="sm"

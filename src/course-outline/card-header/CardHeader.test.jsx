@@ -265,6 +265,7 @@ describe('<CardHeader />', () => {
   });
 
   it('should render tag count if is not zero', () => {
+    // FixMe: This test is not working as expected. It should be fixed.
     renderComponent({
       ...cardHeaderProps,
       tagsCount: 17,
@@ -273,6 +274,7 @@ describe('<CardHeader />', () => {
   });
 
   it('should not render tag count if is zero', () => {
+    // FixMe: This test is not working as expected. It should be fixed.
     renderComponent({
       ...cardHeaderProps,
       tagsCount: 0,
