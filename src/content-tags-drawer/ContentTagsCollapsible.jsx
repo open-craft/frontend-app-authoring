@@ -76,7 +76,7 @@ const CustomMenu = (props) => {
               tabIndex="0"
               ref={selectCancelRef}
               variant="tertiary"
-              className="cancel-add-tags-button"
+              className="tags-drawer-cancel-button"
               onClick={handleCancelStagedTags}
             >
               { intl.formatMessage(messages.collapsibleCancelStagedTagsButtonText) }

@@ -75,6 +75,14 @@ const messages = defineMessages({
     id: 'course-authoring.content-tags-drawer.content-tags-collapsible.custom-menu.inline-save-staged-tags',
     defaultMessage: 'Add',
   },
+  tagsDrawerCancelButtonText: {
+    id: 'course-authoring.content-tags-drawer.cancel',
+    defaultMessage: 'Cancel',
+  },
+  tagsDrawerSaveButtonText: {
+    id: 'course-authoring.content-tags-drawer.save',
+    defaultMessage: 'Save',
+  },
 });
 
 export default messages;

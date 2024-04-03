@@ -319,11 +319,8 @@ describe('<ContentTagsDrawer />', () => {
 
     const {
       container,
-      getByText,
-      getAllByText,
-      queryByText,
     } = render(<RootWrapper />);
-    await waitFor(() => { expect(getByText('Taxonomy 1')).toBeInTheDocument(); });
+    await waitFor(() => { expect(screen.getByText('Taxonomy 1')).toBeInTheDocument(); });
 
     // Expand the Taxonomy to view applied tags and "Add a tag" button
     const expandToggle = container.getElementsByClassName('collapsible-trigger')[0];
@@ -331,27 +328,33 @@ describe('<ContentTagsDrawer />', () => {
     fireEvent.click(expandToggle);
 
     // Click on "Add a tag" button to open dropdown
-    const addTagsButton = getByText(messages.collapsibleAddTagsPlaceholderText.defaultMessage);
+    const addTagsButton = screen.getByText(/add a tag/i);
     // Use `mouseDown` instead of `click` since the react-select didn't respond to `click`
     fireEvent.mouseDown(addTagsButton);
 
     // Tag 3 should only appear in dropdown selector, (i.e. the dropdown is open, since Tag 3 is not applied)
-    expect(getAllByText('Tag 3').length).toBe(1);
+    expect(screen.getAllByText('Tag 3').length).toBe(1);
 
     // Click to check Tag 3
-    const tag3 = getByText('Tag 3');
+    const tag3 = screen.getByText('Tag 3');
     fireEvent.click(tag3);
 
     // Check that Tag 3 has been staged, i.e. there should be 2 of them on the page
-    expect(getAllByText('Tag 3').length).toBe(2);
+    expect(screen.getAllByText('Tag 3').length).toBe(2);
 
     // Click on the Cancel button in the dropdown to clear the staged tags
-    const dropdownCancel = getByText(messages.collapsibleCancelStagedTagsButtonText.defaultMessage);
+    // We used this query because there are two buttons with 'Cancel'
+    const dropdownCancel = container.querySelector(`
+      #content-tags-drawer > div:nth-child(1) > div > div >
+      div:nth-child(1) > div:nth-child(2) > div:nth-child(1) >
+      div > div:nth-child(2) > div > div:nth-child(4) > div >
+      div:nth-child(3) > div > button:nth-child(1)
+    `);
     fireEvent.click(dropdownCancel);
 
     // Check that there are no more Tag 3 on the page, since the staged one is cleared
     // and the dropdown has been closed
-    expect(queryByText('Tag 3')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tag 3')).not.toBeInTheDocument();
   });
 
   it('should call closeManageTagsDrawer when CloseButton is clicked', async () => {
@@ -374,6 +377,19 @@ describe('<ContentTagsDrawer />', () => {
     // Find the CloseButton element by its test ID and trigger a click event
     const closeButton = screen.getByTestId('drawer-close-button');
     fireEvent.click(closeButton);
+
+    expect(mockOnClose).toHaveBeenCalled();
+  });
+
+  it('should call onClose when cancel is clicked', async () => {
+    setupMockDataForStagedTagsTesting();
+    render(<RootWrapper onClose={mockOnClose} />);
+
+    const cancelButton = await screen.findByRole('button', {
+      name: /cancel/i,
+    });
+    expect(cancelButton).toBeInTheDocument();
+    fireEvent.click(cancelButton);
 
     expect(mockOnClose).toHaveBeenCalled();
   });

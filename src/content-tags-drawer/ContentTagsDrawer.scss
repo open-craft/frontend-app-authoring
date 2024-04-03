@@ -7,3 +7,18 @@
     min-width: 100vw;
   }
 }
+
+.tags-drawer {
+  .tags-drawer-footer {
+    @include pgn-box-shadow(2, "up");
+
+    right: 0;
+    bottom: 0;
+  }
+
+  .tags-drawer-cancel-button:hover {
+    background-color: transparent;
+    color: $gray-300 !important;
+  }
+}
+
