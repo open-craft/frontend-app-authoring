@@ -36,13 +36,19 @@ const sortKeysAlphabetically = (tree) => {
  * @returns {Array<string>} array of leaf (explicit) tags of provided tree
  */
 const getLeafTags = (tree) => {
-  const leafKeys = [];
+  const leafTags = [];
 
   function traverse(node) {
     Object.keys(node).forEach(key => {
       const child = node[key];
       if (Object.keys(child.children).length === 0) {
-        leafKeys.push(key);
+        leafTags.push({
+          value: key,
+          // Always true because this is a new added tag,
+          // so the user can delete.
+          canDeleteObjecttag: true,
+          lineage: child.lineage,
+        });
       } else {
         traverse(child.children);
       }
@@ -50,7 +56,7 @@ const getLeafTags = (tree) => {
   }
 
   traverse(tree);
-  return leafKeys;
+  return leafTags;
 };
 
 /**
@@ -59,7 +65,13 @@ const getLeafTags = (tree) => {
  * @param {TaxonomyData & {contentTags: ContentTagData[]}} taxonomyAndTagsData
  * @param {(taxonomyId: number, tag: {value: string, label: string}) => void} addStagedContentTag
  * @param {(taxonomyId: number, tagValue: string) => void} removeStagedContentTag
+ * @param {(taxonomyId: number, tagValue: string) => void} removeGlobalStagedContentTag
+ * @param {(taxonomyId: number, tag: string) => void} addRemovedContentTag
+ * @param {(taxonomyId: number, tagValue: string) => void} deleteRemovedContentTag
  * @param {{value: string, label: string}[]} stagedContentTags
+ * @param {{[key: number]: {value: string, label: string}[]}} globalStagedContentTags
+ * @param {{[key: number]: {value: string, label: string}[]}} globalRemovedStagedContentTags
+ * @param {Function} setGlobalStagedContentTags
  * @returns {{
  *      tagChangeHandler: (tagSelectableBoxValue: string, checked: boolean) => void,
  *      removeAppliedTagHandler: (tagSelectableBoxValue: string) => void,
@@ -67,7 +79,7 @@ const getLeafTags = (tree) => {
  *      stagedContentTagsTree: Record<string, TagTreeEntry>,
  *      contentTagsCount: number,
  *      checkedTags: any,
- *      commitStagedTags: () => void,
+ *      commitStagedTagsToGlobal: () => void,
  *      updateTags: import('@tanstack/react-query').UseMutationResult<any, unknown, { tags: string[]; }, unknown>
  * }}
  */
@@ -76,15 +88,18 @@ const useContentTagsCollapsibleHelper = (
   taxonomyAndTagsData,
   addStagedContentTag,
   removeStagedContentTag,
+  removeGlobalStagedContentTag,
+  addRemovedContentTag,
+  deleteRemovedContentTag,
   stagedContentTags,
+  globalStagedContentTags,
+  globalRemovedStagedContentTags,
+  setGlobalStagedContentTags,
 ) => {
   const {
-    id, contentTags, canTagObject,
+    id, contentTags
   } = taxonomyAndTagsData;
-  // State to determine whether an applied tag was removed so we make a call
-  // to the update endpoint to the reflect those changes
-  const [removingAppliedTag, setRemoveAppliedTag] = React.useState(false);
-  const updateTags = useContentTaxonomyTagsUpdater(contentId, id);
+  const updateTags = useContentTaxonomyTagsUpdater(contentId);
 
   // Keeps track of the content objects tags count (both implicit and explicit)
   const [contentTagsCount, setContentTagsCount] = React.useState(0);
@@ -99,22 +114,8 @@ const useContentTagsCollapsibleHelper = (
   // State to keep track of the staged tags (and along with ancestors) that should be removed
   const [stagedTagsToRemove, setStagedTagsToRemove] = React.useState(/** @type string[] */([]));
 
-  // Handles making requests to the backend when applied tags are removed
-  React.useEffect(() => {
-    // We have this check because this hook is fired when the component first loads
-    // and reloads (on refocus). We only want to make a request to the update endpoint when
-    // the user removes an applied tag
-    if (removingAppliedTag) {
-      setRemoveAppliedTag(false);
-
-      // Filter out staged tags from the checktags so they do not get committed
-      const tags = checkedTags.map(t => decodeURIComponent(t.split(',').slice(-1)));
-      const staged = stagedContentTags.map(t => t.label);
-      const remainingAppliedTags = tags.filter(t => !staged.includes(t));
-
-      updateTags.mutate({ tags: remainingAppliedTags });
-    }
-  }, [contentId, id, canTagObject, checkedTags, stagedContentTags]);
+  // State to keep track of the global tags (stagged and feched) that should be removed
+  const [globalTagsToRemove, setGlobalTagsToRemove] = React.useState(/** @type string[] */([]));
 
   // Handles the removal of staged content tags based on what was removed
   // from the staged tags tree. We are doing it in a useEffect since the removeTag
@@ -124,16 +125,51 @@ const useContentTagsCollapsibleHelper = (
     stagedTagsToRemove.forEach(tag => removeStagedContentTag(id, tag));
   }, [stagedTagsToRemove, removeStagedContentTag, id]);
 
+  React.useEffect(() => {
+    globalTagsToRemove.forEach((tag) => {
+      if (globalStagedContentTags[id]
+          && globalStagedContentTags[id].some(t => t.value === tag)) {
+        /// A new tag has been removed
+        removeGlobalStagedContentTag(id, tag);
+      } else if (contentTags.some(t => t.value === tag)) {
+        /// A feched tag has been removed
+        addRemovedContentTag(id, tag);
+      }
+    });
+  }, [globalTagsToRemove, removeGlobalStagedContentTag, id]);
+
   // Handles making requests to the update endpoint when the staged tags need to be committed
-  const commitStagedTags = React.useCallback(() => {
+  const commitStagedTagsToGlobal = React.useCallback(() => {
     // Filter out only leaf nodes of staging tree to commit
     const explicitStaged = getLeafTags(stagedContentTagsTree);
 
-    // Filter out applied tags that should become implicit because a child tag was committed
-    const stagedLineages = stagedContentTags.map(st => decodeURIComponent(st.value).split(',').slice(0, -1)).flat();
-    const applied = contentTags.map((t) => t.value).filter(t => !stagedLineages.includes(t));
+    const globalTags = cloneDeep(globalStagedContentTags);
+    const newGlobalTags = [];
 
-    updateTags.mutate({ tags: [...applied, ...explicitStaged] });
+    explicitStaged.forEach((tag) => {
+      if (globalRemovedStagedContentTags[id]
+          && globalRemovedStagedContentTags[id].includes(tag.value)) {
+        /// A feched tag that has been removed has been added again
+        deleteRemovedContentTag(id, tag.value);
+      } else {
+        /// New tag added
+        newGlobalTags.push(tag);
+      }
+    });
+
+    if (newGlobalTags) {
+      if (!globalTags[id]) {
+        globalTags[id] = newGlobalTags;
+      } else {
+        // Filter out applied tags that should become implicit because a child tag was committed
+        const stagedLineages = stagedContentTags.map(st => decodeURIComponent(st.value).split(',').slice(0, -1)).flat();
+        const applied = globalTags[id].filter(t => !stagedLineages.includes(t.value));
+
+        globalTags[id] = [...applied, ...newGlobalTags];
+      }
+
+      setGlobalStagedContentTags(globalTags);
+    }
   }, [contentTags, stagedContentTags, stagedContentTagsTree, updateTags]);
 
   // This converts the contentTags prop to the tree structure mentioned above
@@ -246,8 +282,12 @@ const useContentTagsCollapsibleHelper = (
           canChangeObjecttag: false,
           canDeleteObjecttag: false,
         };
+        if (isExplicit) {
+          traversal[tag].lineage = tagLineage;
+        }
       } else {
         traversal[tag].explicit = isExplicit;
+        traversal[tag].lineage = tagLineage;
       }
 
       // eslint-disable-next-line no-unused-expressions
@@ -301,10 +341,10 @@ const useContentTagsCollapsibleHelper = (
     remove(tagSelectableBoxValue);
 
     // Remove tags from applied tags
-    const tagsToRemove = removeTags(appliedContentTagsTree, tagLineage, false, tagLineage);
-    setStagedTagsToRemove(tagsToRemove);
+    removeTags(appliedContentTagsTree, tagLineage, false, tagLineage);
+    const selectedTag = tagLineage.slice(-1)[0];
 
-    setRemoveAppliedTag(true);
+    setGlobalTagsToRemove([selectedTag]);
   }, [appliedContentTagsTree, id, removeStagedContentTag]);
 
   return {
@@ -314,7 +354,7 @@ const useContentTagsCollapsibleHelper = (
     stagedContentTagsTree: sortKeysAlphabetically(stagedContentTagsTree),
     contentTagsCount,
     checkedTags,
-    commitStagedTags,
+    commitStagedTagsToGlobal,
     updateTags,
   };
 };

@@ -229,11 +229,32 @@ const CustomIndicatorsContainer = (props) => {
  *        - Callback function to add a staged tag for a taxonomy
  * @param {(taxonomyId: number, tagValue: string) => void} props.removeStagedContentTag
  *        - Callback function to remove a staged tag from a taxonomy
+ * @param {(taxonomyId: number, tagValue: string) => void} props.removeGlobalStagedContentTag
+ *        - Callback function to remove a global staged tag from a taxonomy
+ * @param {(taxonomyId: number, tag: string) => void} props.addRemovedContentTag
+ *        - Callback function to add a removed tag for a taxonomy
+ * @param {(taxonomyId: number, tagValue: string) => void} props.deleteRemovedContentTag
+ *        - Callback function to delete a removed tag from a taxonomy
  * @param {Function} props.setStagedTags - Callback function to set staged tags for a taxonomy to provided tags list
+ * @param {{[key: number]: {value: string, label: string}[]}} props.globalStagedContentTags
+ * @param {{[key: number]: {value: string, label: string}[]}} props.globalStagedRemovedContentTags
+ * @param {Function} props.setGlobalStagedContentTags
+ *        - Callback function to set global staged tags for a taxonomy to provided tags list
  * @param {TaxonomyData & {contentTags: ContentTagData[]}} props.taxonomyAndTagsData - Taxonomy metadata & applied tags
  */
 const ContentTagsCollapsible = ({
-  contentId, taxonomyAndTagsData, stagedContentTags, addStagedContentTag, removeStagedContentTag, setStagedTags,
+  contentId,
+  taxonomyAndTagsData,
+  stagedContentTags,
+  addStagedContentTag,
+  removeStagedContentTag,
+  removeGlobalStagedContentTag,
+  addRemovedContentTag,
+  deleteRemovedContentTag,
+  setStagedTags,
+  globalStagedContentTags,
+  globalStagedRemovedContentTags,
+  setGlobalStagedContentTags,
 }) => {
   const intl = useIntl();
   const { id: taxonomyId, name, canTagObject } = taxonomyAndTagsData;
@@ -251,14 +272,20 @@ const ContentTagsCollapsible = ({
     stagedContentTagsTree,
     contentTagsCount,
     checkedTags,
-    commitStagedTags,
+    commitStagedTagsToGlobal,
     updateTags,
   } = useContentTagsCollapsibleHelper(
     contentId,
     taxonomyAndTagsData,
     addStagedContentTag,
     removeStagedContentTag,
+    removeGlobalStagedContentTag,
+    addRemovedContentTag,
+    deleteRemovedContentTag,
     stagedContentTags,
+    globalStagedContentTags,
+    globalStagedRemovedContentTags,
+    setGlobalStagedContentTags,
   );
 
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -308,12 +335,12 @@ const ContentTagsCollapsible = ({
   }, [taxonomyId, setStagedTags, stagedContentTags, tagChangeHandler]);
 
   const handleCommitStagedTags = React.useCallback(() => {
-    commitStagedTags();
+    commitStagedTagsToGlobal();
     handleStagedTagsMenuChange([]);
     selectRef.current?.blur();
     setSearchTerm('');
     setSelectMenuIsOpen(false);
-  }, [commitStagedTags, handleStagedTagsMenuChange, selectRef, setSearchTerm]);
+  }, [commitStagedTagsToGlobal, handleStagedTagsMenuChange, selectRef, setSearchTerm]);
 
   const handleCancelStagedTags = React.useCallback(() => {
     handleStagedTagsMenuChange([]);

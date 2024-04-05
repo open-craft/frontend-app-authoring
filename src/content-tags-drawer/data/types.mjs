@@ -67,3 +67,9 @@
 /**
  * @typedef {XBlockData | CourseData} ContentData
  */
+
+/**
+ * @typedef {Object} UpdateTagsData
+ * @property {number} taxonomy
+ * @property {string[]} tags
+ */
