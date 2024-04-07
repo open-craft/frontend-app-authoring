@@ -3,7 +3,6 @@ import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Container,
-  CloseButton,
   Spinner,
   Stack,
   Button,
@@ -85,7 +84,6 @@ const ContentTagsDrawer = ({ id, onClose }) => {
   return (
     <div id="content-tags-drawer" className="mt-1 tags-drawer">
       <Container size="xl">
-        <CloseButton onClick={() => onCloseDrawer()} data-testid="drawer-close-button" />
         <span>{intl.formatMessage(messages.headerSubtitle)}</span>
         { isContentDataLoaded
           ? <h3>{ contentName }</h3>
