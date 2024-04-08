@@ -82,7 +82,7 @@ const ContentTagsDrawer = ({ id, onClose }) => {
   }, [commitGlobalStagedTagsStatus]);
 
   return (
-    <div id="content-tags-drawer" className="mt-1 tags-drawer">
+    <div id="content-tags-drawer" className="mt-1 tags-drawer d-flex flex-column justify-content-between">
       <Container size="xl">
         <span>{intl.formatMessage(messages.headerSubtitle)}</span>
         { isContentDataLoaded
@@ -124,7 +124,7 @@ const ContentTagsDrawer = ({ id, onClose }) => {
 
       { isTaxonomyListLoaded && isContentTaxonomyTagsLoaded && (
         <Container
-          className="bg-white position-absolute p-3.5 tags-drawer-footer"
+          className="bg-white position-sticky p-3.5 tags-drawer-footer"
         >
           <div className="d-flex justify-content-end">
             { commitGlobalStagedTagsStatus !== 'loading' ? (
