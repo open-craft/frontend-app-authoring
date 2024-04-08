@@ -8,6 +8,7 @@ import { useContentTaxonomyTagsUpdater } from './data/apiHooks';
 /** @typedef {import("../taxonomy/data/types.mjs").TaxonomyData} TaxonomyData */
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
 /** @typedef {import("./ContentTagsCollapsible").TagTreeEntry} TagTreeEntry */
+/** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
 
 /**
  * Util function that sorts the keys of a tree in alphabetical order.
@@ -33,7 +34,7 @@ const sortKeysAlphabetically = (tree) => {
  * tags selected in the staged tags tree
  *
  * @param {object} tree - tree to extract the leaf tags from
- * @returns {Array<string>} array of leaf (explicit) tags of provided tree
+ * @returns {StagedTagData[]} array of leaf (explicit) tags of provided tree
  */
 const getLeafTags = (tree) => {
   const leafTags = [];
@@ -63,14 +64,14 @@ const getLeafTags = (tree) => {
  * Handles all the underlying logic for the ContentTagsCollapsible component
  * @param {string} contentId The ID of the content we're tagging (e.g. usage key)
  * @param {TaxonomyData & {contentTags: ContentTagData[]}} taxonomyAndTagsData
- * @param {(taxonomyId: number, tag: {value: string, label: string}) => void} addStagedContentTag
+ * @param {(taxonomyId: number, tag: StagedTagData) => void} addStagedContentTag
  * @param {(taxonomyId: number, tagValue: string) => void} removeStagedContentTag
  * @param {(taxonomyId: number, tagValue: string) => void} removeGlobalStagedContentTag
  * @param {(taxonomyId: number, tag: string) => void} addRemovedContentTag
  * @param {(taxonomyId: number, tagValue: string) => void} deleteRemovedContentTag
  * @param {{value: string, label: string}[]} stagedContentTags
- * @param {{[key: number]: {value: string, label: string}[]}} globalStagedContentTags
- * @param {{[key: number]: {value: string, label: string}[]}} globalRemovedStagedContentTags
+ * @param {Record<number, StagedTagData[]>} globalStagedContentTags
+ * @param {Record<number, string[]>} globalRemovedStagedContentTags
  * @param {Function} setGlobalStagedContentTags
  * @returns {{
  *      tagChangeHandler: (tagSelectableBoxValue: string, checked: boolean) => void,
@@ -97,7 +98,7 @@ const useContentTagsCollapsibleHelper = (
   setGlobalStagedContentTags,
 ) => {
   const {
-    id, contentTags
+    id, contentTags,
   } = taxonomyAndTagsData;
   const updateTags = useContentTaxonomyTagsUpdater(contentId);
 

@@ -26,6 +26,7 @@ import useContentTagsCollapsibleHelper from './ContentTagsCollapsibleHelper';
 /** @typedef {import("./ContentTagsCollapsible").TaxonomySelectProps} TaxonomySelectProps */
 /** @typedef {import("../taxonomy/data/types.mjs").TaxonomyData} TaxonomyData */
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
+/** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
 
 /**
  * Custom Menu component for our Select box
@@ -223,9 +224,9 @@ const CustomIndicatorsContainer = (props) => {
  *
  * @param {Object} props - The component props.
  * @param {string} props.contentId - Id of the content object
- * @param {{value: string, label: string}[]} props.stagedContentTags
+ * @param {StagedTagData[]} props.stagedContentTags
  *        - Array of staged tags represented as objects with value/label
- * @param {(taxonomyId: number, tag: {value: string, label: string}) => void} props.addStagedContentTag
+ * @param {(taxonomyId: number, tag: StagedTagData) => void} props.addStagedContentTag
  *        - Callback function to add a staged tag for a taxonomy
  * @param {(taxonomyId: number, tagValue: string) => void} props.removeStagedContentTag
  *        - Callback function to remove a staged tag from a taxonomy
@@ -236,8 +237,8 @@ const CustomIndicatorsContainer = (props) => {
  * @param {(taxonomyId: number, tagValue: string) => void} props.deleteRemovedContentTag
  *        - Callback function to delete a removed tag from a taxonomy
  * @param {Function} props.setStagedTags - Callback function to set staged tags for a taxonomy to provided tags list
- * @param {{[key: number]: {value: string, label: string}[]}} props.globalStagedContentTags
- * @param {{[key: number]: {value: string, label: string}[]}} props.globalStagedRemovedContentTags
+ * @param {Record<number, StagedTagData[]>} props.globalStagedContentTags
+ * @param {Record<number, string[]>} props.globalStagedRemovedContentTags
  * @param {Function} props.setGlobalStagedContentTags
  *        - Callback function to set global staged tags for a taxonomy to provided tags list
  * @param {TaxonomyData & {contentTags: ContentTagData[]}} props.taxonomyAndTagsData - Taxonomy metadata & applied tags

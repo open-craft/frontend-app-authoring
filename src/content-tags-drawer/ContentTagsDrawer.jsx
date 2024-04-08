@@ -43,6 +43,8 @@ const ContentTagsDrawer = ({ id, onClose }) => {
     globalStagedContentTags,
     globalStagedRemovedContentTags,
     setGlobalStagedContentTags,
+    commitGlobalStagedTagsStatus,
+    commitGlobalStagedTags,
     isContentDataLoaded,
     isContentTaxonomyTagsLoaded,
     isTaxonomyListLoaded,
@@ -72,6 +74,13 @@ const ContentTagsDrawer = ({ id, onClose }) => {
       document.removeEventListener('keydown', handleEsc);
     };
   }, []);
+
+  useEffect(() => {
+    if (commitGlobalStagedTagsStatus === 'success') {
+      // TODO Change to read mode
+      onCloseDrawer();
+    }
+  }, [commitGlobalStagedTagsStatus]);
 
   return (
     <div id="content-tags-drawer" className="mt-1 tags-drawer">
@@ -120,21 +129,31 @@ const ContentTagsDrawer = ({ id, onClose }) => {
           className="bg-white position-absolute p-3.5 tags-drawer-footer"
         >
           <div className="d-flex justify-content-end">
-            <Stack direction="horizontal" gap={2}>
-              <Button
-                className="font-weight-bold tags-drawer-cancel-button"
-                variant="tertiary"
-                onClick={onCloseDrawer}
-              >
-                { intl.formatMessage(messages.tagsDrawerCancelButtonText) }
-              </Button>
-              <Button
-                variant="dark"
-                className="rounded-0"
-              >
-                { intl.formatMessage(messages.tagsDrawerSaveButtonText)}
-              </Button>
-            </Stack>
+            { commitGlobalStagedTagsStatus !== 'loading' ? (
+              <Stack direction="horizontal" gap={2}>
+                <Button
+                  className="font-weight-bold tags-drawer-cancel-button"
+                  variant="tertiary"
+                  onClick={onCloseDrawer}
+                >
+                  { intl.formatMessage(messages.tagsDrawerCancelButtonText) }
+                </Button>
+                <Button
+                  variant="dark"
+                  className="rounded-0"
+                  onClick={commitGlobalStagedTags}
+                >
+                  { intl.formatMessage(messages.tagsDrawerSaveButtonText)}
+                </Button>
+              </Stack>
+            )
+              : (
+                <Spinner
+                  animation="border"
+                  size="xl"
+                  screenReaderText={intl.formatMessage(messages.loadingMessage)}
+                />
+              )}
           </div>
         </Container>
       )}

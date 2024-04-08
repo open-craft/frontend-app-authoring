@@ -1,12 +1,38 @@
 // @ts-check
 import React, { useEffect } from 'react';
 import { cloneDeep } from 'lodash';
-import { useContentData, useContentTaxonomyTagsData } from './data/apiHooks';
+import { useContentData, useContentTaxonomyTagsData, useContentTaxonomyTagsUpdater } from './data/apiHooks';
 import { useTaxonomyList } from '../taxonomy/data/apiHooks';
 import { extractOrgFromContentId } from './utils';
 
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
+/** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
+/** @typedef {import("./data/types.mjs").TagsInTaxonomy} TagsInTaxonomy */
 
+/**
+ * Handles all the underlying logic for the ContentTagsDrawer component
+ * @param {string} contentId
+ * @returns {{
+ *     stagedContentTags: Record<number, StagedTagData[]>,
+ *     setStagedContentTags: Function,
+ *     addStagedContentTag: (taxonomyId: number, addedTag: StagedTagData) => void,
+ *     removeStagedContentTag: (taxonomyId: number, tagValue: string) => void,
+ *     removeGlobalStagedContentTag: (taxonomyId: number, tagValue: string) => void,
+ *     addRemovedContentTag: (taxonomyId: number, addedTag: StagedTagData) => void,
+ *     deleteRemovedContentTag: (taxonomyId: number, tagValue: string) => void,
+ *     setStagedTags: (taxonomyId: number, tagsList: StagedTagData[]) => void,
+ *     globalStagedContentTags: Record<number, StagedTagData[]>,
+ *     globalStagedRemovedContentTags: Record<number, string>,
+ *     setGlobalStagedContentTags: Function,
+ *     commitGlobalStagedTags: () => void,
+ *     commitGlobalStagedTagsStatus: string,
+ *     isContentDataLoaded: boolean,
+ *     isContentTaxonomyTagsLoaded: boolean,
+ *     isTaxonomyListLoaded: boolean,
+ *     contentName: string,
+ *     tagsByTaxonomy: TagsInTaxonomy[],
+ * }}
+ */
 const useContentTagsDrawerHelper = (contentId) => {
   const org = extractOrgFromContentId(contentId);
 
@@ -17,8 +43,8 @@ const useContentTagsDrawerHelper = (contentId) => {
   // This stores feched tags deleted by the user.
   const [globalStagedRemovedContentTags, setGlobalStagedRemovedContentTags] = React.useState({});
   // Merges feched tags, global staged tags and global removed staged tags
-  const [tagsByTaxonomy, setTagsByTaxonomy] = React.useState([]);
-  // const updateTags = useContentTaxonomyTagsUpdater(contentId);
+  const [tagsByTaxonomy, setTagsByTaxonomy] = React.useState(/** @type TagsInTaxonomy[] */ ([]));
+  const updateTags = useContentTaxonomyTagsUpdater(contentId);
 
   // Fetch from database
   const { data: contentData, isSuccess: isContentDataLoaded } = useContentData(contentId);
@@ -148,7 +174,6 @@ const useContentTagsDrawerHelper = (contentId) => {
     globalStagedRemovedContentTags,
   ]);
 
-  /*
   const commitGlobalStagedTags = React.useCallback(() => {
     const tagsData = [];
     tagsByTaxonomy.forEach((tags) => {
@@ -157,9 +182,8 @@ const useContentTagsDrawerHelper = (contentId) => {
         tags: tags.contentTags.map(t => t.value),
       });
     });
-    updateTags.mutate(tagsData);
+    updateTags.mutate({ tagsData });
   }, [tagsByTaxonomy]);
-  */
 
   return {
     stagedContentTags,
@@ -173,6 +197,8 @@ const useContentTagsDrawerHelper = (contentId) => {
     globalStagedContentTags,
     globalStagedRemovedContentTags,
     setGlobalStagedContentTags,
+    commitGlobalStagedTags,
+    commitGlobalStagedTagsStatus: updateTags.status,
     isContentDataLoaded,
     isContentTaxonomyTagsLoaded,
     isTaxonomyListLoaded,

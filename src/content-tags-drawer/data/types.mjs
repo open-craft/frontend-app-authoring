@@ -60,6 +60,25 @@
  */
 
 /**
+ * @typedef {Object} TagsInTaxonomy
+ * @property {boolean} allOrgs
+ * @property {boolean} allowFreeText
+ * @property {boolean} allowMultiple
+ * @property {boolean} canChangeTaxonomy
+ * @property {boolean} canDeleteTaxonomy
+ * @property {boolean} canTagObject
+ * @property {Tag[]} contentTags
+ * @property {string} description
+ * @property {boolean} enabled
+ * @property {string} exportId
+ * @property {number} id
+ * @property {string} name
+ * @property {boolean} systemDefined
+ * @property {number} tagsCount
+ * @property {boolean} visibleToAuthors
+ */
+
+/**
   * @typedef {Object} CourseData
   * @property {string} courseDisplayNameWithDefault
   */
@@ -72,4 +91,10 @@
  * @typedef {Object} UpdateTagsData
  * @property {number} taxonomy
  * @property {string[]} tags
+ */
+
+/**
+ * @typedef {Object} StagedTagData
+ * @property {string} value
+ * @property {string} label
  */
