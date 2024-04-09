@@ -82,11 +82,10 @@ const ContentTagsDrawer = ({ id, onClose }) => {
   }, [commitGlobalStagedTagsStatus]);
 
   return (
-    <div id="content-tags-drawer" className="mt-1 tags-drawer d-flex flex-column justify-content-between">
-      <Container size="xl">
-        <span>{intl.formatMessage(messages.headerSubtitle)}</span>
+    <div id="content-tags-drawer" className="tags-drawer d-flex flex-column justify-content-between">
+      <Container size="xl" className="pt-4 pr-4 pl-4">
         { isContentDataLoaded
-          ? <h3>{ contentName }</h3>
+          ? <h2>{ contentName }</h2>
           : (
             <div className="d-flex justify-content-center align-items-center flex-column">
               <Spinner
@@ -98,6 +97,7 @@ const ContentTagsDrawer = ({ id, onClose }) => {
           )}
 
         <hr />
+        <p className='lead text-gray-500 font-weight-bold'>{intl.formatMessage(messages.headerSubtitle)}</p>
 
         { isTaxonomyListLoaded && isContentTaxonomyTagsLoaded
           ? tagsByTaxonomy.map((data) => (
