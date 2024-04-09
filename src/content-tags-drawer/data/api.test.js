@@ -132,6 +132,7 @@ describe('content tags drawer api calls', () => {
     const taxonomyId = 3;
     const tags = ['flat taxonomy tag 100', 'flat taxonomy tag 3856'];
     axiosMock.onPut(`${getContentTaxonomyTagsApiUrl(contentId)}`).reply(200, updateContentTaxonomyTagsMock);
+    // @ts-ignore
     const result = await updateContentTaxonomyTags(contentId, [{
       taxonomy: taxonomyId,
       tags,

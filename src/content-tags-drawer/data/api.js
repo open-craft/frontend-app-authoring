@@ -90,7 +90,7 @@ export async function getContentData(contentId) {
 /**
  * Update content object's applied tags
  * @param {string} contentId The id of the content object (unit/component)
- * @param {Promise<import("./types.mjs").UpdateTagsData>[]} tagsData The list of tags (values) to set on content object
+ * @param {Promise<import("./types.mjs").UpdateTagsData[]>} tagsData The list of tags (values) to set on content object
  * @returns {Promise<import("./types.mjs").ContentTaxonomyTagsData>}
  */
 export async function updateContentTaxonomyTags(contentId, tagsData) {

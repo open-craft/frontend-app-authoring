@@ -9,6 +9,7 @@ import { useContentTaxonomyTagsUpdater } from './data/apiHooks';
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
 /** @typedef {import("./ContentTagsCollapsible").TagTreeEntry} TagTreeEntry */
 /** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
+/** @typedef {import("./data/types.mjs").UpdateTagsData} UpdateTagsData */
 
 /**
  * Util function that sorts the keys of a tree in alphabetical order.
@@ -81,7 +82,9 @@ const getLeafTags = (tree) => {
  *      contentTagsCount: number,
  *      checkedTags: any,
  *      commitStagedTagsToGlobal: () => void,
- *      updateTags: import('@tanstack/react-query').UseMutationResult<any, unknown, { tags: string[]; }, unknown>
+ *      updateTags: import('@tanstack/react-query').UseMutationResult<
+ *                  any, unknown, { tagsData: Promise<UpdateTagsData[]>; }, unknown
+ *      >
  * }}
  */
 const useContentTagsCollapsibleHelper = (
