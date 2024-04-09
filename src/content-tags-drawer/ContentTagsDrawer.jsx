@@ -97,7 +97,7 @@ const ContentTagsDrawer = ({ id, onClose }) => {
           )}
 
         <hr />
-        <p className='lead text-gray-500 font-weight-bold'>{intl.formatMessage(messages.headerSubtitle)}</p>
+        <p className="lead text-gray-500 font-weight-bold">{intl.formatMessage(messages.headerSubtitle)}</p>
 
         { isTaxonomyListLoaded && isContentTaxonomyTagsLoaded
           ? tagsByTaxonomy.map((data) => (
