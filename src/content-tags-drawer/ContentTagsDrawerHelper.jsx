@@ -292,9 +292,6 @@ const useContentTagsDrawerHelper = (contentId) => {
     // It is constructed this way to maintain the order
     // of the list `fechedTaxonomies`
     const mergedTagsArray = fechedTaxonomies.map(obj => mergedTags[obj.id]);
-    console.log("RRRRRRRRRRRRRr");
-    console.log(mergedTagsArray);
-    console.log(globalStagedRemovedContentTags);
 
     setTagsByTaxonomy(mergedTagsArray);
   }, [
