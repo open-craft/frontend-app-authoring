@@ -7,6 +7,7 @@ import {
   Spinner,
   Stack,
   Button,
+  Toast,
 } from '@openedx/paragon';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { useParams } from 'react-router-dom';
@@ -56,6 +57,9 @@ const ContentTagsDrawer = ({ id, onClose }) => {
     collapsibleStates,
     openCollapsible,
     closeCollapsible,
+    toastMessage,
+    showToastAfterSave,
+    closeToast,
   } = useContentTagsDrawerHelper(contentId);
 
   let onCloseDrawer = onClose;
@@ -83,6 +87,7 @@ const ContentTagsDrawer = ({ id, onClose }) => {
 
   useEffect(() => {
     if (commitGlobalStagedTagsStatus === 'success') {
+      showToastAfterSave();
       toReadMode();
     }
   }, [commitGlobalStagedTagsStatus]);
@@ -173,6 +178,14 @@ const ContentTagsDrawer = ({ id, onClose }) => {
               )}
           </div>
         </Container>
+      )}
+      {toastMessage && (
+        <Toast
+          show
+          onClose={closeToast}
+        >
+          {toastMessage}
+        </Toast>
       )}
     </div>
   );

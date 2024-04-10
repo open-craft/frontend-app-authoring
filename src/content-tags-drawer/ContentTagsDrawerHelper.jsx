@@ -1,9 +1,10 @@
 // @ts-check
 import React, { useEffect } from 'react';
-import { cloneDeep } from 'lodash';
+import { useIntl } from '@edx/frontend-platform/i18n';
 import { useContentData, useContentTaxonomyTagsData, useContentTaxonomyTagsUpdater } from './data/apiHooks';
 import { useTaxonomyList } from '../taxonomy/data/apiHooks';
 import { extractOrgFromContentId } from './utils';
+import messages from './messages';
 
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
 /** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
@@ -36,9 +37,13 @@ import { extractOrgFromContentId } from './utils';
  *     collapsibleStates: Record<number, boolean>,
  *     openCollapsible: (taxonomyId: number) => void,
  *     closeCollapsible: (taxonomyId: number) => void,
+ *     toastMessage: string | undefined,
+ *     showToastAfterSave: () => void,
+ *     closeToast: () => void,
  * }}
  */
 const useContentTagsDrawerHelper = (contentId) => {
+  const intl = useIntl();
   const org = extractOrgFromContentId(contentId);
 
   // True if the drawer is on edit mode.
@@ -51,7 +56,10 @@ const useContentTagsDrawerHelper = (contentId) => {
   const [globalStagedRemovedContentTags, setGlobalStagedRemovedContentTags] = React.useState({});
   // Merges feched tags, global staged tags and global removed staged tags
   const [tagsByTaxonomy, setTagsByTaxonomy] = React.useState(/** @type TagsInTaxonomy[] */ ([]));
+  // This stores taxonomy collapsible states (open/close).
   const [collapsibleStates, setColapsibleStates] = React.useState({});
+  // Message to show a toast in the content drawer.
+  const [toastMessage, setToastMessage] = React.useState(/** @type string | undefined */ (undefined));
   // Mutation to update tags
   const updateTags = useContentTaxonomyTagsUpdater(contentId);
 
@@ -82,7 +90,15 @@ const useContentTagsDrawerHelper = (contentId) => {
         }
       });
 
-      return taxonomiesList;
+      /// Sort taxonomies
+      const taxonomiesWithData = taxonomiesList.filter(
+        (t) => t.contentTags.length !== 0,
+      ).sort((a, b) => b.contentTags.length - a.contentTags.length);
+      const emptyTaxonomies = taxonomiesList.filter(
+        (t) => t.contentTags.length === 0,
+      ).sort((a, b) => a.name.localeCompare(b.name));
+
+      return [...taxonomiesWithData, ...emptyTaxonomies];
     }
     return [];
   }, [taxonomyListData, contentTaxonomyTagsData]);
@@ -198,6 +214,42 @@ const useContentTagsDrawerHelper = (contentId) => {
     setCollapsibleToInitalState,
   ]);
 
+  // Build toast message and show toast after save drawer.
+  const showToastAfterSave = React.useCallback(() => {
+    const tagsAddedList = Object.values(globalStagedContentTags);
+    const tagsRemovedList = Object.values(globalStagedRemovedContentTags);
+
+    const tagsAdded = tagsAddedList.length === 1 ? tagsAddedList[0].length : tagsAddedList.reduce(
+      (acc, curr) => acc + curr.length,
+      0,
+    );
+    const tagsRemoved = tagsRemovedList.length === 1 ? tagsRemovedList[0].length : tagsRemovedList.reduce(
+      (acc, curr) => acc + curr.length,
+      0,
+    );
+    let message;
+    if (tagsAdded && tagsRemoved) {
+      message = intl.formatMessage(
+        messages.tagsSaveToastTextTypeAddedAndRemoved,
+        { tagsAdded, tagsRemoved },
+      );
+    } else if (tagsAdded) {
+      message = intl.formatMessage(
+        messages.tagsSaveToastTextTypeAdded,
+        { tagsAdded },
+      );
+    } else if (tagsRemoved) {
+      message = intl.formatMessage(
+        messages.tagsSaveToastTextTypeRemoved,
+        { tagsRemoved },
+      );
+    }
+    setToastMessage(message);
+  }, [globalStagedContentTags, globalStagedRemovedContentTags, setToastMessage]);
+
+  // Close the toast
+  const closeToast = React.useCallback(() => setToastMessage(undefined), [setToastMessage]);
+
   let contentName = '';
   if (isContentDataLoaded) {
     if ('displayName' in contentData) {
@@ -210,7 +262,7 @@ const useContentTagsDrawerHelper = (contentId) => {
   // Updates `tagsByTaxonomy` merged feched tags, global staged tags
   // and global removed staged tags.
   useEffect(() => {
-    const mergedTags = cloneDeep(fechedTaxonomies).reduce((acc, obj) => (
+    const mergedTags = fechedTaxonomies.reduce((acc, obj) => (
       { ...acc, [obj.id]: obj }
     ), {});
 
@@ -236,16 +288,11 @@ const useContentTagsDrawerHelper = (contentId) => {
       }
     });
 
-    /// Sort taxonomies
-    const taxonomiesList = Object.values(mergedTags);
-    const taxonomiesWithData = taxonomiesList.filter(
-      (t) => t.contentTags.length !== 0,
-    ).sort((a, b) => b.contentTags.length - a.contentTags.length);
-    const emptyTaxonomies = taxonomiesList.filter(
-      (t) => t.contentTags.length === 0,
-    ).sort((a, b) => a.name.localeCompare(b.name));
+    // It is constructed this way to maintain the order
+    // of the list `fechedTaxonomies`
+    const mergedTagsArray = fechedTaxonomies.map(obj => mergedTags[obj.id]);
 
-    setTagsByTaxonomy([...taxonomiesWithData, ...emptyTaxonomies]);
+    setTagsByTaxonomy(mergedTagsArray);
   }, [
     fechedTaxonomies,
     globalStagedContentTags,
@@ -288,6 +335,9 @@ const useContentTagsDrawerHelper = (contentId) => {
     collapsibleStates,
     openCollapsible,
     closeCollapsible,
+    toastMessage,
+    showToastAfterSave,
+    closeToast,
   };
 };
 
