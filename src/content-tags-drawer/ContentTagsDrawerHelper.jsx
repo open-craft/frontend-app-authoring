@@ -1,6 +1,7 @@
 // @ts-check
 import React, { useEffect } from 'react';
 import { useIntl } from '@edx/frontend-platform/i18n';
+import { cloneDeep } from 'lodash';
 import { useContentData, useContentTaxonomyTagsData, useContentTaxonomyTagsUpdater } from './data/apiHooks';
 import { useTaxonomyList } from '../taxonomy/data/apiHooks';
 import { extractOrgFromContentId } from './utils';
@@ -262,7 +263,7 @@ const useContentTagsDrawerHelper = (contentId) => {
   // Updates `tagsByTaxonomy` merged feched tags, global staged tags
   // and global removed staged tags.
   useEffect(() => {
-    const mergedTags = fechedTaxonomies.reduce((acc, obj) => (
+    const mergedTags = cloneDeep(fechedTaxonomies).reduce((acc, obj) => (
       { ...acc, [obj.id]: obj }
     ), {});
 
