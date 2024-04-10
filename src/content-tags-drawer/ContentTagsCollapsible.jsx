@@ -19,9 +19,8 @@ import messages from './messages';
 
 import ContentTagsDropDownSelector from './ContentTagsDropDownSelector';
 
-import ContentTagsTree from './ContentTagsTree';
-
 import useContentTagsCollapsibleHelper from './ContentTagsCollapsibleHelper';
+import TagsTree from './TagsTree';
 
 /** @typedef {import("./ContentTagsCollapsible").TagTreeEntry} TagTreeEntry */
 /** @typedef {import("./ContentTagsCollapsible").TaxonomySelectProps} TaxonomySelectProps */
@@ -243,6 +242,10 @@ const CustomIndicatorsContainer = (props) => {
  * @param {Function} props.setGlobalStagedContentTags
  *        - Callback function to set global staged tags for a taxonomy to provided tags list
  * @param {TaxonomyData & {contentTags: ContentTagData[]}} props.taxonomyAndTagsData - Taxonomy metadata & applied tags
+ * @param {boolean} props.isEditMode - True if Content Tags Drawer is in edit mode
+ * @param {boolean} props.collapsibleState - True if the collapsible is open
+ * @param {(taxonomyId: number) => void} props.openCollapsible - Callback function to open the collapsible
+ * @param {(taxonomyId: number) => void} props.closeCollapsible - Callback function to close the collapsible
  */
 const ContentTagsCollapsible = ({
   contentId,
@@ -257,6 +260,10 @@ const ContentTagsCollapsible = ({
   globalStagedContentTags,
   globalStagedRemovedContentTags,
   setGlobalStagedContentTags,
+  isEditMode,
+  collapsibleState,
+  openCollapsible,
+  closeCollapsible,
 }) => {
   const intl = useIntl();
   const { id: taxonomyId, name, canTagObject } = taxonomyAndTagsData;
@@ -394,6 +401,9 @@ const ContentTagsCollapsible = ({
     <div className="d-flex">
       <Collapsible.Advanced
         className="collapsible-card-lg taxonomy-tags-collapsible"
+        open={collapsibleState}
+        onClose={() => closeCollapsible(taxonomyId)}
+        onOpen={() => openCollapsible(taxonomyId)}
       >
         <Collapsible.Trigger className="collapsible-trigger pl-2.5">
           <Collapsible.Visible whenClosed>
@@ -408,12 +418,22 @@ const ContentTagsCollapsible = ({
 
         <Collapsible.Body className="collapsible-body">
           <div key={taxonomyId}>
-            <ContentTagsTree tagsTree={appliedContentTagsTree} removeTagHandler={removeAppliedTagHandler} />
+            { Object.keys(appliedContentTagsTree).length !== 0
+              && (
+                <div className="mb-3" key={taxonomyId}>
+                  <TagsTree
+                    tags={appliedContentTagsTree}
+                    parentKey={taxonomyId.toString()}
+                    removeTagHandler={removeAppliedTagHandler}
+                    isEditMode={isEditMode}
+                  />
+                </div>
+            )}
           </div>
 
           <div className="d-flex taxonomy-tags-selector-menu">
 
-            {canTagObject && (
+            {isEditMode && canTagObject && (
               <Select
                 onBlur={handleOnBlur}
                 styles={{

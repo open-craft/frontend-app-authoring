@@ -129,7 +129,7 @@ export const useContentTaxonomyTagsUpdater = (contentId) => {
      *   any,
      *   any,
      *   {
-     *     tagsData: Promise<import("./types.mjs").UpdateTagsData>[]
+     *     tagsData: Promise<import("./types.mjs").UpdateTagsData[]>
      *   }
      * >}
      */

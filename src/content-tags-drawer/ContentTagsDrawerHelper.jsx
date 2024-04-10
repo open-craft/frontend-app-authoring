@@ -1,9 +1,10 @@
 // @ts-check
 import React, { useEffect } from 'react';
-import { cloneDeep } from 'lodash';
+import { useIntl } from '@edx/frontend-platform/i18n';
 import { useContentData, useContentTaxonomyTagsData, useContentTaxonomyTagsUpdater } from './data/apiHooks';
 import { useTaxonomyList } from '../taxonomy/data/apiHooks';
 import { extractOrgFromContentId } from './utils';
+import messages from './messages';
 
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
 /** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
@@ -14,7 +15,6 @@ import { extractOrgFromContentId } from './utils';
  * @param {string} contentId
  * @returns {{
  *     stagedContentTags: Record<number, StagedTagData[]>,
- *     setStagedContentTags: Function,
  *     addStagedContentTag: (taxonomyId: number, addedTag: StagedTagData) => void,
  *     removeStagedContentTag: (taxonomyId: number, tagValue: string) => void,
  *     removeGlobalStagedContentTag: (taxonomyId: number, tagValue: string) => void,
@@ -31,11 +31,23 @@ import { extractOrgFromContentId } from './utils';
  *     isTaxonomyListLoaded: boolean,
  *     contentName: string,
  *     tagsByTaxonomy: TagsInTaxonomy[],
+ *     isEditMode: boolean,
+ *     toEditMode: () => void,
+ *     toReadMode: () => void,
+ *     collapsibleStates: Record<number, boolean>,
+ *     openCollapsible: (taxonomyId: number) => void,
+ *     closeCollapsible: (taxonomyId: number) => void,
+ *     toastMessage: string | undefined,
+ *     showToastAfterSave: () => void,
+ *     closeToast: () => void,
  * }}
  */
 const useContentTagsDrawerHelper = (contentId) => {
+  const intl = useIntl();
   const org = extractOrgFromContentId(contentId);
 
+  // True if the drawer is on edit mode.
+  const [isEditMode, setIsEditMode] = React.useState(false);
   // This stores the tags added on the add tags Select in all taxonomies.
   const [stagedContentTags, setStagedContentTags] = React.useState({});
   // When a staged tags on a taxonomy is commitet then is saved on this map.
@@ -44,6 +56,11 @@ const useContentTagsDrawerHelper = (contentId) => {
   const [globalStagedRemovedContentTags, setGlobalStagedRemovedContentTags] = React.useState({});
   // Merges feched tags, global staged tags and global removed staged tags
   const [tagsByTaxonomy, setTagsByTaxonomy] = React.useState(/** @type TagsInTaxonomy[] */ ([]));
+  // This stores taxonomy collapsible states (open/close).
+  const [collapsibleStates, setColapsibleStates] = React.useState({});
+  // Message to show a toast in the content drawer.
+  const [toastMessage, setToastMessage] = React.useState(/** @type string | undefined */ (undefined));
+  // Mutation to update tags
   const updateTags = useContentTaxonomyTagsUpdater(contentId);
 
   // Fetch from database
@@ -73,7 +90,15 @@ const useContentTagsDrawerHelper = (contentId) => {
         }
       });
 
-      return taxonomiesList;
+      /// Sort taxonomies
+      const taxonomiesWithData = taxonomiesList.filter(
+        (t) => t.contentTags.length !== 0,
+      ).sort((a, b) => b.contentTags.length - a.contentTags.length);
+      const emptyTaxonomies = taxonomiesList.filter(
+        (t) => t.contentTags.length === 0,
+      ).sort((a, b) => a.name.localeCompare(b.name));
+
+      return [...taxonomiesWithData, ...emptyTaxonomies];
     }
     return [];
   }, [taxonomyListData, contentTaxonomyTagsData]);
@@ -129,6 +154,102 @@ const useContentTagsDrawerHelper = (contentId) => {
     setStagedContentTags(prevStagedContentTags => ({ ...prevStagedContentTags, [taxonomyId]: tagsList }));
   }, [setStagedContentTags]);
 
+  // Open a collapsible of a taxonomy
+  const openCollapsible = React.useCallback((taxonomyId) => {
+    setColapsibleStates(prevStates => ({
+      ...prevStates,
+      [taxonomyId]: true,
+    }));
+  }, [setColapsibleStates]);
+
+  // Close a collapsible of a taxonomy
+  const closeCollapsible = React.useCallback((taxonomyId) => {
+    setColapsibleStates(prevStates => ({
+      ...prevStates,
+      [taxonomyId]: false,
+    }));
+  }, [setColapsibleStates]);
+
+  const openAllCollapsible = React.useCallback(() => {
+    const updatedState = {};
+    fechedTaxonomies.forEach((taxonomy) => {
+      updatedState[taxonomy.id] = true;
+    });
+    setColapsibleStates(updatedState);
+  }, [fechedTaxonomies, setColapsibleStates]);
+
+  // Set initial state of collapsible based on content tags
+  const setCollapsibleToInitalState = React.useCallback(() => {
+    const updatedStated = {};
+    fechedTaxonomies.forEach((taxonomy) => {
+      // Taxonomy with content tags must be open
+      updatedStated[taxonomy.id] = taxonomy.contentTags.length !== 0;
+    });
+    setColapsibleStates(updatedStated);
+  }, [fechedTaxonomies, setColapsibleStates]);
+
+  // First call of the initial collapsible states
+  useEffect(() => {
+    setCollapsibleToInitalState();
+  }, [setCollapsibleToInitalState]);
+
+  // Changes the drawer mode to edit
+  const toEditMode = React.useCallback(() => {
+    setIsEditMode(true);
+    openAllCollapsible();
+  }, [setIsEditMode, openAllCollapsible]);
+
+  // Changes the drawer mode to read and clears all staged tags and states.
+  const toReadMode = React.useCallback(() => {
+    setIsEditMode(false);
+    setStagedContentTags({});
+    setGlobalStagedContentTags({});
+    setGlobalStagedRemovedContentTags({});
+    setCollapsibleToInitalState();
+  }, [
+    setIsEditMode,
+    setStagedContentTags,
+    setGlobalStagedContentTags,
+    setGlobalStagedRemovedContentTags,
+    setCollapsibleToInitalState,
+  ]);
+
+  // Build toast message and show toast after save drawer.
+  const showToastAfterSave = React.useCallback(() => {
+    const tagsAddedList = Object.values(globalStagedContentTags);
+    const tagsRemovedList = Object.values(globalStagedRemovedContentTags);
+
+    const tagsAdded = tagsAddedList.length === 1 ? tagsAddedList[0].length : tagsAddedList.reduce(
+      (acc, curr) => acc + curr.length,
+      0,
+    );
+    const tagsRemoved = tagsRemovedList.length === 1 ? tagsRemovedList[0].length : tagsRemovedList.reduce(
+      (acc, curr) => acc + curr.length,
+      0,
+    );
+    let message;
+    if (tagsAdded && tagsRemoved) {
+      message = intl.formatMessage(
+        messages.tagsSaveToastTextTypeAddedAndRemoved,
+        { tagsAdded, tagsRemoved },
+      );
+    } else if (tagsAdded) {
+      message = intl.formatMessage(
+        messages.tagsSaveToastTextTypeAdded,
+        { tagsAdded },
+      );
+    } else if (tagsRemoved) {
+      message = intl.formatMessage(
+        messages.tagsSaveToastTextTypeRemoved,
+        { tagsRemoved },
+      );
+    }
+    setToastMessage(message);
+  }, [globalStagedContentTags, globalStagedRemovedContentTags, setToastMessage]);
+
+  // Close the toast
+  const closeToast = React.useCallback(() => setToastMessage(undefined), [setToastMessage]);
+
   let contentName = '';
   if (isContentDataLoaded) {
     if ('displayName' in contentData) {
@@ -141,7 +262,7 @@ const useContentTagsDrawerHelper = (contentId) => {
   // Updates `tagsByTaxonomy` merged feched tags, global staged tags
   // and global removed staged tags.
   useEffect(() => {
-    const mergedTags = cloneDeep(fechedTaxonomies).reduce((acc, obj) => (
+    const mergedTags = fechedTaxonomies.reduce((acc, obj) => (
       { ...acc, [obj.id]: obj }
     ), {});
 
@@ -167,7 +288,14 @@ const useContentTagsDrawerHelper = (contentId) => {
       }
     });
 
-    setTagsByTaxonomy(Object.values(mergedTags));
+    // It is constructed this way to maintain the order
+    // of the list `fechedTaxonomies`
+    const mergedTagsArray = fechedTaxonomies.map(obj => mergedTags[obj.id]);
+    console.log("RRRRRRRRRRRRRr");
+    console.log(mergedTagsArray);
+    console.log(globalStagedRemovedContentTags);
+
+    setTagsByTaxonomy(mergedTagsArray);
   }, [
     fechedTaxonomies,
     globalStagedContentTags,
@@ -182,12 +310,12 @@ const useContentTagsDrawerHelper = (contentId) => {
         tags: tags.contentTags.map(t => t.value),
       });
     });
+    // @ts-ignore
     updateTags.mutate({ tagsData });
   }, [tagsByTaxonomy]);
 
   return {
     stagedContentTags,
-    setStagedContentTags,
     addStagedContentTag,
     removeStagedContentTag,
     removeGlobalStagedContentTag,
@@ -204,6 +332,15 @@ const useContentTagsDrawerHelper = (contentId) => {
     isTaxonomyListLoaded,
     contentName,
     tagsByTaxonomy,
+    isEditMode,
+    toEditMode,
+    toReadMode,
+    collapsibleStates,
+    openCollapsible,
+    closeCollapsible,
+    toastMessage,
+    showToastAfterSave,
+    closeToast,
   };
 };
 

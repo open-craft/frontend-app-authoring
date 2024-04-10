@@ -78,10 +78,37 @@ const messages = defineMessages({
   tagsDrawerCancelButtonText: {
     id: 'course-authoring.content-tags-drawer.cancel',
     defaultMessage: 'Cancel',
+    description: 'Button to cancel edit tags.',
   },
   tagsDrawerSaveButtonText: {
     id: 'course-authoring.content-tags-drawer.save',
     defaultMessage: 'Save',
+    description: 'Button to save edited tags.',
+  },
+  tagsDrawerCloseButtonText: {
+    id: 'course-authoring.content-tags-drawer.close',
+    defaultMessage: 'Close',
+    description: 'Button to close manage tags drawer.',
+  },
+  tagsDrawerEditTagsButtonText: {
+    id: 'course-authoring.content-tags-drawer.edit-tags',
+    defaultMessage: 'Edit tags',
+    description: 'Button to edit tags in manage tags drawer.',
+  },
+  tagsSaveToastTextTypeAddedAndRemoved: {
+    id: 'course-authoring.content-tags-drawer.toast.added-removed',
+    defaultMessage: '{tagsAdded} tags added. {tagsRemoved} tags removed.',
+    description: 'Text of toast after save when the user added or removed tags.',
+  },
+  tagsSaveToastTextTypeAdded: {
+    id: 'course-authoring.content-tags-drawer.toast.added',
+    defaultMessage: '{tagsAdded} tags added.',
+    description: 'Text of toast after save when the user added tags.',
+  },
+  tagsSaveToastTextTypeRemoved: {
+    id: 'course-authoring.content-tags-drawer.toast.removed',
+    defaultMessage: '{tagsRemoved} tags removed.',
+    description: 'Text of toast after save when the user removed tags.',
   },
 });
 

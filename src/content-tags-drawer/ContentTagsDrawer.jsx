@@ -6,6 +6,7 @@ import {
   Spinner,
   Stack,
   Button,
+  Toast,
 } from '@openedx/paragon';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { useParams } from 'react-router-dom';
@@ -49,6 +50,15 @@ const ContentTagsDrawer = ({ id, onClose }) => {
     isTaxonomyListLoaded,
     contentName,
     tagsByTaxonomy,
+    isEditMode,
+    toEditMode,
+    toReadMode,
+    collapsibleStates,
+    openCollapsible,
+    closeCollapsible,
+    toastMessage,
+    showToastAfterSave,
+    closeToast,
   } = useContentTagsDrawerHelper(contentId);
 
   let onCloseDrawer = onClose;
@@ -76,8 +86,8 @@ const ContentTagsDrawer = ({ id, onClose }) => {
 
   useEffect(() => {
     if (commitGlobalStagedTagsStatus === 'success') {
-      // TODO Change to read mode
-      onCloseDrawer();
+      showToastAfterSave();
+      toReadMode();
     }
   }, [commitGlobalStagedTagsStatus]);
 
@@ -115,6 +125,10 @@ const ContentTagsDrawer = ({ id, onClose }) => {
                 globalStagedContentTags={globalStagedContentTags}
                 globalStagedRemovedContentTags={globalStagedRemovedContentTags}
                 setGlobalStagedContentTags={setGlobalStagedContentTags}
+                isEditMode={isEditMode}
+                collapsibleState={collapsibleStates[data.id] || false}
+                openCollapsible={openCollapsible}
+                closeCollapsible={closeCollapsible}
               />
               <hr />
             </div>
@@ -132,16 +146,24 @@ const ContentTagsDrawer = ({ id, onClose }) => {
                 <Button
                   className="font-weight-bold tags-drawer-cancel-button"
                   variant="tertiary"
-                  onClick={onCloseDrawer}
+                  onClick={isEditMode
+                    ? toReadMode
+                    : onCloseDrawer}
                 >
-                  { intl.formatMessage(messages.tagsDrawerCancelButtonText) }
+                  { intl.formatMessage(isEditMode
+                    ? messages.tagsDrawerCancelButtonText
+                    : messages.tagsDrawerCloseButtonText)}
                 </Button>
                 <Button
                   variant="dark"
                   className="rounded-0"
-                  onClick={commitGlobalStagedTags}
+                  onClick={isEditMode
+                    ? commitGlobalStagedTags
+                    : toEditMode}
                 >
-                  { intl.formatMessage(messages.tagsDrawerSaveButtonText)}
+                  { intl.formatMessage(isEditMode
+                    ? messages.tagsDrawerSaveButtonText
+                    : messages.tagsDrawerEditTagsButtonText)}
                 </Button>
               </Stack>
             )
@@ -154,6 +176,14 @@ const ContentTagsDrawer = ({ id, onClose }) => {
               )}
           </div>
         </Container>
+      )}
+      {toastMessage && (
+        <Toast
+          show
+          onClose={closeToast}
+        >
+          {toastMessage}
+        </Toast>
       )}
     </div>
   );
