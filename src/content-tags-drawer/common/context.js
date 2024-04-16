@@ -35,3 +35,8 @@ export const ContentTagsDrawerContext = React.createContext({
   closeToast: /** @type{() => void} */ (() => {}),
   setCollapsibleToInitalState: /** @type{() => void} */ (() => {}),
 });
+
+export const ContentTagsDrawerSheetContext = React.createContext({
+  blockingSheet: /** @type{boolean} */ (false),
+  setBlockingSheet: /** @type{Function} */ (() => {}),
+});

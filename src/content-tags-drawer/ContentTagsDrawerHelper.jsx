@@ -6,6 +6,7 @@ import { useContentData, useContentTaxonomyTagsData, useContentTaxonomyTagsUpdat
 import { useTaxonomyList } from '../taxonomy/data/apiHooks';
 import { extractOrgFromContentId } from './utils';
 import messages from './messages';
+import { ContentTagsDrawerSheetContext } from './common/context';
 
 /** @typedef {import("./data/types.mjs").Tag} ContentTagData */
 /** @typedef {import("./data/types.mjs").StagedTagData} StagedTagData */
@@ -47,6 +48,8 @@ import messages from './messages';
 const useContentTagsDrawerContext = (contentId) => {
   const intl = useIntl();
   const org = extractOrgFromContentId(contentId);
+
+  const { setBlockingSheet } = React.useContext(ContentTagsDrawerSheetContext);
 
   // True if the drawer is on edit mode.
   const [isEditMode, setIsEditMode] = React.useState(false);
@@ -235,9 +238,8 @@ const useContentTagsDrawerContext = (contentId) => {
     setCollapsibleToInitalState,
   ]);
 
-  // Build toast message and show toast after save drawer.
-  /* istanbul ignore next */
-  const showToastAfterSave = React.useCallback(() => {
+  // Count added and removed tags
+  const countTags = React.useCallback(() => {
     const tagsAddedList = Object.values(globalStagedContentTags);
     const tagsRemovedList = Object.values(globalStagedRemovedContentTags);
 
@@ -249,6 +251,17 @@ const useContentTagsDrawerContext = (contentId) => {
       (acc, curr) => acc + curr.length,
       0,
     );
+    return {
+      tagsAdded,
+      tagsRemoved,
+    };
+  }, [globalStagedContentTags, globalStagedRemovedContentTags]);
+
+  // Build toast message and show toast after save drawer.
+  /* istanbul ignore next */
+  const showToastAfterSave = React.useCallback(() => {
+    const { tagsAdded, tagsRemoved } = countTags();
+
     let message;
     if (tagsAdded && tagsRemoved) {
       message = `${intl.formatMessage(
@@ -273,7 +286,7 @@ const useContentTagsDrawerContext = (contentId) => {
       );
     }
     setToastMessage(message);
-  }, [globalStagedContentTags, globalStagedRemovedContentTags, setToastMessage]);
+  }, [setToastMessage, countTags]);
 
   // Close the toast
   const closeToast = React.useCallback(() => setToastMessage(undefined), [setToastMessage]);
@@ -321,6 +334,15 @@ const useContentTagsDrawerContext = (contentId) => {
     const mergedTagsArray = fechedTaxonomies.map(obj => mergedTags[obj.id]);
 
     setTagsByTaxonomy(mergedTagsArray);
+
+    if (setBlockingSheet) {
+      const { tagsAdded, tagsRemoved } = countTags();
+      if (tagsAdded || tagsRemoved) {
+        setBlockingSheet(true);
+      } else {
+        setBlockingSheet(false);
+      }
+    }
   }, [
     fechedTaxonomies,
     globalStagedContentTags,
