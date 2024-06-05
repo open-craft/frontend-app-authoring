@@ -28,7 +28,6 @@ import CourseRerun from './course-rerun';
 import { TaxonomyLayout, TaxonomyDetailPage, TaxonomyListPage } from './taxonomy';
 import { ContentTagsDrawer } from './content-tags-drawer';
 import AccessibilityPage from './accessibility-page';
-import { LibraryLayout } from './library-temp';
 
 import 'react-datepicker/dist/react-datepicker.css';
 import './index.scss';
@@ -60,7 +59,6 @@ const App = () => {
         <Route path="/library/:libraryId/*" element={<LibraryAuthoringPage />} />
         <Route path="/course/:courseId/*" element={<CourseAuthoringRoutes />} />
         <Route path="/course_rerun/:courseId" element={<CourseRerun />} />
-        <Route path="/library" element={<LibraryLayout />} />
         {getConfig().ENABLE_ACCESSIBILITY_PAGE === 'true' && (
           <Route path="/accessibility" element={<AccessibilityPage />} />
         )}

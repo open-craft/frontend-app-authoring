@@ -16,3 +16,10 @@
   * @property {boolean} hasUnpublishedDeletes
   * @property {string} license
   */
+ 
+/**
+ * @typedef {Object} CreateBlockData
+ * @property {string} libraryId
+ * @property {string} blockType
+ * @property {string} definitionId
+ */
