@@ -4,7 +4,9 @@ import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, waitFor } from '@testing-library/react';
+import {
+  render, waitFor, screen, fireEvent,
+} from '@testing-library/react';
 import fetchMock from 'fetch-mock-jest';
 
 import initializeStore from '../store';
@@ -62,6 +64,7 @@ const libraryData = {
   allowPublic_read: false,
   hasUnpublished_changes: true,
   hasUnpublished_deletes: false,
+  can_edit_library: true,
   license: '',
 };
 
@@ -175,5 +178,35 @@ describe('<LibraryAuthoringPage />', () => {
     await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(1, searchEndpoint, 'post'); });
 
     expect(getByText('You have not added any content to this library yet.')).toBeInTheDocument();
+  });
+
+  it('show new content button', async () => {
+    mockUseParams.mockReturnValue({ libraryId: libraryData.id });
+    axiosMock.onGet(getContentLibraryApiUrl(libraryData.id)).reply(200, libraryData);
+
+    render(<RootWrapper />);
+
+    expect(await screen.findByRole('heading', `Content library${libraryData.title}`)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument();
+  });
+
+  it('should open and close new content sidebar', async () => {
+    mockUseParams.mockReturnValue({ libraryId: libraryData.id });
+    axiosMock.onGet(getContentLibraryApiUrl(libraryData.id)).reply(200, libraryData);
+
+    render(<RootWrapper />);
+
+    expect(await screen.findByRole('heading', `Content library${libraryData.title}`)).toBeInTheDocument();
+    expect(screen.queryByText(/add content/i)).not.toBeInTheDocument();
+
+    const newButton = screen.getByRole('button', { name: /new/i });
+    fireEvent.click(newButton);
+
+    expect(screen.getByText(/add content/i)).toBeInTheDocument();
+
+    const closeButton = screen.getByRole('button', { name: /close/i });
+    fireEvent.click(closeButton);
+
+    expect(screen.queryByText(/add content/i)).not.toBeInTheDocument();
   });
 });
