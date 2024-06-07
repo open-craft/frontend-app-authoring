@@ -14,6 +14,7 @@
   * @property {boolean} allowPublicRead
   * @property {boolean} hasUnpublishedChanges
   * @property {boolean} hasUnpublishedDeletes
+  * @property {boolean} canEditLibrary
   * @property {string} license
   */
  

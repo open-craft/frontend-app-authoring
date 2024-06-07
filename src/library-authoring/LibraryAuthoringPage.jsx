@@ -112,6 +112,7 @@ const LibraryAuthoringPage = () => {
                     iconBefore={Add}
                     variant="primary rounded-0"
                     onClick={() => dispatch(openAddContentSidebar())}
+                    disabled={!libraryData.canEditLibrary}
                   >
                     {intl.formatMessage(messages.newContentButton)}
                   </Button>,
