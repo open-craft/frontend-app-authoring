@@ -38,8 +38,8 @@ export async function getContentLibrary(libraryId) {
 export async function createLibraryBlock({
   libraryId,
   blockType,
-  definitionId
-}){
+  definitionId,
+}) {
   const client = getAuthenticatedHttpClient();
   const response = await client.post(
     getCreateLibraryBlockUrl(libraryId),

@@ -15,7 +15,7 @@ export const libraryQueryKeys = {
    */
   all: ['contentLibrary'],
   contentLibrary: (libraryId) => [
-    libraryQueryKeys.all, libraryId
+    libraryQueryKeys.all, libraryId,
   ],
 };
 
@@ -32,21 +32,18 @@ export const useContentLibrary = (libraryId) => (
 
 /**
  * Use this mutation to create a block in a library
- * @param {string} libraryId
+ * @param {string} [libraryId]
  */
 export const useCreateLibraryBlock = (libraryId) => {
- if (libraryId === undefined) {
-   return undefined;
- }
- const queryClient = useQueryClient();
- return useMutation({
-   /** @type {import("@tanstack/react-query").MutateFunction<any, any, {data: CreateBlockData}>} */
-   mutationFn: async (data) => createLibraryBlock(data),
-   onSettled: () => {
-     queryClient.invalidateQueries({ queryKey: libraryQueryKeys.contentLibrary(libraryId) });
-     queryClient.invalidateQueries({ queryKey: ['content_search']});
-   },
- });
+  const queryClient = useQueryClient();
+  return useMutation({
+    /** @type {import("@tanstack/react-query").MutateFunction<any, any, CreateBlockData>} */
+    mutationFn: async (data) => createLibraryBlock(data),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: libraryQueryKeys.contentLibrary(libraryId) });
+      queryClient.invalidateQueries({ queryKey: ['content_search'] });
+    },
+  });
 };
 
 /**
