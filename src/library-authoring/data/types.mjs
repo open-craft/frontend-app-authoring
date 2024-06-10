@@ -19,8 +19,18 @@
   */
  
 /**
- * @typedef {Object} CreateBlockData
+ * @typedef {Object} CreateBlockDataRequest
  * @property {string} libraryId
  * @property {string} blockType
  * @property {string} definitionId
+ */
+
+/**
+ * @typedef {Object} CreateBlockDataResponse
+ * @property {string} id
+ * @property {string} blockType
+ * @property {string | null} defKey
+ * @property {string} displayName
+ * @property {boolean} hasUnpublishedChanges
+ * @property {number} tagsCount
  */

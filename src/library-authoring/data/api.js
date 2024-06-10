@@ -2,7 +2,8 @@
 import { camelCaseObject, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
-/** @typedef {import("./types.mjs").CreateBlockData} CreateBlockData */
+/** @typedef {import("./types.mjs").CreateBlockDataRequest} CreateBlockDataRequest */
+/** @typedef {import("./types.mjs").CreateBlockDataResponse} CreateBlockDataResponse */
 
 const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
 /**
@@ -32,8 +33,8 @@ export async function getContentLibrary(libraryId) {
 
 /**
  * Creates a block in a library
- * @param {CreateBlockData} data
- * @returns {Promise<Object>}
+ * @param {CreateBlockDataRequest} blockData
+ * @returns {Promise<CreateBlockDataResponse>}
  */
 export async function createLibraryBlock({
   libraryId,
@@ -41,7 +42,7 @@ export async function createLibraryBlock({
   definitionId,
 }) {
   const client = getAuthenticatedHttpClient();
-  const response = await client.post(
+  const { data } = await client.post(
     getCreateLibraryBlockUrl(libraryId),
     {
       block_type: blockType,
@@ -49,5 +50,5 @@ export async function createLibraryBlock({
     },
   );
 
-  return response.data;
+  return camelCaseObject(data);
 }
