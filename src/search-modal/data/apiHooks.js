@@ -42,8 +42,8 @@ export const useContentSearchResults = ({
   indexName,
   extraFilter,
   searchKeywords,
-  blockTypesFilter,
-  tagsFilter,
+  blockTypesFilter = [],
+  tagsFilter = [],
 }) => {
   blockTypesFilter ??= []; // eslint-disable-line no-param-reassign -- default value for optional parameter
   tagsFilter ??= []; // eslint-disable-line no-param-reassign -- Default value for optional parameter
