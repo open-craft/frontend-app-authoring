@@ -29,7 +29,7 @@ import LibraryHome from './LibraryHome';
 import { useContentLibrary } from './data/apiHook';
 import messages from './messages';
 import { LibrarySidebar } from './library-sidebar';
-import { LibraryContext } from './common';
+import { LibraryContext } from './common/context';
 
 const TAB_LIST = {
   home: '',
