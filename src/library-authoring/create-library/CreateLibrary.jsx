@@ -3,12 +3,17 @@
 import React from 'react';
 import { TypeaheadDropdown } from '@edx/frontend-lib-content-components';
 import { FormattedMessage, useIntl } from '@edx/frontend-platform/i18n';
-import { Container, Form } from '@openedx/paragon';
+import {
+  Alert,
+  Container,
+  Form,
+  StatefulButton,
+} from '@openedx/paragon';
 import classNames from 'classnames';
 
 import Header from '../../header';
 import SubHeader from '../../generic/sub-header/SubHeader';
-import { useCreateLibrary } from './hooks';
+import { useCreateLibraryForm } from './hooks';
 import messages from './messages';
 
 const CreateLibrary = () => {
@@ -24,8 +29,12 @@ const CreateLibrary = () => {
     hasErrorField,
     handleChange,
     handleBlur,
+    handleSubmit,
+    isSubmitting,
+    setFieldValue,
     organizationListData,
-  } = useCreateLibrary(initialValues);
+    apiError,
+  } = useCreateLibraryForm(initialValues);
 
   const newLibraryFields = [
     {
@@ -59,49 +68,66 @@ const CreateLibrary = () => {
         <SubHeader
           title={<FormattedMessage {...messages.createLibrary} />}
         />
-        {newLibraryFields.map((field) => (
-          <Form.Group
-            className={classNames('form-group-custom', {
-              'form-group-custom_isInvalid': hasErrorField(field.name),
-            })}
-            key={field.name}
-          >
-            <Form.Label>{field.label}</Form.Label>
-            {field.name !== 'org' ? (
-              <Form.Control
-                value={field.value}
-                placeholder={field.placeholder}
-                name={field.name}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                isInvalid={hasErrorField(field.name)}
-              />
-            ) : (
-              <TypeaheadDropdown
-                type="text"
-                name="org"
-                readOnly={false}
-                value={field.value}
-                options={organizationListData}
-                controlClassName="has-value"
-                handleBlur={handleBlur}
-                handleChange={handleChange}
-                placeholder={field.placeholder}
-                noOptionsMessage="No options found"
-              />
-            )}
-            <Form.Text>{field.helpText}</Form.Text>
-            {hasErrorField(field.name) && (
-              <Form.Control.Feedback
-                className="feedback-error"
-                type="invalid"
-                hasIcon={false}
-              >
-                {errors[field.name]}
-              </Form.Control.Feedback>
-            )}
-          </Form.Group>
-        ))}
+        <Form onSubmit={handleSubmit}>
+          {newLibraryFields.map((field) => (
+            <Form.Group
+              className={classNames('form-group-custom', {
+                'form-group-custom_isInvalid': hasErrorField(field.name),
+              })}
+              key={field.name}
+            >
+              <Form.Label>{field.label}</Form.Label>
+              {field.name !== 'org' ? (
+                <Form.Control
+                  value={field.value}
+                  placeholder={field.placeholder}
+                  name={field.name}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  isInvalid={hasErrorField(field.name)}
+                />
+              ) : (
+                <TypeaheadDropdown
+                  type="text"
+                  name="org"
+                  readOnly={false}
+                  value={field.value}
+                  options={organizationListData}
+                  handleBlur={handleBlur}
+                  handleChange={(value) => setFieldValue('org', value)}
+                  placeholder={field.placeholder}
+                  noOptionsMessage="No options found"
+                />
+              )}
+              <Form.Text>{field.helpText}</Form.Text>
+              {hasErrorField(field.name) && (
+                <Form.Control.Feedback
+                  className="feedback-error"
+                  type="invalid"
+                  hasIcon={false}
+                >
+                  {errors[field.name]}
+                </Form.Control.Feedback>
+              )}
+            </Form.Group>
+          ))}
+          <StatefulButton
+            type="submit"
+            variant="primary"
+            className="action btn-primary"
+            state={isSubmitting ? 'disabled' : 'enabled'}
+            disabledStates={['disabled']}
+            labels={{
+              enabled: 'Create', // ToDo: Add i18n
+              disabled: 'Creating...', // ToDo: Add i18n
+            }}
+          />
+        </Form>
+        {apiError && (
+          <Alert variant="danger" className="mt-3">
+            {apiError}
+          </Alert>
+        )}
       </Container>
     </>
   );

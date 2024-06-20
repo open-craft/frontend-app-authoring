@@ -1,23 +1,32 @@
 // @ts-check
+import { useState } from 'react';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { useFormik } from 'formik';
+import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 
 import { useOrganizationListData } from '../../generic/data/apiHooks';
+import { useCreateLibraryV2 } from './data/apiHooks';
 import messages from './messages';
 
 // eslint-disable-next-line import/prefer-default-export
-export const useCreateLibrary = (initialValues) => {
+export const useCreateLibraryForm = (initialValues) => {
   const intl = useIntl();
+  const navigate = useNavigate();
+
+  const [apiError, setApiError] = useState(null);
+
+  const {
+    mutateAsync,
+  } = useCreateLibraryV2();
 
   const specialCharsRule = /^[a-zA-Z0-9_\-.'*~\s]+$/;
   const noSpaceRule = /^\S*$/;
   const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w -]*[a-zA-Z\d]+)*$/;
 
   const validationSchema = Yup.object().shape({
-    displayName: Yup.string().required(
-      intl.formatMessage(messages.requiredFieldError),
-    ),
+    title: Yup.string()
+      .required(intl.formatMessage(messages.requiredFieldError)),
     org: Yup.string()
       .required(intl.formatMessage(messages.requiredFieldError))
       .matches(
@@ -31,39 +40,42 @@ export const useCreateLibrary = (initialValues) => {
         validSlugIdRegex,
         intl.formatMessage(messages.invalidSlugError),
       ),
-    title: Yup.string()
-      .required(intl.formatMessage(messages.requiredFieldError)),
   });
 
   const {
     data: organizationListData,
-    isSuccess: isOrganizationListLoaded,
   } = useOrganizationListData();
 
   const onSubmit = async (values) => {
-    console.log('values', values);
+    setApiError(null);
+    try {
+      const data = await mutateAsync(values);
+      navigate(`/library/${data.id}`);
+    } catch (/** @type {any} */ error) {
+      setApiError(error.message);
+    }
   };
 
   const {
-    values, errors, touched, handleChange, handleBlur, setFieldValue,
+    values, errors, touched, handleChange, handleBlur, handleSubmit, isSubmitting, setFieldValue,
   } = useFormik({
     initialValues,
-    enableReinitialize: true,
-    validateOnBlur: false,
     validationSchema,
     onSubmit,
   });
 
   const hasErrorField = (fieldName) => !!errors[fieldName] && !!touched[fieldName];
-  const isFormInvalid = !!Object.keys(errors).length;
 
   return {
-    organizationListData,
-    hasErrorField,
-    isFormInvalid,
-    handleChange,
-    handleBlur,
-    values,
     errors,
+    handleBlur,
+    handleChange,
+    handleSubmit,
+    hasErrorField,
+    isSubmitting,
+    organizationListData,
+    setFieldValue,
+    values,
+    apiError,
   };
 };
