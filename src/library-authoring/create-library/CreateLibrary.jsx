@@ -1,6 +1,7 @@
 // @ts-check
 /* eslint-disable react/prop-types */
 import React from 'react';
+import { StudioFooter } from '@edx/frontend-component-footer';
 import { TypeaheadDropdown } from '@edx/frontend-lib-content-components';
 import { FormattedMessage, useIntl } from '@edx/frontend-platform/i18n';
 import {
@@ -129,6 +130,7 @@ const CreateLibrary = () => {
           </Alert>
         )}
       </Container>
+      <StudioFooter />
     </>
   );
 };
