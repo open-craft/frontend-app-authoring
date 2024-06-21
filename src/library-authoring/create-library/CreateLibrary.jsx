@@ -1,8 +1,7 @@
 // @ts-check
 /* eslint-disable react/prop-types */
-import React from 'react';
+import React, { useState } from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
-import { TypeaheadDropdown } from '@edx/frontend-lib-content-components';
 import { FormattedMessage, useIntl } from '@edx/frontend-platform/i18n';
 import {
   Alert,
@@ -10,57 +9,46 @@ import {
   Form,
   StatefulButton,
 } from '@openedx/paragon';
-import classNames from 'classnames';
+import { Formik } from 'formik';
+import { useNavigate } from 'react-router-dom';
+import * as Yup from 'yup';
 
+import { REGEX_RULES } from '../../constants';
 import Header from '../../header';
+import FormikControl from '../../generic/FormikControl';
+import FormikErrorFeedback from '../../generic/FormikErrorFeedback';
+import { useOrganizationListData } from '../../generic/data/apiHooks';
 import SubHeader from '../../generic/sub-header/SubHeader';
-import { useCreateLibraryForm } from './hooks';
+import { useCreateLibraryV2 } from './data/apiHooks';
 import messages from './messages';
 
 const CreateLibrary = () => {
   const intl = useIntl();
-  const initialValues = {
-    title: '',
-    org: '',
-    slug: '',
-  };
-  const {
-    values,
-    errors,
-    hasErrorField,
-    handleChange,
-    handleBlur,
-    handleSubmit,
-    isSubmitting,
-    setFieldValue,
-    organizationListData,
-    apiError,
-  } = useCreateLibraryForm(initialValues);
+  const navigate = useNavigate();
 
-  const newLibraryFields = [
-    {
-      label: intl.formatMessage(messages.titleLabel),
-      helpText: intl.formatMessage(messages.titleHelp),
-      name: 'title',
-      value: values.title,
-      placeholder: intl.formatMessage(messages.titlePlaceholder),
-    },
-    {
-      label: intl.formatMessage(messages.orgLabel),
-      helpText: intl.formatMessage(messages.orgHelp),
-      name: 'org',
-      value: values.org,
-      options: organizationListData,
-      placeholder: intl.formatMessage(messages.orgPlaceholder),
-    },
-    {
-      label: intl.formatMessage(messages.slugLabel),
-      helpText: intl.formatMessage(messages.slugHelp),
-      name: 'slug',
-      value: values.slug,
-      placeholder: intl.formatMessage(messages.slugPlaceholder),
-    },
-  ];
+  const [apiError, setApiError] = useState(null);
+
+  const { noSpaceRule, specialCharsRule } = REGEX_RULES;
+  const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w -]*[a-zA-Z\d]+)*$/;
+
+  const {
+    mutateAsync,
+  } = useCreateLibraryV2();
+
+  const onSubmit = async (values) => {
+    setApiError(null);
+    try {
+      const data = await mutateAsync(values);
+      navigate(`/library/${data.id}`);
+    } catch (/** @type {any} */ error) {
+      setApiError(error.message);
+    }
+  };
+
+  const {
+    data: organizationListData,
+    isLoading: isOrganizationListLoading,
+  } = useOrganizationListData();
 
   return (
     <>
@@ -69,61 +57,79 @@ const CreateLibrary = () => {
         <SubHeader
           title={<FormattedMessage {...messages.createLibrary} />}
         />
-        <Form onSubmit={handleSubmit}>
-          {newLibraryFields.map((field) => (
-            <Form.Group
-              className={classNames('form-group-custom', {
-                'form-group-custom_isInvalid': hasErrorField(field.name),
-              })}
-              key={field.name}
-            >
-              <Form.Label>{field.label}</Form.Label>
-              {field.name !== 'org' ? (
-                <Form.Control
-                  value={field.value}
-                  placeholder={field.placeholder}
-                  name={field.name}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  isInvalid={hasErrorField(field.name)}
-                />
-              ) : (
-                <TypeaheadDropdown
-                  type="text"
+        <Formik
+          initialValues={{
+            title: '',
+            org: '',
+            slug: '',
+          }}
+          validationSchema={
+            Yup.object().shape({
+              title: Yup.string()
+                .required(intl.formatMessage(messages.requiredFieldError)),
+              org: Yup.string()
+                .required(intl.formatMessage(messages.requiredFieldError))
+                .matches(
+                  specialCharsRule,
+                  intl.formatMessage(messages.disallowedCharsError),
+                )
+                .matches(noSpaceRule, intl.formatMessage(messages.noSpaceError)),
+              slug: Yup.string()
+                .required(intl.formatMessage(messages.requiredFieldError))
+                .matches(
+                  validSlugIdRegex,
+                  intl.formatMessage(messages.invalidSlugError),
+                ),
+            })
+          }
+          onSubmit={onSubmit}
+        >
+          {(formikProps) => (
+            <Form onSubmit={formikProps.handleSubmit}>
+              <FormikControl
+                name="title"
+                label={<Form.Label>{intl.formatMessage(messages.titleLabel)}</Form.Label>}
+                value={formikProps.values.title}
+                placeholder={intl.formatMessage(messages.titlePlaceholder)}
+                help={intl.formatMessage(messages.titleHelp)}
+              />
+              <Form.Group>
+                <Form.Label>{intl.formatMessage(messages.orgLabel)}</Form.Label>
+                <Form.Autosuggest
                   name="org"
-                  readOnly={false}
-                  value={field.value}
-                  options={organizationListData}
-                  handleBlur={handleBlur}
-                  handleChange={(value) => setFieldValue('org', value)}
-                  placeholder={field.placeholder}
-                  noOptionsMessage="No options found"
-                />
-              )}
-              <Form.Text>{field.helpText}</Form.Text>
-              {hasErrorField(field.name) && (
-                <Form.Control.Feedback
-                  className="feedback-error"
-                  type="invalid"
-                  hasIcon={false}
+                  isLoading={isOrganizationListLoading}
+                  onChange={(event) => formikProps.setFieldValue('org', event.selectionId)}
+                  placeholder={intl.formatMessage(messages.orgPlaceholder)}
                 >
-                  {errors[field.name]}
-                </Form.Control.Feedback>
-              )}
-            </Form.Group>
-          ))}
-          <StatefulButton
-            type="submit"
-            variant="primary"
-            className="action btn-primary"
-            state={isSubmitting ? 'disabled' : 'enabled'}
-            disabledStates={['disabled']}
-            labels={{
-              enabled: 'Create', // ToDo: Add i18n
-              disabled: 'Creating...', // ToDo: Add i18n
-            }}
-          />
-        </Form>
+                  {organizationListData ? organizationListData.map((org) => (
+                    <Form.AutosuggestOption key={org} id={org}>{org}</Form.AutosuggestOption>
+                  )) : []}
+                </Form.Autosuggest>
+                <FormikErrorFeedback name="org">
+                  <Form.Text>{intl.formatMessage(messages.orgHelp)}</Form.Text>
+                </FormikErrorFeedback>
+              </Form.Group>
+              <FormikControl
+                name="slug"
+                label={<Form.Label>{intl.formatMessage(messages.slugLabel)}</Form.Label>}
+                value={formikProps.values.slug}
+                placeholder={intl.formatMessage(messages.slugPlaceholder)}
+                help={intl.formatMessage(messages.slugHelp)}
+              />
+              <StatefulButton
+                type="submit"
+                variant="primary"
+                className="action btn-primary"
+                state={formikProps.isSubmitting ? 'disabled' : 'enabled'}
+                disabledStates={['disabled']}
+                labels={{
+                  enabled: intl.formatMessage(messages.createLibraryButton),
+                  disabled: intl.formatMessage(messages.createLibraryButtonPending),
+                }}
+              />
+            </Form>
+          )}
+        </Formik>
         {apiError && (
           <Alert variant="danger" className="mt-3">
             {apiError}

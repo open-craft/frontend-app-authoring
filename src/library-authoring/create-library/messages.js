@@ -74,6 +74,16 @@ const messages = defineMessages({
     defaultMessage: 'Please do not use any spaces in this field.',
     description: 'Error message to display when a field contains spaces.',
   },
+  createLibraryButton: {
+    id: 'course-authoring.library-authoring.create-library.form.create-library.button',
+    defaultMessage: 'Create',
+    description: 'Button text for creating a new library.',
+  },
+  createLibraryButtonPending: {
+    id: 'course-authoring.library-authoring.create-library.form.create-library.button.pending',
+    defaultMessage: 'Creating..',
+    description: 'Button text while the library is being created.',
+  },
 });
 
 export default messages;

@@ -19,15 +19,7 @@ export async function createLibraryV2(data) {
   const client = getAuthenticatedHttpClient();
   const url = getContentLibraryV2CreateApiUrl();
 
-  const { data: newLibrary } = await client.post(url, { ...data, description: data.title });
+  const { data: newLibrary } = await client.post(url, data);
 
   return camelCaseObject(newLibrary);
-
-  // FIXME: Remove after testing
-  // Commented out the above line to simulate an error
-  // return new Promise((resolve, reject) => {
-  //   setTimeout(() => {
-  //     reject(new Error('Failed to create library'));
-  //   }, 3000);
-  // });
 }
