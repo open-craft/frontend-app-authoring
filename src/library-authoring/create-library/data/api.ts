@@ -18,7 +18,8 @@ export async function createLibraryV2(data: CreateContentLibraryDto) {
   const client = getAuthenticatedHttpClient();
   const url = getContentLibraryV2CreateApiUrl();
 
-  const { data: newLibrary } = await client.post(url, data);
+  // Description field cannot be null, but we don't have a input in the form for it
+  const { data: newLibrary } = await client.post(url, { description: '', ...data });
 
   return camelCaseObject(newLibrary);
 }

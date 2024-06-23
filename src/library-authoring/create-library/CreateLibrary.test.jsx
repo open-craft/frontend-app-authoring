@@ -93,7 +93,7 @@ describe('<CreateLibrary />', () => {
     await waitFor(() => {
       expect(axiosMock.history.post.length).toBe(1);
       expect(axiosMock.history.post[0].data).toBe(
-        '{"title":"Test Library Name","org":"org1","slug":"test_library_slug"}',
+        '{"description":"","title":"Test Library Name","org":"org1","slug":"test_library_slug"}',
       );
       expect(mockNavigate).toHaveBeenCalledWith('/library/library-id');
     });
