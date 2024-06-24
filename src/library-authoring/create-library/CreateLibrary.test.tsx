@@ -15,7 +15,7 @@ import { getContentLibraryV2CreateApiUrl } from './data/api';
 
 let store;
 const mockNavigate = jest.fn();
-let axiosMock;
+let axiosMock: MockAdapter;
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
@@ -60,11 +60,7 @@ describe('<CreateLibrary />', () => {
     });
     store = initializeStore();
 
-    // The API method to get the Meilisearch connection details uses Axios:
     axiosMock = new MockAdapter(getAuthenticatedHttpClient());
-    axiosMock.onPost(getContentLibraryV2CreateApiUrl()).reply(200, {
-      id: 'library-id',
-    });
   });
 
   afterEach(() => {
@@ -73,7 +69,11 @@ describe('<CreateLibrary />', () => {
     queryClient.clear();
   });
 
-  it('call api data with correct data', async () => {
+  test('call api data with correct data', async () => {
+    axiosMock.onPost(getContentLibraryV2CreateApiUrl()).reply(200, {
+      id: 'library-id',
+    });
+
     const { getByRole, getByTestId } = render(<RootWrapper />);
 
     const titleInput = getByRole('textbox', { name: /library name/i });
@@ -96,6 +96,37 @@ describe('<CreateLibrary />', () => {
         '{"description":"","title":"Test Library Name","org":"org1","slug":"test_library_slug"}',
       );
       expect(mockNavigate).toHaveBeenCalledWith('/library/library-id');
+    });
+  });
+
+  test('show api error', async () => {
+    axiosMock.onPost(getContentLibraryV2CreateApiUrl()).reply(400, {
+      field: 'Error message',
+    });
+    const { getByRole, getByTestId } = render(<RootWrapper />);
+
+    const titleInput = getByRole('textbox', { name: /library name/i });
+    userEvent.click(titleInput);
+    userEvent.type(titleInput, 'Test Library Name');
+
+    const orgInput = getByTestId('autosuggest-textbox-input');
+    userEvent.click(orgInput);
+    userEvent.type(orgInput, 'org1');
+    userEvent.tab();
+
+    const slugInput = getByRole('textbox', { name: /library id/i });
+    userEvent.click(slugInput);
+    userEvent.type(slugInput, 'test_library_slug');
+
+    fireEvent.click(getByRole('button', { name: /create/i }));
+    await waitFor(() => {
+      expect(axiosMock.history.post.length).toBe(1);
+      expect(axiosMock.history.post[0].data).toBe(
+        '{"description":"","title":"Test Library Name","org":"org1","slug":"test_library_slug"}',
+      );
+      expect(mockNavigate).not.toHaveBeenCalled();
+      expect(getByRole('alert')).toHaveTextContent('Request failed with status code 400');
+      expect(getByRole('alert')).toHaveTextContent('{"field":"Error message"}');
     });
   });
 });

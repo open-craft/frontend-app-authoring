@@ -8,6 +8,7 @@ import {
   Form,
   StatefulButton,
 } from '@openedx/paragon';
+import axios from 'axios';
 import { Formik } from 'formik';
 import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
@@ -27,7 +28,7 @@ const CreateLibrary = () => {
   const intl = useIntl();
   const navigate = useNavigate();
 
-  const [apiError, setApiError] = useState<string>();
+  const [apiError, setApiError] = useState<React.ReactNode>();
 
   const { noSpaceRule, specialCharsRule } = REGEX_RULES;
   const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w -]*[a-zA-Z\d]+)*$/;
@@ -54,7 +55,6 @@ const CreateLibrary = () => {
             org: '',
             slug: '',
           }}
-
           validationSchema={
             Yup.object().shape({
               title: Yup.string()
@@ -74,15 +74,20 @@ const CreateLibrary = () => {
                 ),
             })
           }
-
           onSubmit={async (values: CreateContentLibraryDto) => {
             setApiError(undefined);
             try {
               const data = await mutateAsync(values);
               navigate(`/library/${data.id}`);
-            } catch (error) {
-              if (error instanceof Error) {
-                setApiError(error.message);
+            } catch (error: any) {
+              if (axios.isAxiosError(error)) {
+                setApiError((
+                  <>
+                    {error.message}
+                    <br />
+                    {JSON.stringify(error.response?.data)}
+                  </>
+                ));
               }
             }
           }}
