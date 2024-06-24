@@ -31,7 +31,7 @@ const CreateLibrary = () => {
   const [apiError, setApiError] = useState<React.ReactNode>();
 
   const { noSpaceRule, specialCharsRule } = REGEX_RULES;
-  const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w -]*[a-zA-Z\d]+)*$/;
+  const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w-]*[a-zA-Z\d]+)*$/;
 
   const {
     mutateAsync,
