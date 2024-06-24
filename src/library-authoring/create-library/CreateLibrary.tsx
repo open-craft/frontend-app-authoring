@@ -1,5 +1,4 @@
 // @ts-check
-/* eslint-disable react/prop-types */
 import React, { useState } from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
 import { FormattedMessage, useIntl } from '@edx/frontend-platform/i18n';
@@ -22,11 +21,13 @@ import SubHeader from '../../generic/sub-header/SubHeader';
 import { useCreateLibraryV2 } from './data/apiHooks';
 import messages from './messages';
 
+import type { CreateContentLibraryDto } from './data/types';
+
 const CreateLibrary = () => {
   const intl = useIntl();
   const navigate = useNavigate();
 
-  const [apiError, setApiError] = useState(null);
+  const [apiError, setApiError] = useState<string>();
 
   const { noSpaceRule, specialCharsRule } = REGEX_RULES;
   const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w -]*[a-zA-Z\d]+)*$/;
@@ -34,16 +35,6 @@ const CreateLibrary = () => {
   const {
     mutateAsync,
   } = useCreateLibraryV2();
-
-  const onSubmit = async (values) => {
-    setApiError(null);
-    try {
-      const data = await mutateAsync(values);
-      navigate(`/library/${data.id}`);
-    } catch (/** @type {any} */ error) {
-      setApiError(error.message);
-    }
-  };
 
   const {
     data: organizationListData,
@@ -63,6 +54,7 @@ const CreateLibrary = () => {
             org: '',
             slug: '',
           }}
+
           validationSchema={
             Yup.object().shape({
               title: Yup.string()
@@ -82,7 +74,18 @@ const CreateLibrary = () => {
                 ),
             })
           }
-          onSubmit={onSubmit}
+
+          onSubmit={async (values: CreateContentLibraryDto) => {
+            setApiError(undefined);
+            try {
+              const data = await mutateAsync(values);
+              navigate(`/library/${data.id}`);
+            } catch (error) {
+              if (error instanceof Error) {
+                setApiError(error.message);
+              }
+            }
+          }}
         >
           {(formikProps) => (
             <Form onSubmit={formikProps.handleSubmit}>
