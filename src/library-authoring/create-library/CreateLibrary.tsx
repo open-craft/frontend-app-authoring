@@ -1,4 +1,3 @@
-// @ts-check
 import React, { useState } from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
 import { FormattedMessage, useIntl } from '@edx/frontend-platform/i18n';
@@ -19,10 +18,10 @@ import FormikControl from '../../generic/FormikControl';
 import FormikErrorFeedback from '../../generic/FormikErrorFeedback';
 import { useOrganizationListData } from '../../generic/data/apiHooks';
 import SubHeader from '../../generic/sub-header/SubHeader';
+import type { CreateContentLibraryArgs } from './data/api';
 import { useCreateLibraryV2 } from './data/apiHooks';
 import messages from './messages';
 
-import type { CreateContentLibraryDto } from './data/types';
 
 const CreateLibrary = () => {
   const intl = useIntl();
@@ -74,7 +73,7 @@ const CreateLibrary = () => {
                 ),
             })
           }
-          onSubmit={async (values: CreateContentLibraryDto) => {
+          onSubmit={async (values: CreateContentLibraryArgs) => {
             setApiError(undefined);
             try {
               const data = await mutateAsync(values);

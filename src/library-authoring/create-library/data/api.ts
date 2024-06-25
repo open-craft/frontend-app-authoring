@@ -1,8 +1,5 @@
-// @ts-check
 import { camelCaseObject, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
-
-import type { CreateContentLibraryDto } from './types';
 
 const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
 
@@ -11,10 +8,16 @@ const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
  */
 export const getContentLibraryV2CreateApiUrl = () => `${getApiBaseUrl()}/api/libraries/v2/`;
 
+export interface CreateContentLibraryArgs {
+  title: string,
+  org: string,
+  slug: string,
+}
+
 /**
  * Create a new library
  */
-export async function createLibraryV2(data: CreateContentLibraryDto) {
+export async function createLibraryV2(data: CreateContentLibraryArgs) {
   const client = getAuthenticatedHttpClient();
   const url = getContentLibraryV2CreateApiUrl();
 
