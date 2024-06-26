@@ -1,19 +1,23 @@
 /* eslint-disable react/prop-types */
-// @ts-check
 import React from 'react';
 
+export interface LibraryContextData {
+  sidebarBodyComponent: string|null;
+  closeLibrarySidebar: Function;
+  openAddContentSidebar: Function
+}
+
 export const LibraryContext = React.createContext({
-  sidebarBodyComponent: /** @type{null|string} */ (null),
-  closeLibrarySidebar: /** @type{function} */ (() => {}),
-  openAddContentSidebar: /** @type{function} */ (() => {}),
-});
+  sidebarBodyComponent: null,
+  closeLibrarySidebar: () => {},
+  openAddContentSidebar: () => {},
+} as LibraryContextData);
 
 /**
  * React component to provide `LibraryContext`
- * @param {{children?: React.ReactNode}} props The components to wrap
  */
-export const LibraryProvider = (props) => {
-  const [sidebarBodyComponent, setSidebarBodyComponent] = React.useState(/** @type{null|string} */ (null));
+export const LibraryProvider = (props: {children?: React.ReactNode}) => {
+  const [sidebarBodyComponent, setSidebarBodyComponent] = React.useState(null as string|null);
 
   const closeLibrarySidebar = React.useCallback(() => setSidebarBodyComponent(null), []);
   const openAddContentSidebar = React.useCallback(() => setSidebarBodyComponent('add-content'), []);

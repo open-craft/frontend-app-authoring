@@ -1,6 +1,6 @@
 // @ts-check
 /* eslint-disable react/prop-types */
-import React, { useEffect, useContext } from 'react';
+import React, { useEffect, useContext, useState } from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
@@ -37,22 +37,27 @@ const TAB_LIST = {
   collections: 'collections',
 };
 
-const SubHeaderTitle = ({ title }) => (
-  <>
-    {title}
-    <IconButton src={InfoOutline} iconAs={Icon} alt="Info" onClick={() => {}} className="mr-2" />
-  </>
-);
+const SubHeaderTitle = ({ title }: { title: string }) => {
+  const intl = useIntl();
+  return (
+    <>
+      {title}
+      <IconButton
+        src={InfoOutline}
+        iconAs={Icon}
+        alt={intl.formatMessage(messages.headingInfoAlt)}
+        className="mr-2"
+      />
+    </>
+  );
+};
 
-/**
- * @type {React.FC}
- */
 const LibraryAuthoringPage = () => {
   const intl = useIntl();
   const location = useLocation();
   const navigate = useNavigate();
-  const [tabKey, setTabKey] = React.useState(TAB_LIST.home);
-  const [searchKeywords, setSearchKeywords] = React.useState('');
+  const [tabKey, setTabKey] = useState(TAB_LIST.home);
+  const [searchKeywords, setSearchKeywords] = useState('');
 
   const { libraryId } = useParams();
 
@@ -77,10 +82,7 @@ const LibraryAuthoringPage = () => {
     return <NotFoundAlert />;
   }
 
-  /** Handle tab change
-    * @param {string} key
-    */
-  const handleTabChange = (key) => {
+  const handleTabChange = (key: string) => {
     setTabKey(key);
     navigate(key);
   };
@@ -97,7 +99,7 @@ const LibraryAuthoringPage = () => {
             isLibrary
           />
           <Container size="xl" className="p-4 mt-3">
-            <SubHeader
+          <SubHeader
               title={<SubHeaderTitle title={libraryData.title} />}
               subtitle={intl.formatMessage(messages.headingSubtitle)}
               headerActions={[
@@ -114,8 +116,8 @@ const LibraryAuthoringPage = () => {
             <SearchField
               value={searchKeywords}
               placeholder={intl.formatMessage(messages.searchPlaceholder)}
-              onSubmit={(value) => setSearchKeywords(value)}
-              onChange={(value) => setSearchKeywords(value)}
+              onChange={(value: string) => setSearchKeywords(value)}
+              onSubmit={() => {}}
               className="w-50"
             />
             <Tabs
@@ -146,8 +148,8 @@ const LibraryAuthoringPage = () => {
                 element={<NotFoundAlert />}
               />
             </Routes>
-          </Container>
-          <StudioFooter />
+            </Container>
+            <StudioFooter />
         </Col>
         { sidebarBodyComponent !== null && (
           <Col xs={6} md={4} className="box-shadow-left-1">

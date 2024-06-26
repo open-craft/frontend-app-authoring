@@ -35,14 +35,14 @@ const CardItem = ({
     courseCreatorStatus,
     rerunCreatorStatus,
   } = useSelector(getStudioHomeData);
-  const courseUrl = () => new URL(url, getConfig().STUDIO_BASE_URL);
+  const destinationUrl = () => new URL(url, getConfig().STUDIO_BASE_URL);
   const subtitle = isLibraries ? `${org} / ${number}` : `${org} / ${number} / ${run}`;
   const readOnlyItem = !(lmsLink || rerunLink || url);
   const showActions = !(readOnlyItem || isLibraries);
   const isShowRerunLink = allowCourseReruns
     && rerunCreatorStatus
     && courseCreatorStatus === COURSE_CREATOR_STATES.granted;
-  const hasDisplayName = displayName.trim().length ? displayName : courseKey;
+  const hasDisplayName = (displayName ?? '').trim().length ? displayName : courseKey;
 
   return (
     <Card className="card-item">
@@ -51,7 +51,7 @@ const CardItem = ({
         title={!readOnlyItem ? (
           <Hyperlink
             className="card-item-title"
-            destination={courseUrl().toString()}
+            destination={destinationUrl().toString()}
           >
             {hasDisplayName}
           </Hyperlink>

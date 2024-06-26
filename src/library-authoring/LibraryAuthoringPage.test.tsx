@@ -1,12 +1,11 @@
+import React from 'react';
 import MockAdapter from 'axios-mock-adapter';
 import { initializeMockApp } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  render, waitFor, screen, fireEvent,
-} from '@testing-library/react';
+import { fireEvent, render, waitFor, screen } from '@testing-library/react';
 import fetchMock from 'fetch-mock-jest';
 
 import initializeStore from '../store';
@@ -15,16 +14,15 @@ import mockResult from '../search-modal/__mocks__/search-result.json';
 import mockEmptyResult from '../search-modal/__mocks__/empty-search-result.json';
 import LibraryAuthoringPage from './LibraryAuthoringPage';
 import { getContentLibraryApiUrl } from './data/api';
+import { LibraryProvider } from './common/context';
 
 let store;
-const mockNavigate = jest.fn();
 const mockUseParams = jest.fn();
 let axiosMock;
 
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'), // use actual for all non-hook parts
   useParams: () => mockUseParams(),
-  useNavigate: () => mockNavigate(),
 }));
 
 const searchEndpoint = 'http://mock.meilisearch.local/multi-search';
@@ -64,7 +62,7 @@ const libraryData = {
   allowPublic_read: false,
   hasUnpublished_changes: true,
   hasUnpublished_deletes: false,
-  can_edit_library: true,
+  canEditLibrary: true,
   license: '',
 };
 
@@ -72,7 +70,9 @@ const RootWrapper = () => (
   <AppProvider store={store}>
     <IntlProvider locale="en" messages={{}}>
       <QueryClientProvider client={queryClient}>
-        <LibraryAuthoringPage />
+        <LibraryProvider>
+          <LibraryAuthoringPage />
+        </LibraryProvider>
       </QueryClientProvider>
     </IntlProvider>
   </AppProvider>
@@ -99,7 +99,7 @@ describe('<LibraryAuthoringPage />', () => {
       index_name: 'studio',
       api_key: 'test-key',
     });
-    //
+
     // The Meilisearch client-side API uses fetch, not Axios.
     fetchMock.post(searchEndpoint, (_url, req) => {
       const requestData = JSON.parse(req.body?.toString() ?? '');
@@ -123,8 +123,8 @@ describe('<LibraryAuthoringPage />', () => {
   });
 
   it('shows the spinner before the query is complete', () => {
-    // Use unresolved promise to keep the Loading visible
     mockUseParams.mockReturnValue({ libraryId: '1' });
+    // @ts-ignore Use unresolved promise to keep the Loading visible
     axiosMock.onGet(getContentLibraryApiUrl('1')).reply(() => new Promise());
     const { getByRole } = render(<RootWrapper />);
     const spinner = getByRole('status');
@@ -152,15 +152,43 @@ describe('<LibraryAuthoringPage />', () => {
     mockUseParams.mockReturnValue({ libraryId: libraryData.id });
     axiosMock.onGet(getContentLibraryApiUrl(libraryData.id)).reply(200, libraryData);
 
-    const { findByRole, getByText, queryByText } = render(<RootWrapper />);
-
-    expect(await findByRole('heading', `Content library${libraryData.title}`)).toBeInTheDocument();
+    const {
+      getByRole, getByText, queryByText,
+    } = render(<RootWrapper />);
 
     // Ensure the search endpoint is called
     await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(1, searchEndpoint, 'post'); });
 
+    expect(getByText('Content library')).toBeInTheDocument();
+    expect(getByText(libraryData.title)).toBeInTheDocument();
+
     expect(queryByText('You have not added any content to this library yet.')).not.toBeInTheDocument();
 
+    expect(getByText('Recently Modified')).toBeInTheDocument();
+    expect(getByText('Collections (0)')).toBeInTheDocument();
+    expect(getByText('Components (6)')).toBeInTheDocument();
+    expect(getByText('There are 6 components in this library')).toBeInTheDocument();
+
+    // Navigate to the components tab
+    fireEvent.click(getByRole('tab', { name: 'Components' }));
+    expect(queryByText('Recently Modified')).not.toBeInTheDocument();
+    expect(queryByText('Collections (0)')).not.toBeInTheDocument();
+    expect(queryByText('Components (6)')).not.toBeInTheDocument();
+    expect(getByText('There are 6 components in this library')).toBeInTheDocument();
+
+    // Navigate to the collections tab
+    fireEvent.click(getByRole('tab', { name: 'Collections' }));
+    expect(queryByText('Recently Modified')).not.toBeInTheDocument();
+    expect(queryByText('Collections (0)')).not.toBeInTheDocument();
+    expect(queryByText('Components (6)')).not.toBeInTheDocument();
+    expect(queryByText('There are 6 components in this library')).not.toBeInTheDocument();
+    expect(getByText('Coming soon!')).toBeInTheDocument();
+
+    // Go back to Home tab
+    // This step is necessary to avoid the url change leak to other tests
+    fireEvent.click(getByRole('tab', { name: 'Home' }));
+    expect(getByText('Recently Modified')).toBeInTheDocument();
+    expect(getByText('Collections (0)')).toBeInTheDocument();
     expect(getByText('Components (6)')).toBeInTheDocument();
     expect(getByText('There are 6 components in this library')).toBeInTheDocument();
   });
@@ -170,9 +198,10 @@ describe('<LibraryAuthoringPage />', () => {
     axiosMock.onGet(getContentLibraryApiUrl(libraryData.id)).reply(200, libraryData);
     fetchMock.post(searchEndpoint, returnEmptyResult, { overwriteRoutes: true });
 
-    const { findByRole, getByText } = render(<RootWrapper />);
+    const { findByText, getByText } = render(<RootWrapper />);
 
-    expect(await findByRole('heading', `Content library${libraryData.title}`)).toBeInTheDocument();
+    expect(await findByText('Content library')).toBeInTheDocument();
+    expect(await findByText(libraryData.title)).toBeInTheDocument();
 
     // Ensure the search endpoint is called
     await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(1, searchEndpoint, 'post'); });
@@ -186,8 +215,37 @@ describe('<LibraryAuthoringPage />', () => {
 
     render(<RootWrapper />);
 
-    expect(await screen.findByRole('heading', `Content library${libraryData.title}`)).toBeInTheDocument();
+    expect(await screen.findByRole('heading')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /new/i })).toBeInTheDocument();
+  });
+
+  it('show library without search results', async () => {
+    mockUseParams.mockReturnValue({ libraryId: libraryData.id });
+    axiosMock.onGet(getContentLibraryApiUrl(libraryData.id)).reply(200, libraryData);
+    fetchMock.post(searchEndpoint, returnEmptyResult, { overwriteRoutes: true });
+
+    const { findByText, getByRole, getByText } = render(<RootWrapper />);
+
+    expect(await findByText('Content library')).toBeInTheDocument();
+    expect(await findByText(libraryData.title)).toBeInTheDocument();
+
+    // Ensure the search endpoint is called
+    await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(1, searchEndpoint, 'post'); });
+
+    fireEvent.change(getByRole('searchbox'), { target: { value: 'noresults' } });
+
+    // Ensure the search endpoint is called again
+    await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(2, searchEndpoint, 'post'); });
+
+    expect(getByText('No matching components found in this library.')).toBeInTheDocument();
+
+    // Navigate to the components tab
+    fireEvent.click(getByRole('tab', { name: 'Components' }));
+    expect(getByText('No matching components found in this library.')).toBeInTheDocument();
+
+    // Go back to Home tab
+    // This step is necessary to avoid the url change leak to other tests
+    fireEvent.click(getByRole('tab', { name: 'Home' }));
   });
 
   it('should open and close new content sidebar', async () => {
@@ -196,7 +254,7 @@ describe('<LibraryAuthoringPage />', () => {
 
     render(<RootWrapper />);
 
-    expect(await screen.findByRole('heading', `Content library${libraryData.title}`)).toBeInTheDocument();
+    expect(await screen.findByRole('heading')).toBeInTheDocument();
     expect(screen.queryByText(/add content/i)).not.toBeInTheDocument();
 
     const newButton = screen.getByRole('button', { name: /new/i });
