@@ -1,5 +1,3 @@
-// @ts-check
-/* eslint-disable react/prop-types */
 import React, { useEffect, useContext, useState } from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
 import { useIntl } from '@edx/frontend-platform/i18n';
@@ -99,7 +97,7 @@ const LibraryAuthoringPage = () => {
             isLibrary
           />
           <Container size="xl" className="p-4 mt-3">
-          <SubHeader
+            <SubHeader
               title={<SubHeaderTitle title={libraryData.title} />}
               subtitle={intl.formatMessage(messages.headingSubtitle)}
               headerActions={[
@@ -148,8 +146,8 @@ const LibraryAuthoringPage = () => {
                 element={<NotFoundAlert />}
               />
             </Routes>
-            </Container>
-            <StudioFooter />
+          </Container>
+          <StudioFooter />
         </Col>
         { sidebarBodyComponent !== null && (
           <Col xs={6} md={4} className="box-shadow-left-1">

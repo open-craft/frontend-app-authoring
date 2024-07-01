@@ -17,7 +17,7 @@ export const LibraryContext = React.createContext({
  * React component to provide `LibraryContext`
  */
 export const LibraryProvider = (props: {children?: React.ReactNode}) => {
-  const [sidebarBodyComponent, setSidebarBodyComponent] = React.useState(null as string|null);
+  const [sidebarBodyComponent, setSidebarBodyComponent] = React.useState<string|null>(null);
 
   const closeLibrarySidebar = React.useCallback(() => setSidebarBodyComponent(null), []);
   const openAddContentSidebar = React.useCallback(() => setSidebarBodyComponent('add-content'), []);
