@@ -1,8 +1,9 @@
 /* eslint-disable react/prop-types */
+/* eslint-disable react/require-default-props */
 import React from 'react';
 
 export interface LibraryContextData {
-  sidebarBodyComponent: string|null;
+  sidebarBodyComponent: string | null;
   closeLibrarySidebar: Function;
   openAddContentSidebar: Function
 }
@@ -16,8 +17,8 @@ export const LibraryContext = React.createContext({
 /**
  * React component to provide `LibraryContext`
  */
-export const LibraryProvider = (props: {children?: React.ReactNode}) => {
-  const [sidebarBodyComponent, setSidebarBodyComponent] = React.useState<string|null>(null);
+export const LibraryProvider = (props: { children?: React.ReactNode }) => {
+  const [sidebarBodyComponent, setSidebarBodyComponent] = React.useState<string | null>(null);
 
   const closeLibrarySidebar = React.useCallback(() => setSidebarBodyComponent(null), []);
   const openAddContentSidebar = React.useCallback(() => setSidebarBodyComponent('add-content'), []);

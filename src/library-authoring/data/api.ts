@@ -33,13 +33,13 @@ export interface ContentLibrary {
 export interface CreateBlockDataRequest {
   libraryId: string;
   blockType: string;
-  definitionId: string;  
+  definitionId: string;
 }
 
 export interface CreateBlockDataResponse {
   id: string;
   blockType: string;
-  defKey: string|null;
+  defKey: string | null;
   displayName: string;
   hasUnpublishedChanges: boolean;
   tagsCount: number;
