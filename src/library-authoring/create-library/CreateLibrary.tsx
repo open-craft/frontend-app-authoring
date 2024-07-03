@@ -7,7 +7,6 @@ import {
   Form,
   StatefulButton,
 } from '@openedx/paragon';
-import axios from 'axios';
 import { Formik } from 'formik';
 import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
@@ -79,15 +78,13 @@ const CreateLibrary = () => {
               const data = await mutateAsync(values);
               navigate(`/library/${data.id}`);
             } catch (error: any) {
-              if (axios.isAxiosError(error)) {
-                setApiError((
-                  <>
-                    {error.message}
-                    <br />
-                    {JSON.stringify(error.response?.data)}
-                  </>
-                ));
-              }
+              setApiError((
+                <>
+                  {error.message}
+                  <br />
+                  {error.response?.data && JSON.stringify(error.response.data)}
+                </>
+              ));
             }
           }}
         >
