@@ -21,7 +21,6 @@ import type { CreateContentLibraryArgs } from './data/api';
 import { useCreateLibraryV2 } from './data/apiHooks';
 import messages from './messages';
 
-
 const CreateLibrary = () => {
   const intl = useIntl();
   const navigate = useNavigate();
