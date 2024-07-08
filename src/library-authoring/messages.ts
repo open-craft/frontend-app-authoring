@@ -1,4 +1,8 @@
-import { defineMessages } from '@edx/frontend-platform/i18n';
+import { defineMessages as _defineMessages } from '@edx/frontend-platform/i18n';
+import type { defineMessages as defineMessagesType } from 'react-intl';
+
+// frontend-platform currently doesn't provide types... do it ourselves.
+const defineMessages = _defineMessages as typeof defineMessagesType;
 
 const messages = defineMessages({
   headingSubtitle: {
@@ -30,6 +34,21 @@ const messages = defineMessages({
     id: 'course-authoring.library-authoring.add-component',
     defaultMessage: 'Add component',
     description: 'Button text to add a new component',
+  },
+  homeTab: {
+    id: 'course-authoring.library-authoring.home-tab',
+    defaultMessage: 'Home',
+    description: 'Tab label for the home tab',
+  },
+  componentsTab: {
+    id: 'course-authoring.library-authoring.components-tab',
+    defaultMessage: 'Components',
+    description: 'Tab label for the components tab',
+  },
+  collectionsTab: {
+    id: 'course-authoring.library-authoring.collections-tab',
+    defaultMessage: 'Collections',
+    description: 'Tab label for the collections tab',
   },
   componentsTempPlaceholder: {
     id: 'course-authoring.library-authoring.components-temp-placeholder',
