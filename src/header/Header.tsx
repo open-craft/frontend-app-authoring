@@ -10,7 +10,7 @@ import { getContentMenuItems, getSettingMenuItems, getToolsMenuItems } from './u
 import messages from './messages';
 
 interface HeaderProps {
-  contentId?: string,
+  contextId?: string,
   number?: string,
   org?: string,
   title?: string,
@@ -19,7 +19,7 @@ interface HeaderProps {
 }
 
 const Header = ({
-  contentId = '',
+  contextId = '',
   org = '',
   number = '',
   title = '',
@@ -36,20 +36,20 @@ const Header = ({
     {
       id: `${intl.formatMessage(messages['header.links.content'])}-dropdown-menu`,
       buttonTitle: intl.formatMessage(messages['header.links.content']),
-      items: getContentMenuItems({ studioBaseUrl, courseId: contentId, intl }),
+      items: getContentMenuItems({ studioBaseUrl, courseId: contextId, intl }),
     },
     {
       id: `${intl.formatMessage(messages['header.links.settings'])}-dropdown-menu`,
       buttonTitle: intl.formatMessage(messages['header.links.settings']),
-      items: getSettingMenuItems({ studioBaseUrl, courseId: contentId, intl }),
+      items: getSettingMenuItems({ studioBaseUrl, courseId: contextId, intl }),
     },
     {
       id: `${intl.formatMessage(messages['header.links.tools'])}-dropdown-menu`,
       buttonTitle: intl.formatMessage(messages['header.links.tools']),
-      items: getToolsMenuItems({ studioBaseUrl, courseId: contentId, intl }),
+      items: getToolsMenuItems({ studioBaseUrl, courseId: contextId, intl }),
     },
   ] : [];
-  const outlineLink = !isLibrary ? `${studioBaseUrl}/course/${contentId}` : `/course-authoring/library/${contentId}`;
+  const outlineLink = !isLibrary ? `${studioBaseUrl}/course/${contextId}` : `/course-authoring/library/${contextId}`;
 
   return (
     <>
@@ -60,12 +60,12 @@ const Header = ({
         isHiddenMainMenu={isHiddenMainMenu}
         mainMenuDropdowns={mainMenuDropdowns}
         outlineLink={outlineLink}
-        searchButtonAction={meiliSearchEnabled ? openSearchModal : undefined}
+        searchButtonAction={meiliSearchEnabled && !isLibrary ? openSearchModal : undefined}
       />
       { meiliSearchEnabled && (
         <SearchModal
           isOpen={isShowSearchModalOpen}
-          courseId={isLibrary ? undefined : contentId}
+          courseId={isLibrary ? undefined : contextId}
           onClose={closeSearchModal}
         />
       )}
