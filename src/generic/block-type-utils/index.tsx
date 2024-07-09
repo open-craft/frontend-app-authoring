@@ -1,4 +1,3 @@
-import React from 'react';
 import { Article } from '@openedx/paragon/icons';
 import {
   COMPONENT_TYPE_ICON_MAP,
@@ -6,7 +5,7 @@ import {
   COMPONENT_TYPE_COLOR_MAP,
 } from './constants';
 
-export function getItemIcon(blockType: string): React.ReactElement {
+export function getItemIcon(blockType: string) {
   return STRUCTURAL_TYPE_ICONS[blockType] ?? COMPONENT_TYPE_ICON_MAP[blockType] ?? Article;
 }
 

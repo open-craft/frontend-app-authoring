@@ -26,7 +26,7 @@ const SearchFilterWidget: React.FC<{
   label: React.ReactNode;
   children: React.ReactNode;
   clearFilter: () => void,
-  icon?: React.ReactNode; // eslint-disable-line react/require-default-props
+  icon?: React.ComponentType<{}> | undefined; // eslint-disable-line react/require-default-props
 }> = ({ appliedFilters, ...props }) => {
   const intl = useIntl();
   const [isOpen, open, close] = useToggle(false);
