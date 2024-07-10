@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
-import { FormattedMessage, useIntl } from '@edx/frontend-platform/i18n';
+import { useIntl } from '@edx/frontend-platform/i18n';
 import {
   Alert,
   Container,
@@ -17,21 +17,30 @@ import FormikControl from '../../generic/FormikControl';
 import FormikErrorFeedback from '../../generic/FormikErrorFeedback';
 import { useOrganizationListData } from '../../generic/data/apiHooks';
 import SubHeader from '../../generic/sub-header/SubHeader';
-import type { CreateContentLibraryArgs } from './data/api';
 import { useCreateLibraryV2 } from './data/apiHooks';
 import messages from './messages';
+
+const ErrorAlert = ({ error }: { error: any }) => (
+  <Alert variant="danger" className="mt-3">
+    {error?.message}
+    <br />
+    {error?.response?.data && JSON.stringify(error.response.data)}
+  </Alert>
+);
 
 const CreateLibrary = () => {
   const intl = useIntl();
   const navigate = useNavigate();
 
-  const [apiError, setApiError] = useState<React.ReactNode>();
-
   const { noSpaceRule, specialCharsRule } = REGEX_RULES;
   const validSlugIdRegex = /^[a-zA-Z\d]+(?:[\w-]*[a-zA-Z\d]+)*$/;
 
   const {
-    mutateAsync,
+    mutate,
+    data,
+    isLoading,
+    isError,
+    error,
   } = useCreateLibraryV2();
 
   const {
@@ -39,12 +48,16 @@ const CreateLibrary = () => {
     isLoading: isOrganizationListLoading,
   } = useOrganizationListData();
 
+  if (data) {
+    navigate(`/library/${data.id}`);
+  }
+
   return (
     <>
       <Header isHiddenMainMenu />
       <Container size="xl" className="p-4 mt-3">
         <SubHeader
-          title={<FormattedMessage {...messages.createLibrary} />}
+          title={intl.formatMessage(messages.createLibrary)}
         />
         <Formik
           initialValues={{
@@ -71,21 +84,7 @@ const CreateLibrary = () => {
                 ),
             })
           }
-          onSubmit={async (values: CreateContentLibraryArgs) => {
-            setApiError(undefined);
-            try {
-              const data = await mutateAsync(values);
-              navigate(`/library/${data.id}`);
-            } catch (error: any) {
-              setApiError((
-                <>
-                  {error.message}
-                  <br />
-                  {error.response?.data && JSON.stringify(error.response.data)}
-                </>
-              ));
-            }
-          }}
+          onSubmit={(values) => mutate(values)}
         >
           {(formikProps) => (
             <Form onSubmit={formikProps.handleSubmit}>
@@ -123,7 +122,7 @@ const CreateLibrary = () => {
                 type="submit"
                 variant="primary"
                 className="action btn-primary"
-                state={formikProps.isSubmitting ? 'disabled' : 'enabled'}
+                state={isLoading ? 'disabled' : 'enabled'}
                 disabledStates={['disabled']}
                 labels={{
                   enabled: intl.formatMessage(messages.createLibraryButton),
@@ -133,11 +132,7 @@ const CreateLibrary = () => {
             </Form>
           )}
         </Formik>
-        {apiError && (
-          <Alert variant="danger" className="mt-3">
-            {apiError}
-          </Alert>
-        )}
+        {isError && (<ErrorAlert error={error} />)}
       </Container>
       <StudioFooter />
     </>
