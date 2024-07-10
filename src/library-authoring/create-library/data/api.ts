@@ -1,6 +1,8 @@
 import { camelCaseObject, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
+import type { ContentLibrary } from '../../data/api';
+
 const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
 
 /**
@@ -17,7 +19,7 @@ export interface CreateContentLibraryArgs {
 /**
  * Create a new library
  */
-export async function createLibraryV2(data: CreateContentLibraryArgs) {
+export async function createLibraryV2(data: CreateContentLibraryArgs): Promise<ContentLibrary> {
   const client = getAuthenticatedHttpClient();
   const url = getContentLibraryV2CreateApiUrl();
 
