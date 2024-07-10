@@ -64,7 +64,7 @@ const Header = ({
         isHiddenMainMenu={isHiddenMainMenu}
         mainMenuDropdowns={mainMenuDropdowns}
         outlineLink={outlineLink}
-        searchButtonAction={meiliSearchEnabled && !isLibrary ? openSearchModal : undefined}
+        searchButtonAction={meiliSearchEnabled ? openSearchModal : undefined}
       />
       { meiliSearchEnabled && (
         <SearchModal
