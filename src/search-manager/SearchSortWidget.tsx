@@ -12,12 +12,6 @@ export const SearchSortWidget: React.FC<Record<never, never>> = () => {
   const menuItems = useMemo(
     () => [
       {
-        // Default; sorts results by keyword search ranking
-        id: 'search-sort-option-relevance',
-        name: intl.formatMessage(messages.searchSortRelevance),
-        value: SearchSortOption.RELEVANCE,
-      },
-      {
         id: 'search-sort-option-title-az',
         name: intl.formatMessage(messages.searchSortTitleAZ),
         value: SearchSortOption.TITLE_AZ,

@@ -135,11 +135,6 @@ const messages = defineMessages({
     defaultMessage: 'Sort search results',
     description: 'Alt/title text for the content search sort drop-down menu',
   },
-  searchSortRelevance: {
-    id: 'course-authoring.course-search.searchSort.relevance',
-    defaultMessage: 'Most Relevant',
-    description: 'Label for the content search sort drop-down which sorts by keyword relevance',
-  },
   searchSortTitleAZ: {
     id: 'course-authoring.course-search.searchSort.titleAZ',
     defaultMessage: 'Title, A-Z',

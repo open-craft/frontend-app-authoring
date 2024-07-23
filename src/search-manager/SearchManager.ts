@@ -95,14 +95,15 @@ export const SearchContextProvider: React.FC<{
 
   // The search sort order can be set via the query string
   // E.g. ?sort=display_name:desc maps to SearchSortOption.TITLE_ZA.
+  const defaultSortOption = SearchSortOption.RELEVANCE;
   const [searchSortOrder, setSearchSortOrder] = useStateWithUrlSearchParam<SearchSortOption>(
-    SearchSortOption.RELEVANCE,
+    defaultSortOption,
     'sort',
     (value: string) => Object.values(SearchSortOption).find((enumValue) => value === enumValue),
     (value: SearchSortOption) => value.toString(),
   );
-  // Note: SearchSortOption.RELEVANCE is special, it means "no custom sorting",
-  // so we send it to useContentSearchResults as an empty array.
+  // SearchSortOption.RELEVANCE is special, it means "no custom sorting", so we
+  // send it to useContentSearchResults as an empty array.
   const searchSortOrderToUse = overrideSearchSortOrder ?? searchSortOrder;
   const sort: SearchSortOption[] = (searchSortOrderToUse === defaultSortOption ? [] : [searchSortOrderToUse]);
   // Selecting SearchSortOption.RECENTLY_PUBLISHED also excludes unpublished components.
@@ -110,10 +111,15 @@ export const SearchContextProvider: React.FC<{
     extraFilter.push('last_published IS NOT EMPTY');
   }
 
-  const canClearFilters = blockTypesFilter.length > 0 || tagsFilter.length > 0;
+  const canClearFilters = (
+    blockTypesFilter.length > 0
+    || tagsFilter.length > 0
+    || searchSortOrderToUse !== defaultSortOption
+  );
   const clearFilters = React.useCallback(() => {
     setBlockTypesFilter([]);
     setTagsFilter([]);
+    setSearchSortOrder(defaultSortOption);
   }, []);
 
   // Initialize a connection to Meilisearch:
