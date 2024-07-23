@@ -9,7 +9,7 @@ import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MeiliSearch, type Filter } from 'meilisearch';
 
-import { ContentHit, SearchSortOption } from './data/api';
+import { ContentHit, SearchSortOption, forceArray } from './data/api';
 import { useContentSearchConnection, useContentSearchResults } from './data/apiHooks';
 
 export interface SearchContextData {
@@ -87,10 +87,11 @@ export const SearchContextProvider: React.FC<{
   overrideSearchSortOrder?: SearchSortOption
   children: React.ReactNode,
   closeSearchModal?: () => void,
-}> = ({ extraFilter, overrideSearchSortOrder, ...props }) => {
+}> = ({ overrideSearchSortOrder, ...props }) => {
   const [searchKeywords, setSearchKeywords] = React.useState('');
   const [blockTypesFilter, setBlockTypesFilter] = React.useState<string[]>([]);
   const [tagsFilter, setTagsFilter] = React.useState<string[]>([]);
+  const extraFilter: string[] = forceArray(props.extraFilter);
 
   // The search sort order can be set via the query string
   // E.g. ?sort=display_name:desc maps to SearchSortOption.TITLE_ZA.
@@ -103,7 +104,11 @@ export const SearchContextProvider: React.FC<{
   // Note: SearchSortOption.RELEVANCE is special, it means "no custom sorting",
   // so we send it to useContentSearchResults as an empty array.
   const searchSortOrderToUse = overrideSearchSortOrder ?? searchSortOrder;
-  const sort: SearchSortOption[] = (searchSortOrderToUse === SearchSortOption.RELEVANCE ? [] : [searchSortOrderToUse]);
+  const sort: SearchSortOption[] = (searchSortOrderToUse === defaultSortOption ? [] : [searchSortOrderToUse]);
+  // Selecting SearchSortOption.RECENTLY_PUBLISHED also excludes unpublished components.
+  if (searchSortOrderToUse === SearchSortOption.RECENTLY_PUBLISHED) {
+    extraFilter.push('last_published IS NOT EMPTY');
+  }
 
   const canClearFilters = blockTypesFilter.length > 0 || tagsFilter.length > 0;
   const clearFilters = React.useCallback(() => {

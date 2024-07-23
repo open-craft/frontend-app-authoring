@@ -50,14 +50,14 @@ export interface ContentDetails {
  * This helper method converts from any supported input format to an array, for consistency.
  * @param filter A filter expression, e.g. `'foo = bar'` or `[['a = b', 'a = c'], 'd = e']`
  */
-function forceArray(filter?: Filter): (string | string[])[] {
+export function forceArray(filter?: Filter): string[] {
   if (typeof filter === 'string') {
     return [filter];
   }
-  if (filter === undefined) {
-    return [];
+  if (Array.isArray(filter)) {
+    return filter as string[];
   }
-  return filter;
+  return [];
 }
 
 /**
