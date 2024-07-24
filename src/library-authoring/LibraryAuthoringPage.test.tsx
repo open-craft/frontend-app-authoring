@@ -269,7 +269,6 @@ describe('<LibraryAuthoringPage />', () => {
     fireEvent.click(getByRole('tab', { name: 'Home' }));
   });
 
-
   it('should open and close new content sidebar', async () => {
     mockUseParams.mockReturnValue({ libraryId: libraryData.id });
     axiosMock.onGet(getContentLibraryApiUrl(libraryData.id)).reply(200, libraryData);
@@ -288,7 +287,7 @@ describe('<LibraryAuthoringPage />', () => {
     fireEvent.click(closeButton);
 
     expect(screen.queryByText(/add content/i)).not.toBeInTheDocument();
-  });    
+  });
 
   it('show the "View All" button when viewing library with many components', async () => {
     mockUseParams.mockReturnValue({ libraryId: libraryData.id });

@@ -120,7 +120,7 @@ const LibraryAuthoringPage = () => {
                 <FilterByBlockType />
                 <ClearFiltersButton />
                 <div className="flex-grow-1" />
-                <SearchSortWidget />                
+                <SearchSortWidget />
               </div>
               <Tabs
                 variant="tabs"

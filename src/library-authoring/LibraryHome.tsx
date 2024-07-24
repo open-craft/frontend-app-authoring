@@ -16,7 +16,6 @@ type LibraryHomeProps = {
   handleTabChange: (key: string) => void,
 };
 
-
 const LibraryHome = ({ libraryId, tabList, handleTabChange } : LibraryHomeProps) => {
   const intl = useIntl();
   const {
