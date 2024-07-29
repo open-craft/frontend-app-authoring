@@ -17,6 +17,7 @@ import CourseRerun from '.';
 
 let axiosMock;
 let store;
+const mockNavigate = jest.fn();
 const mockPathname = '/foo-bar';
 
 jest.mock('react-redux', () => ({
@@ -29,6 +30,7 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({
     pathname: mockPathname,
   }),
+  useNavigate: () => mockNavigate,
 }));
 
 const RootWrapper = () => (
@@ -68,9 +70,7 @@ describe('<CourseRerun />', () => {
     const cancelButton = getAllByRole('button', { name: messages.cancelButton.defaultMessage })[0];
 
     fireEvent.click(cancelButton);
-    waitFor(() => {
-      expect(window.location.pathname).toBe('/home');
-    });
+    expect(mockNavigate).toHaveBeenCalledWith('/home');
   });
 
   it('shows the spinner before the query is complete', async () => {
