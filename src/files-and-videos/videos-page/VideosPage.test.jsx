@@ -270,7 +270,7 @@ describe('Videos page', () => {
         uploadSpy.mockResolvedValue(new Promise(() => {}));
 
         const addFilesButton = screen.getAllByLabelText('file-input')[3];
-        act(async () => {
+        await act(async () => {
           userEvent.upload(addFilesButton, file);
         });
         await waitFor(() => {

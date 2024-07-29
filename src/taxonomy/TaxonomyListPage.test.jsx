@@ -4,12 +4,7 @@ import { initializeMockApp } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import { AppProvider } from '@edx/frontend-platform/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  act,
-  fireEvent,
-  render,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import MockAdapter from 'axios-mock-adapter';
 
 import initializeStore from '../store';
@@ -86,8 +81,8 @@ describe('<TaxonomyListPage />', () => {
   it('shows the spinner before the query is complete', async () => {
     // Simulate an API request that times out:
     axiosMock.onGet(listTaxonomiesUrl).reply(new Promise(() => {}));
-    await act(async () => {
-      const { getByRole } = render(<RootWrapper />);
+    const { getByRole } = render(<RootWrapper />);
+    await waitFor(() => {
       const spinner = getByRole('status');
       expect(spinner.textContent).toEqual('Loading');
     });
@@ -95,11 +90,9 @@ describe('<TaxonomyListPage />', () => {
 
   it('shows the data table after the query is complete', async () => {
     axiosMock.onGet(listTaxonomiesUrl).reply(200, { results: taxonomies, canAddTaxonomy: false });
-    await act(async () => {
-      const { getByTestId, queryByText } = render(<RootWrapper />);
-      await waitFor(() => { expect(queryByText('Loading')).toEqual(null); });
-      expect(getByTestId('taxonomy-card-1')).toBeInTheDocument();
-    });
+    const { getByTestId, queryByText } = render(<RootWrapper />);
+    await waitFor(() => { expect(queryByText('Loading')).toEqual(null); });
+    expect(getByTestId('taxonomy-card-1')).toBeInTheDocument();
   });
 
   it.each(['CSV', 'JSON'])('downloads the taxonomy template %s', async (fileFormat) => {

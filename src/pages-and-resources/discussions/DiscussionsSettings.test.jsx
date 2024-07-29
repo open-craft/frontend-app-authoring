@@ -155,7 +155,7 @@ describe('DiscussionsSettings', () => {
 
       expect(queryByTestId(container, 'appConfigForm')).toBeInTheDocument();
 
-      await act(() => userEvent.click(queryByText(container, appMessages.backButton.defaultMessage)));
+      act(() => userEvent.click(queryByText(container, appMessages.backButton.defaultMessage)));
 
       await waitFor(() => {
         expect(queryByTestId(container, 'appList')).toBeInTheDocument();
@@ -185,7 +185,7 @@ describe('DiscussionsSettings', () => {
       // content has been loaded - prior to proceeding with our expectations.
       await waitForElementToBeRemoved(screen.getByRole('status'));
 
-      act(async () => {
+      await act(async () => {
         userEvent.click(queryByLabelText(container, 'Select Piazza'));
 
         userEvent.click(getByRole(container, 'button', { name: 'Next' }));
@@ -210,11 +210,17 @@ describe('DiscussionsSettings', () => {
       // content has been loaded - prior to proceeding with our expectations.
       await waitForElementToBeRemoved(screen.getByRole('status'));
 
-      act(async () => {
-        userEvent.click(getByRole(container, 'checkbox', { name: 'Select Discourse' }));
-        userEvent.click(getByRole(container, 'button', { name: 'Next' }));
+      const discourseBox = getByRole(container, 'checkbox', { name: 'Select Discourse' });
+      expect(discourseBox).not.toBeDisabled();
+      userEvent.click(discourseBox);
 
-        await findByRole(container, 'button', { name: 'Save' });
+      userEvent.click(getByRole(container, 'button', { name: 'Next' }));
+
+      await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+
+      await act(async () => {
+        expect(await findByRole(container, 'heading', { name: 'Discourse' })).toBeInTheDocument();
+
         userEvent.type(getByRole(container, 'textbox', { name: 'Consumer Key' }), 'key');
         userEvent.type(getByRole(container, 'textbox', { name: 'Consumer Secret' }), 'secret');
         userEvent.type(getByRole(container, 'textbox', { name: 'Launch URL' }), 'http://example.test');
@@ -241,7 +247,7 @@ describe('DiscussionsSettings', () => {
 
       await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
 
-      act(async () => {
+      await act(async () => {
         expect(await findByRole(container, 'heading', { name: 'Discourse' })).toBeInTheDocument();
 
         userEvent.type(getByRole(container, 'textbox', { name: 'Consumer Key' }), 'a');
@@ -249,7 +255,7 @@ describe('DiscussionsSettings', () => {
         userEvent.type(getByRole(container, 'textbox', { name: 'Launch URL' }), 'http://example.test');
         userEvent.click(getByRole(container, 'button', { name: 'Save' }));
 
-        waitFor(() => expect(getByRole(container, 'dialog', { name: 'OK' })).toBeInTheDocument());
+        await waitFor(() => expect(getByRole(container, 'dialog', { name: 'OK' })).toBeInTheDocument());
         userEvent.click(getByRole(container, 'button', { name: 'Cancel' }));
 
         expect(queryByRole(container, 'dialog', { name: 'Confirm' })).not.toBeInTheDocument();
@@ -305,7 +311,7 @@ describe('DiscussionsSettings', () => {
       await waitForElementToBeRemoved(screen.getByRole('status'));
 
       // Apply causes an async action to take place
-      act(async () => {
+      await act(async () => {
         userEvent.click(queryByText(container, appMessages.saveButton.defaultMessage));
         await waitFor(() => expect(axiosMock.history.post.length).toBe(1));
 
@@ -350,13 +356,15 @@ describe('DiscussionsSettings', () => {
       // content has been loaded - prior to proceeding with our expectations.
       await waitForElementToBeRemoved(screen.getByRole('status'));
 
-      act(async () => {
+      await act(async () => {
         userEvent.click(getByRole(container, 'button', { name: 'Save' }));
 
         await waitFor(() => expect(axiosMock.history.post.length).toBe(1));
 
-        expect(queryByTestId(container, 'appList')).not.toBeInTheDocument();
-        expect(queryByTestId(container, 'appConfigForm')).not.toBeInTheDocument();
+        await waitFor(() => {
+          expect(queryByTestId(container, 'appList')).not.toBeInTheDocument();
+          expect(queryByTestId(container, 'appConfigForm')).not.toBeInTheDocument();
+        });
 
         // We don't technically leave the route in this case, though the modal is hidden.
         expect(window.location.pathname).toEqual(`/course/${courseId}/pages-and-resources/discussion/configure/piazza`);
@@ -406,12 +414,12 @@ describe.each([
     renderComponent(`/course/${courseId}/pages-and-resources/discussion`);
     // This is an important line that ensures the spinner has been removed - and thus our main
     // content has been loaded - prior to proceeding with our expectations.
-    waitForElementToBeRemoved(screen.getByRole('status'));
+    await waitForElementToBeRemoved(screen.getByRole('status'));
 
-    act(async () => {
+    await act(async () => {
       userEvent.click(await screen.findByLabelText('Select Piazza'));
       userEvent.click(queryByText(container, messages.nextButton.defaultMessage));
-      waitForElementToBeRemoved(screen.getByRole('status'));
+      await waitFor(() => waitForElementToBeRemoved(screen.getByRole('status')));
 
       if (showLTIConfig) {
         expect(queryByText(container, ltiMessages.formInstructions.defaultMessage)).toBeInTheDocument();
@@ -460,13 +468,13 @@ describe.each([
     renderComponent(`/course/${courseId}/pages-and-resources/discussion`);
     // This is an important line that ensures the spinner has been removed - and thus our main
     // content has been loaded - prior to proceeding with our expectations.
-    waitForElementToBeRemoved(screen.getByRole('status'));
+    await waitForElementToBeRemoved(screen.getByRole('status'));
 
-    act(async () => {
+    await act(async () => {
       userEvent.click(await screen.findByLabelText('Select Piazza'));
       userEvent.click(await screen.findByText(messages.nextButton.defaultMessage));
 
-      waitForElementToBeRemoved(screen.getByRole('status'));
+      await waitFor(() => waitForElementToBeRemoved(screen.getByRole('status')));
       if (enablePIISharing) {
         expect(queryByTestId(container, 'piiSharingFields')).toBeInTheDocument();
       } else {

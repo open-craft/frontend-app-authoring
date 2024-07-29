@@ -569,9 +569,8 @@ describe('ProctoredExamSettings', () => {
 
   describe('Connection states', () => {
     it('Shows the spinner before the connection is complete', async () => {
-      await act(async () => {
-        render(intlWrapper(<IntlProctoredExamSettings {...defaultProps} />));
-        // This expectation is _inside_ the `act` intentionally, so that it executes immediately.
+      render(intlWrapper(<IntlProctoredExamSettings {...defaultProps} />));
+      await waitFor(() => {
         const spinner = screen.getByRole('status');
         expect(spinner.textContent).toEqual('Loading...');
       });
