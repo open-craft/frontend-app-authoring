@@ -137,8 +137,8 @@ describe('<StudioHome />', async () => {
         userIsActive: true,
       });
 
-      await act(async () => {
-        const { getByRole } = render(<RootWrapper />);
+      const { getByRole } = render(<RootWrapper />);
+      await waitFor(() => {
         const spinner = getByRole('status');
         expect(spinner.textContent).toEqual('Loading...');
       });

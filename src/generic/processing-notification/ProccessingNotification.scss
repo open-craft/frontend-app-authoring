@@ -5,7 +5,7 @@
   transition: bottom 1s;
   right: 1.25rem;
   padding: .625rem 1.25rem;
-  z-index: $zindex-popover;
+  z-index: var(--pgn-elevation-popover-zindex);
 
   &.is-show {
     bottom: .625rem;
@@ -19,7 +19,7 @@
   .processing-notification-title {
     font-size: 1rem;
     line-height: 1.5rem;
-    color: $white;
+    color: var(--pgn-color-white);
     margin-bottom: 0;
   }
 }

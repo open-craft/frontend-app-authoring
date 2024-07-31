@@ -5,9 +5,7 @@ import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import { initializeMockApp } from '@edx/frontend-platform';
 import { IntlProvider, injectIntl } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
-import {
-  act, fireEvent, render, waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, waitFor } from '@testing-library/react';
 import MockAdapter from 'axios-mock-adapter';
 
 import initializeStore from '../store';
@@ -19,6 +17,7 @@ import CourseRerun from '.';
 
 let axiosMock;
 let store;
+const mockNavigate = jest.fn();
 const mockPathname = '/foo-bar';
 
 jest.mock('react-redux', () => ({
@@ -31,6 +30,7 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({
     pathname: mockPathname,
   }),
+  useNavigate: () => mockNavigate,
 }));
 
 const RootWrapper = () => (
@@ -70,24 +70,24 @@ describe('<CourseRerun />', () => {
     const cancelButton = getAllByRole('button', { name: messages.cancelButton.defaultMessage })[0];
 
     fireEvent.click(cancelButton);
-    waitFor(() => {
-      expect(window.location.pathname).toBe('/home');
-    });
+    expect(mockNavigate).toHaveBeenCalledWith('/home');
   });
 
   it('shows the spinner before the query is complete', async () => {
     useSelector.mockReturnValue({ organizationLoadingStatus: RequestStatus.IN_PROGRESS });
+    const { getByRole } = render(<RootWrapper />);
 
-    await act(async () => {
-      const { getByRole } = render(<RootWrapper />);
+    await waitFor(() => {
       const spinner = getByRole('status');
       expect(spinner.textContent).toEqual('Loading...');
     });
   });
 
-  it('should show footer', () => {
+  it('should show footer', async () => {
     const { getByText } = render(<RootWrapper />);
-    expect(getByText('Looking for help with Studio?')).toBeInTheDocument();
-    expect(getByText('LMS')).toHaveAttribute('href', process.env.LMS_BASE_URL);
+    await waitFor(() => {
+      expect(getByText('Looking for help with Studio?')).toBeInTheDocument();
+      expect(getByText('LMS')).toHaveAttribute('href', process.env.LMS_BASE_URL);
+    });
   });
 });
