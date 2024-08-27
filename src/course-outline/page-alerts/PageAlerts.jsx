@@ -41,8 +41,11 @@ const PageAlerts = ({
   const intl = useIntl();
   const dispatch = useDispatch();
   const studioBaseUrl = getConfig().STUDIO_BASE_URL;
+  const discussionAlertDismissKey = `discussionAlertDismissed-${courseId}`;
   const [showConfigAlert, setShowConfigAlert] = useState(true);
-  const [showDiscussionAlert, setShowDiscussionAlert] = useState(true);
+  const [showDiscussionAlert, setShowDiscussionAlert] = useState(
+    localStorage.getItem(discussionAlertDismissKey) === null,
+  );
   const { newFiles, conflictingFiles, errorFiles } = useSelector(getPasteFileNotices);
 
   const getAssetsUrl = () => {
@@ -83,6 +86,7 @@ const PageAlerts = ({
 
     const onDismiss = () => {
       setShowDiscussionAlert(false);
+      localStorage.setItem(discussionAlertDismissKey, 'true');
     };
 
     return (
