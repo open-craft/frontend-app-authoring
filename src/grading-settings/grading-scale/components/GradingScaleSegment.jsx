@@ -1,24 +1,10 @@
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { Button } from '@openedx/paragon';
-import React, { ChangeEvent } from 'react';
+import React from 'react';
+import PropTypes from 'prop-types';
 import messages from '../messages';
 
 import { getLettersOnLongScale, getLettersOnShortScale } from '../utils';
-
-interface RangeSegment {
-  previous: number,
-  current: number,
-}
-
-interface GradingScaleSegmentProps {
-  idx: number,
-  value: number,
-  getSegmentProps: () => { [key: string]: string },
-  handleLetterChange: (event: ChangeEvent, idx: number) => void,
-  letters: [string],
-  gradingSegments: RangeSegment[],
-  removeGradingSegment: (idx: number) => void,
-}
 
 const GradingScaleSegment = ({
   idx,
@@ -28,7 +14,7 @@ const GradingScaleSegment = ({
   letters,
   gradingSegments,
   removeGradingSegment,
-}: GradingScaleSegmentProps) => {
+}) => {
   const intl = useIntl();
   const prevValue = gradingSegments[idx === 0 ? 0 : idx - 1]?.previous ?? 0;
   const segmentRightMargin = (value - prevValue) < 6 ? '0.125rem' : '1.25rem';
@@ -46,22 +32,22 @@ const GradingScaleSegment = ({
         }}
       >
         {gradingSegments.length === 2 && (
-        <input
-          className="grading-scale-segment-content-title m-0"
-          data-testid="grading-scale-segment-input"
-          value={getLettersOnShortScale(idx, letters, intl)}
-          onChange={e => handleLetterChange(e, idx)}
-          disabled={idx === gradingSegments.length}
-        />
+          <input
+            className="grading-scale-segment-content-title m-0"
+            data-testid="grading-scale-segment-input"
+            value={getLettersOnShortScale(idx, letters, intl)}
+            onChange={e => handleLetterChange(e, idx)}
+            disabled={idx === gradingSegments.length}
+          />
         )}
         {gradingSegments.length > 2 && (
-        <input
-          className="grading-scale-segment-content-title m-0"
-          data-testid="grading-scale-segment-input"
-          value={getLettersOnLongScale(idx, letters, gradingSegments)}
-          onChange={e => handleLetterChange(e, idx)}
-          disabled={idx === gradingSegments.length}
-        />
+          <input
+            className="grading-scale-segment-content-title m-0"
+            data-testid="grading-scale-segment-input"
+            value={getLettersOnLongScale(idx, letters, gradingSegments)}
+            onChange={e => handleLetterChange(e, idx)}
+            disabled={idx === gradingSegments.length}
+          />
         )}
         <span className="grading-scale-segment-content-number m-0">
           {gradingSegments[idx === 0 ? 0 : idx - 1]?.previous} - {value === 100 ? value : value - 1}
@@ -81,6 +67,21 @@ const GradingScaleSegment = ({
       )}
     </div>
   );
+};
+
+GradingScaleSegment.propTypes = {
+  idx: PropTypes.number.isRequired,
+  value: PropTypes.number.isRequired,
+  getSegmentProps: PropTypes.func.isRequired,
+  handleLetterChange: PropTypes.func.isRequired,
+  removeGradingSegment: PropTypes.func.isRequired,
+  gradingSegments: PropTypes.arrayOf(
+    PropTypes.shape({
+      current: PropTypes.number.isRequired,
+      previous: PropTypes.number.isRequired,
+    }),
+  ).isRequired,
+  letters: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
 export default GradingScaleSegment;
