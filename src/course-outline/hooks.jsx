@@ -187,7 +187,9 @@ const useCourseOutline = ({ courseId }) => {
       dispatch(configureCourseSectionQuery(currentSection.id, ...arg));
       break;
     case COURSE_BLOCK_NAMES.sequential.id:
-      dispatch(configureCourseSubsectionQuery(currentItem.id, currentSection.id, ...arg));
+      dispatch(configureCourseSubsectionQuery(currentItem.id, currentSection.id, ...arg)).then(() => {
+          dispatch(fetchCourseOutlineIndexQuery(courseId));
+        });
       break;
     case COURSE_BLOCK_NAMES.vertical.id:
       dispatch(configureCourseUnitQuery(currentItem.id, currentSection.id, ...arg));
