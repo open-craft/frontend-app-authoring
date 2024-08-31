@@ -217,6 +217,15 @@ describe('<StudioHome />', () => {
       expect(queryByTestId('new-library-button')).toBeInTheDocument();
     });
 
+    it('do not render new library button if showNewLibraryButton is False', () => {
+      useSelector.mockReturnValue({
+        ...studioHomeMock,
+        showNewLibraryButton: false,
+      });
+      const { queryByTestId } = render(<RootWrapper />);
+      expect(queryByTestId('new-library-button')).not.toBeInTheDocument();
+    });
+
     it('should render create new course container', async () => {
       useSelector.mockReturnValue({
         ...studioHomeMock,
