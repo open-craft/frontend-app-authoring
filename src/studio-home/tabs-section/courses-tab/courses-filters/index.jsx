@@ -43,7 +43,7 @@ const CoursesFilters = ({
     oldestCourses: { ...baseFilters, order: 'created' },
   });
 
-  const handleMenuFilterItemSelected = (filterType) => {
+  const handleMenuFilterItemSelected = (filterType = 'activeCourses') => {
     const baseFilters = {
       currentPage: 1,
       search,
