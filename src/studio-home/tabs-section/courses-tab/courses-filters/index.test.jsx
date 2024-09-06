@@ -137,6 +137,8 @@ describe('CoursesFilters', () => {
 
   it('should not call dispatch when the search input contains only spaces', async () => {
     renderComponent();
+    expect(dispatchMock).toHaveBeenCalled();
+    dispatchMock.mockClear();
     const searchInput = screen.getByRole('searchbox');
     fireEvent.change(searchInput, { target: { value: '   ' } });
     await waitFor(() => expect(dispatchMock).not.toHaveBeenCalled(), { timeout: 500 });
