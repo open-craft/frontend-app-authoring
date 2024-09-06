@@ -26,6 +26,10 @@ const CoursesFilterMenu = ({
     if (cleanFilters) {
       setItemMenuSelected(defaultItemSelectedText);
     }
+    const defaultItem = menuItems.find(item => item.name === defaultItemSelectedText);
+    if (defaultItem) {
+      onItemMenuSelected(defaultItem.value);
+    }
   }, [cleanFilters]);
 
   return (
@@ -43,7 +47,7 @@ const CoursesFilterMenu = ({
         {menuItems.map(({ id, name, value }) => (
           <Dropdown.Item
             key={id}
-            onClick={() => handleCourseTypeSelected(name, value)}
+            onSelect={() => handleCourseTypeSelected(name, value)}
             data-testid={`item-menu-${id}`}
           >
             {name} {courseTypeSelectedIcon(name)}
