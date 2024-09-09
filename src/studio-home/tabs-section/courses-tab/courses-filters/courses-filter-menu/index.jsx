@@ -10,6 +10,7 @@ const CoursesFilterMenu = ({
   menuItems,
   onItemMenuSelected,
   defaultItemSelectedText,
+  menuType,
 }) => {
   const [itemMenuSelected, setItemMenuSelected] = useState(defaultItemSelectedText);
   const { cleanFilters } = useSelector(getStudioHomeCoursesParams);
@@ -25,6 +26,9 @@ const CoursesFilterMenu = ({
   useEffect(() => {
     if (cleanFilters) {
       setItemMenuSelected(defaultItemSelectedText);
+    }
+    if (menuType !== 'courseTypes') {
+      return;
     }
     const defaultItem = menuItems.find(item => item.name === defaultItemSelectedText);
     if (defaultItem) {
@@ -61,6 +65,7 @@ const CoursesFilterMenu = ({
 CoursesFilterMenu.defaultProps = {
   defaultItemSelectedText: '',
   menuItems: [],
+  menuType: '',
 };
 
 CoursesFilterMenu.propTypes = {
@@ -74,6 +79,7 @@ CoursesFilterMenu.propTypes = {
       value: PropTypes.string.isRequired,
     }),
   ),
+  menuType: PropTypes.string,
 };
 
 export default CoursesFilterMenu;

@@ -45,6 +45,7 @@ const CoursesOrderFilterMenu = ({ onItemMenuSelected }) => {
       menuItems={courseOrders}
       onItemMenuSelected={handleCourseTypeSelected}
       defaultItemSelectedText={intl.formatMessage(messages.coursesOrderFilterMenuAscendantCurses)}
+      menuType="courseOrders"
     />
   );
 };
