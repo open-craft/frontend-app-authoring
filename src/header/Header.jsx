@@ -7,7 +7,7 @@ import { StudioHeader } from '@edx/frontend-component-header';
 import { useToggle } from '@openedx/paragon';
 
 import SearchModal from '../search-modal/SearchModal';
-import { getContentMenuItems, getSettingMenuItems, getToolsMenuItems } from './utils';
+import { useContentMenuItems, useSettingMenuItems, useToolsMenuItems } from './hooks';
 import messages from './messages';
 
 const Header = ({
@@ -23,23 +23,28 @@ const Header = ({
 
   const studioBaseUrl = getConfig().STUDIO_BASE_URL;
   const meiliSearchEnabled = [true, 'true'].includes(getConfig().MEILISEARCH_ENABLED);
+
+  const contentMenuItems = useContentMenuItems(courseId);
+  const settingMenuItems = useSettingMenuItems(courseId);
+  const toolsMenuItems = useToolsMenuItems(courseId);
   const mainMenuDropdowns = [
     {
       id: `${intl.formatMessage(messages['header.links.content'])}-dropdown-menu`,
       buttonTitle: intl.formatMessage(messages['header.links.content']),
-      items: getContentMenuItems({ studioBaseUrl, courseId, intl }),
+      items: contentMenuItems,
     },
     {
       id: `${intl.formatMessage(messages['header.links.settings'])}-dropdown-menu`,
       buttonTitle: intl.formatMessage(messages['header.links.settings']),
-      items: getSettingMenuItems({ studioBaseUrl, courseId, intl }),
+      items: settingMenuItems,
     },
     {
       id: `${intl.formatMessage(messages['header.links.tools'])}-dropdown-menu`,
       buttonTitle: intl.formatMessage(messages['header.links.tools']),
-      items: getToolsMenuItems({ studioBaseUrl, courseId, intl }),
+      items: toolsMenuItems,
     },
   ];
+
   const outlineLink = `${studioBaseUrl}/course/${courseId}`;
 
   return (
