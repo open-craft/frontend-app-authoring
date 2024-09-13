@@ -35,7 +35,7 @@ const useStudioHome = () => {
 
   useEffect(() => {
     if (!isPaginated) {
-      dispatch(fetchStudioHomeData(location.search ?? ''));
+      dispatch(fetchStudioHomeData(location.search ?? '', false, { active_only: true }));
       setShowNewCourseContainer(false);
     }
   }, [location.search]);
@@ -50,14 +50,14 @@ const useStudioHome = () => {
   useEffect(() => {
     if (courseCreatorSavingStatus === RequestStatus.SUCCESSFUL) {
       dispatch(updateSavingStatuses({ courseCreatorSavingStatus: '' }));
-      dispatch(fetchStudioHomeData());
+      dispatch(fetchStudioHomeData('', false, { active_only: true }));
     }
   }, [courseCreatorSavingStatus]);
 
   useEffect(() => {
     if (deleteNotificationSavingStatus === RequestStatus.SUCCESSFUL) {
       dispatch(updateSavingStatuses({ courseCreatorSavingStatus: '' }));
-      dispatch(fetchStudioHomeData());
+      dispatch(fetchStudioHomeData('', false, { active_only: true }));
     } else if (deleteNotificationSavingStatus === RequestStatus.FAILED) {
       dispatch(updateSavingStatuses({ deleteNotificationSavingStatus: '' }));
     }
