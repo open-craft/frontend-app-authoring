@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { initializeMockApp } from '@edx/frontend-platform';
+import { initializeMockApp, getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import { IntlProvider, injectIntl } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
@@ -41,6 +41,11 @@ jest.mock('react-router-dom', () => ({
   }),
 }));
 
+jest.mock('@edx/frontend-platform', () => ({
+  ...jest.requireActual('@edx/frontend-platform'),
+  getConfig: jest.fn(),
+}));
+
 const RootWrapper = () => (
   <AppProvider store={store}>
     <IntlProvider locale="en" messages={{}}>
@@ -52,6 +57,9 @@ const RootWrapper = () => (
 describe('<StudioHome />', async () => {
   describe('api fetch fails', () => {
     beforeEach(async () => {
+      getConfig.mockImplementation(() => ({
+        ...jest.requireActual('@edx/frontend-platform').getConfig(),
+      }));
       initializeMockApp({
         authenticatedUser: {
           userId: 3,
@@ -80,6 +88,9 @@ describe('<StudioHome />', async () => {
 
   describe('api fetch succeeds', () => {
     beforeEach(async () => {
+      getConfig.mockImplementation(() => ({
+        ...jest.requireActual('@edx/frontend-platform').getConfig(),
+      }));
       initializeMockApp({
         authenticatedUser: {
           userId: 3,
@@ -93,6 +104,10 @@ describe('<StudioHome />', async () => {
       axiosMock.onGet(getStudioHomeApiUrl()).reply(200, studioHomeMock);
       await executeThunk(fetchStudioHomeData(), store.dispatch);
       useSelector.mockReturnValue(studioHomeMock);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
     });
 
     it('should render page and page title correctly', () => {
@@ -258,5 +273,58 @@ describe('<StudioHome />', async () => {
       expect(getByText('Looking for help with Studio?')).toBeInTheDocument();
       expect(getByText('LMS')).toHaveAttribute('href', process.env.LMS_BASE_URL);
     });
+
+    it('should dispatch updateSavingStatuses and fetchStudioHomeData when courseCreatorSavingStatus is SUCCESSFUL', () => {
+      useSelector.mockReturnValue({
+        courseCreatorSavingStatus: RequestStatus.SUCCESSFUL,
+      });
+      const { getByText } = render(<RootWrapper />);
+      expect(getByText(`${studioShortName} home`)).toBeInTheDocument();
+    });
+
+    it('should dispatch updateSavingStatuses and fetchStudioHomeData when deleteNotificationSavingStatus is SUCCESSFUL', () => {
+      useSelector.mockReturnValue({
+        deleteNotificationSavingStatus: RequestStatus.SUCCESSFUL,
+      });
+      const { getByText } = render(<RootWrapper />);
+      expect(getByText(`${studioShortName} home`)).toBeInTheDocument();
+    });
+  });
+});
+
+describe('Enable pagination', () => {
+  beforeEach(async () => {
+    getConfig.mockImplementation(() => ({
+      ...jest.requireActual('@edx/frontend-platform').getConfig(),
+      ENABLE_HOME_PAGE_COURSE_API_V2: true,
+    }));
+    initializeMockApp({
+      authenticatedUser: {
+        userId: 3,
+        username: 'abc123',
+        administrator: true,
+        roles: [],
+      },
+    });
+    store = initializeStore();
+    axiosMock = new MockAdapter(getAuthenticatedHttpClient());
+    global.window = Object.create(window);
+    Object.defineProperty(window, 'location', {
+      value: {
+        search: '?search=test',
+      },
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('should dispatch fetchStudioHomeData with paginated parameters on component mount', async () => {
+    axiosMock.onGet(getStudioHomeApiUrl()).reply(200, studioHomeMock);
+
+    const { getByText } = render(<RootWrapper />);
+
+    expect(getByText(`${studioShortName} home`)).toBeInTheDocument();
   });
 });
