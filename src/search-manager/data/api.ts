@@ -101,6 +101,8 @@ interface BaseContentHit {
   id: string;
   type: 'course_block' | 'library_block' | 'collection';
   displayName: string;
+  usageKey: string;
+  blockId: string;
   /** The course or library ID */
   contextKey: string;
   org: string;
@@ -117,8 +119,6 @@ interface BaseContentHit {
  * Defined in edx-platform/openedx/core/djangoapps/content/search/documents.py
  */
 export interface ContentHit extends BaseContentHit {
-  usageKey: string;
-  blockId: string;
   /** The block_type part of the usage key. What type of XBlock this is. */
   blockType: string;
   /**
