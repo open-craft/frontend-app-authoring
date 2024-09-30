@@ -144,7 +144,7 @@ export interface CollectionHit extends BaseContentHit {
  * Convert search hits to camelCase
  * @param hit A search result directly from Meilisearch
  */
-function formatSearchHit(hit: Record<string, any>): ContentHit | CollectionHit {
+export function formatSearchHit(hit: Record<string, any>): ContentHit | CollectionHit {
   // eslint-disable-next-line @typescript-eslint/naming-convention
   const { _formatted, ...newHit } = hit;
   newHit.formatted = {
@@ -302,6 +302,29 @@ export async function fetchSearchResults({
     totalCollectionHits: results[2].totalHits ?? results[2].estimatedTotalHits ?? collectionHitLength,
   };
 }
+
+/**
+ * Fetch the block types facet distribution for the search results.
+ */
+export const fetchBlockTypes = async (
+  client: MeiliSearch,
+  indexName: string,
+  extraFilter?: Filter,
+): Promise<Record<string, number>> => {
+  // Convert 'extraFilter' into an array
+  const extraFilterFormatted = forceArray(extraFilter);
+
+  const { results } = await client.multiSearch({
+    queries: [{
+      indexUid: indexName,
+      facets: ['block_type'],
+      filter: extraFilterFormatted,
+      limit: 0, // We don't need any "hits" for this - just the facetDistribution
+    }],
+  });
+
+  return results[0].facetDistribution?.block_type ?? {};
+};
 
 /** Information about a single tag in the tag tree, as returned by fetchAvailableTagOptions() */
 export interface TagEntry {

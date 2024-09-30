@@ -6,9 +6,11 @@ import {
   IconButton,
 } from '@openedx/paragon';
 import { MoreVert } from '@openedx/paragon/icons';
+import { useContext } from 'react';
 import { Link } from 'react-router-dom';
 
 import { type CollectionHit } from '../../search-manager';
+import { LibraryContext } from '../common/context';
 import BaseComponentCard from './BaseComponentCard';
 import messages from './messages';
 
@@ -44,6 +46,9 @@ type CollectionCardProps = {
 
 const CollectionCard = ({ collectionHit }: CollectionCardProps) => {
   const intl = useIntl();
+  const {
+    openCollectionInfoSidebar,
+  } = useContext(LibraryContext);
 
   const {
     type,
@@ -69,7 +74,7 @@ const CollectionCard = ({ collectionHit }: CollectionCardProps) => {
         </ActionRow>
       )}
       blockTypeDisplayName={blockTypeDisplayName}
-      openInfoSidebar={() => {}}
+      openInfoSidebar={() => openCollectionInfoSidebar(collectionHit.blockId)}
     />
   );
 };
