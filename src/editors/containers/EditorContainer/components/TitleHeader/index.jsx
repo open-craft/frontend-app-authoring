@@ -16,7 +16,6 @@ const TitleHeader = ({
   // injected
   intl,
 }) => {
-  if (!isInitialized) { return intl.formatMessage(messages.loading); }
   const dispatch = useDispatch();
   const title = useSelector(selectors.app.displayTitle);
 
@@ -31,6 +30,7 @@ const TitleHeader = ({
     updateTitle,
   } = localTitleHooks({ dispatch });
 
+  if (!isInitialized) { return intl.formatMessage(messages.loading); }
   if (isEditing) {
     return (
       <EditableHeader
