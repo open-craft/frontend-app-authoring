@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { updateClipboard } from '../../generic/data/api';
 import { ToastContext } from '../../generic/toast-context';
 import { type ContentHit } from '../../search-manager';
-import { LibraryContext } from '../common/context';
+import { useLibraryContext } from '../common/context';
 import messages from './messages';
 import { STUDIO_CLIPBOARD_CHANNEL } from '../../constants';
 import { getEditUrl } from './utils';
@@ -20,7 +20,6 @@ import BaseComponentCard from './BaseComponentCard';
 
 type ComponentCardProps = {
   contentHit: ContentHit,
-  blockTypeDisplayName: string,
 };
 
 export const ComponentMenu = ({ usageKey }: { usageKey: string }) => {
@@ -63,10 +62,10 @@ export const ComponentMenu = ({ usageKey }: { usageKey: string }) => {
   );
 };
 
-const ComponentCard = ({ contentHit, blockTypeDisplayName } : ComponentCardProps) => {
+const ComponentCard = ({ contentHit } : ComponentCardProps) => {
   const {
     openComponentInfoSidebar,
-  } = useContext(LibraryContext);
+  } = useLibraryContext();
 
   const {
     blockType,
@@ -83,7 +82,7 @@ const ComponentCard = ({ contentHit, blockTypeDisplayName } : ComponentCardProps
 
   return (
     <BaseComponentCard
-      type={blockType}
+      componentType={blockType}
       displayName={displayName}
       description={description}
       tags={tags}
@@ -92,7 +91,6 @@ const ComponentCard = ({ contentHit, blockTypeDisplayName } : ComponentCardProps
           <ComponentMenu usageKey={usageKey} />
         </ActionRow>
       )}
-      blockTypeDisplayName={blockTypeDisplayName}
       openInfoSidebar={() => openComponentInfoSidebar(usageKey)}
     />
   );

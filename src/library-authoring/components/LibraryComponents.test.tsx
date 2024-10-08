@@ -1,48 +1,34 @@
-import { AppProvider } from '@edx/frontend-platform/react';
-import { initializeMockApp } from '@edx/frontend-platform';
-import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
-import { IntlProvider } from '@edx/frontend-platform/i18n';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, fireEvent } from '@testing-library/react';
-import MockAdapter from 'axios-mock-adapter';
 import fetchMock from 'fetch-mock-jest';
-import type { Store } from 'redux';
 
+import {
+  fireEvent,
+  render,
+  screen,
+  initializeMocks,
+} from '../../testUtils';
 import { getContentSearchConfigUrl } from '../../search-manager/data/api';
-import { SearchContextProvider } from '../../search-manager/SearchManager';
+import { mockContentLibrary } from '../data/api.mocks';
 import mockEmptyResult from '../../search-modal/__mocks__/empty-search-result.json';
-import initializeStore from '../../store';
+import { LibraryProvider } from '../common/context';
 import { libraryComponentsMock } from '../__mocks__';
 import LibraryComponents from './LibraryComponents';
 
 const searchEndpoint = 'http://mock.meilisearch.local/multi-search';
 
-const mockUseLibraryBlockTypes = jest.fn();
+mockContentLibrary.applyMock();
 const mockFetchNextPage = jest.fn();
 const mockUseSearchContext = jest.fn();
-const mockUseContentLibrary = jest.fn();
 
 const data = {
   totalHits: 1,
   hits: [],
-  isFetching: true,
   isFetchingNextPage: false,
   hasNextPage: false,
   fetchNextPage: mockFetchNextPage,
   searchKeywords: '',
   isFiltered: false,
+  isLoading: false,
 };
-
-let store: Store;
-let axiosMock: MockAdapter;
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-    },
-  },
-});
 
 const returnEmptyResult = (_url: string, req) => {
   const requestData = JSON.parse(req.body?.toString() ?? '');
@@ -56,28 +42,6 @@ const returnEmptyResult = (_url: string, req) => {
   return mockEmptyResult;
 };
 
-const blockTypeData = {
-  data: [
-    {
-      blockType: 'html',
-      displayName: 'Text',
-    },
-    {
-      blockType: 'video',
-      displayName: 'Video',
-    },
-    {
-      blockType: 'problem',
-      displayName: 'Problem',
-    },
-  ],
-};
-
-jest.mock('../data/apiHooks', () => ({
-  useLibraryBlockTypes: () => mockUseLibraryBlockTypes(),
-  useContentLibrary: () => mockUseContentLibrary(),
-}));
-
 jest.mock('../../search-manager', () => ({
   ...jest.requireActual('../../search-manager'),
   useSearchContext: () => mockUseSearchContext(),
@@ -90,36 +54,19 @@ const clipboardBroadcastChannelMock = {
 
 (global as any).BroadcastChannel = jest.fn(() => clipboardBroadcastChannelMock);
 
-const RootWrapper = (props) => (
-  <AppProvider store={store}>
-    <IntlProvider locale="en" messages={{}}>
-      <QueryClientProvider client={queryClient}>
-        <SearchContextProvider>
-          <LibraryComponents libraryId="1" {...props} />
-        </SearchContextProvider>
-      </QueryClientProvider>
-    </IntlProvider>
-  </AppProvider>
-);
+const withLibraryId = (libraryId: string) => ({
+  extraWrapper: ({ children }: { children: React.ReactNode }) => (
+    <LibraryProvider libraryId={libraryId}>{children}</LibraryProvider>
+  ),
+});
 
 describe('<LibraryComponents />', () => {
   beforeEach(() => {
-    initializeMockApp({
-      authenticatedUser: {
-        userId: 3,
-        username: 'abc123',
-        administrator: true,
-        roles: [],
-      },
-    });
-    store = initializeStore();
-    mockUseLibraryBlockTypes.mockReturnValue(blockTypeData);
-    mockUseSearchContext.mockReturnValue(data);
+    const { axiosMock } = initializeMocks();
 
     fetchMock.post(searchEndpoint, returnEmptyResult, { overwriteRoutes: true });
 
     // The API method to get the Meilisearch connection details uses Axios:
-    axiosMock = new MockAdapter(getAuthenticatedHttpClient());
     axiosMock.onGet(getContentSearchConfigUrl()).reply(200, {
       url: 'http://mock.meilisearch.local',
       index_name: 'studio',
@@ -128,7 +75,8 @@ describe('<LibraryComponents />', () => {
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    fetchMock.reset();
+    mockFetchNextPage.mockReset();
   });
 
   it('should render empty state', async () => {
@@ -136,15 +84,10 @@ describe('<LibraryComponents />', () => {
       ...data,
       totalHits: 0,
     });
-    mockUseContentLibrary.mockReturnValue({
-      data: {
-        canEditLibrary: true,
-      },
-    });
 
-    render(<RootWrapper />);
+    render(<LibraryComponents variant="full" />, withLibraryId(mockContentLibrary.libraryId));
     expect(await screen.findByText(/you have not added any content to this library yet\./i));
-    expect(screen.getByRole('button', { name: /add component/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /add component/i })).toBeInTheDocument();
   });
 
   it('should render empty state without add content button', async () => {
@@ -152,24 +95,28 @@ describe('<LibraryComponents />', () => {
       ...data,
       totalHits: 0,
     });
-    mockUseContentLibrary.mockReturnValue({
-      data: {
-        canEditLibrary: false,
-      },
-    });
 
-    render(<RootWrapper />);
+    render(<LibraryComponents variant="full" />, withLibraryId(mockContentLibrary.libraryIdReadOnly));
     expect(await screen.findByText(/you have not added any content to this library yet\./i));
     expect(screen.queryByRole('button', { name: /add component/i })).not.toBeInTheDocument();
+  });
+
+  it('should render a spinner while loading', async () => {
+    mockUseSearchContext.mockReturnValue({
+      ...data,
+      isLoading: true,
+    });
+
+    render(<LibraryComponents variant="full" />, withLibraryId(mockContentLibrary.libraryId));
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
   });
 
   it('should render components in full variant', async () => {
     mockUseSearchContext.mockReturnValue({
       ...data,
       hits: libraryComponentsMock,
-      isFetching: false,
     });
-    render(<RootWrapper variant="full" />);
+    render(<LibraryComponents variant="full" />, withLibraryId(mockContentLibrary.libraryId));
 
     expect(await screen.findByText('This is a text: ID=1')).toBeInTheDocument();
     expect(screen.getByText('This is a text: ID=2')).toBeInTheDocument();
@@ -183,9 +130,8 @@ describe('<LibraryComponents />', () => {
     mockUseSearchContext.mockReturnValue({
       ...data,
       hits: libraryComponentsMock,
-      isFetching: false,
     });
-    render(<RootWrapper variant="preview" />);
+    render(<LibraryComponents variant="preview" />, withLibraryId(mockContentLibrary.libraryId));
 
     expect(await screen.findByText('This is a text: ID=1')).toBeInTheDocument();
     expect(screen.getByText('This is a text: ID=2')).toBeInTheDocument();
@@ -199,11 +145,10 @@ describe('<LibraryComponents />', () => {
     mockUseSearchContext.mockReturnValue({
       ...data,
       hits: libraryComponentsMock,
-      isFetching: false,
       hasNextPage: true,
     });
 
-    render(<RootWrapper variant="full" />);
+    render(<LibraryComponents variant="full" />, withLibraryId(mockContentLibrary.libraryId));
 
     Object.defineProperty(window, 'innerHeight', { value: 800 });
     Object.defineProperty(document.body, 'scrollHeight', { value: 1600 });
@@ -213,15 +158,14 @@ describe('<LibraryComponents />', () => {
     expect(mockFetchNextPage).toHaveBeenCalled();
   });
 
-  it('should not call `fetchNextPage` on croll to bottom in preview variant', async () => {
+  it('should not call `fetchNextPage` on scroll to bottom in preview variant', async () => {
     mockUseSearchContext.mockReturnValue({
       ...data,
       hits: libraryComponentsMock,
-      isFetching: false,
       hasNextPage: true,
     });
 
-    render(<RootWrapper variant="preview" />);
+    render(<LibraryComponents variant="preview" />, withLibraryId(mockContentLibrary.libraryId));
 
     Object.defineProperty(window, 'innerHeight', { value: 800 });
     Object.defineProperty(document.body, 'scrollHeight', { value: 1600 });

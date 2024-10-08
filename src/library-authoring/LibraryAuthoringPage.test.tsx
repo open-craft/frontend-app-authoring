@@ -14,7 +14,6 @@ import mockEmptyResult from '../search-modal/__mocks__/empty-search-result.json'
 import {
   mockContentLibrary,
   mockGetCollectionMetadata,
-  mockLibraryBlockTypes,
   mockXBlockFields,
 } from './data/api.mocks';
 import { mockContentSearchConfig } from '../search-manager/data/api.mock';
@@ -25,7 +24,6 @@ import { getLibraryCollectionsApiUrl } from './data/api';
 mockGetCollectionMetadata.applyMock();
 mockContentSearchConfig.applyMock();
 mockContentLibrary.applyMock();
-mockLibraryBlockTypes.applyMock();
 mockXBlockFields.applyMock();
 mockBroadcastChannel();
 
@@ -175,7 +173,7 @@ describe('<LibraryAuthoringPage />', () => {
     expect((await screen.findAllByText(libraryTitle))[0]).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Collections' }));
-    expect(screen.getByText('You have not added any collection to this library yet.')).toBeInTheDocument();
+    expect(screen.getByText('You have not added any collections to this library yet.')).toBeInTheDocument();
 
     // Open Create collection modal
     const addCollectionButton = screen.getByRole('button', { name: /add collection/i });

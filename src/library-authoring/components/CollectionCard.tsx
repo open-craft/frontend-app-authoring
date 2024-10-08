@@ -6,11 +6,10 @@ import {
   IconButton,
 } from '@openedx/paragon';
 import { MoreVert } from '@openedx/paragon/icons';
-import { useContext } from 'react';
 import { Link } from 'react-router-dom';
 
 import { type CollectionHit } from '../../search-manager';
-import { LibraryContext } from '../common/context';
+import { useLibraryContext } from '../common/context';
 import BaseComponentCard from './BaseComponentCard';
 import messages from './messages';
 
@@ -45,35 +44,30 @@ type CollectionCardProps = {
 };
 
 const CollectionCard = ({ collectionHit }: CollectionCardProps) => {
-  const intl = useIntl();
   const {
     openCollectionInfoSidebar,
-  } = useContext(LibraryContext);
+  } = useLibraryContext();
 
   const {
-    type,
+    type: componentType,
     formatted,
     tags,
     numChildren,
   } = collectionHit;
   const { displayName = '', description = '' } = formatted;
-  const blockTypeDisplayName = numChildren ? intl.formatMessage(
-    messages.collectionTypeWithCount,
-    { numChildren },
-  ) : intl.formatMessage(messages.collectionType);
 
   return (
     <BaseComponentCard
-      type={type}
+      componentType={componentType}
       displayName={displayName}
       description={description}
       tags={tags}
+      numChildren={numChildren}
       actions={(
         <ActionRow>
           <CollectionMenu collectionHit={collectionHit} />
         </ActionRow>
       )}
-      blockTypeDisplayName={blockTypeDisplayName}
       openInfoSidebar={() => openCollectionInfoSidebar(collectionHit.blockId)}
     />
   );

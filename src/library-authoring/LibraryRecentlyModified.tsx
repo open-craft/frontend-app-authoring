@@ -1,4 +1,3 @@
-import React, { useMemo } from 'react';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { orderBy } from 'lodash';
 
@@ -7,10 +6,10 @@ import { type CollectionHit, type ContentHit, SearchSortOption } from '../search
 import LibrarySection, { LIBRARY_SECTION_PREVIEW_LIMIT } from './components/LibrarySection';
 import messages from './messages';
 import ComponentCard from './components/ComponentCard';
-import { useLibraryBlockTypes } from './data/apiHooks';
 import CollectionCard from './components/CollectionCard';
+import { useLibraryContext } from './common/context';
 
-const RecentlyModified: React.FC<{ libraryId: string }> = ({ libraryId }) => {
+const RecentlyModified: React.FC<Record<never, never>> = () => {
   const intl = useIntl();
   const {
     hits,
@@ -30,17 +29,6 @@ const RecentlyModified: React.FC<{ libraryId: string }> = ({ libraryId }) => {
     ...collectionList,
   ], ['modified'], ['desc']).slice(0, LIBRARY_SECTION_PREVIEW_LIMIT);
 
-  const { data: blockTypesData } = useLibraryBlockTypes(libraryId);
-  const blockTypes = useMemo(() => {
-    const result = {};
-    if (blockTypesData) {
-      blockTypesData.forEach(blockType => {
-        result[blockType.blockType] = blockType;
-      });
-    }
-    return result;
-  }, [blockTypesData]);
-
   return componentCount > 0
     ? (
       <LibrarySection
@@ -58,7 +46,6 @@ const RecentlyModified: React.FC<{ libraryId: string }> = ({ libraryId }) => {
               <ComponentCard
                 key={contentHit.id}
                 contentHit={contentHit as ContentHit}
-                blockTypeDisplayName={blockTypes[(contentHit as ContentHit).blockType]?.displayName ?? ''}
               />
             )
           ))}
@@ -68,13 +55,16 @@ const RecentlyModified: React.FC<{ libraryId: string }> = ({ libraryId }) => {
     : null;
 };
 
-const LibraryRecentlyModified: React.FC<{ libraryId: string }> = ({ libraryId }) => (
-  <SearchContextProvider
-    extraFilter={`context_key = "${libraryId}"`}
-    overrideSearchSortOrder={SearchSortOption.RECENTLY_MODIFIED}
-  >
-    <RecentlyModified libraryId={libraryId} />
-  </SearchContextProvider>
-);
+const LibraryRecentlyModified: React.FC<Record<never, never>> = () => {
+  const { libraryId } = useLibraryContext();
+  return (
+    <SearchContextProvider
+      extraFilter={`context_key = "${libraryId}"`}
+      overrideSearchSortOrder={SearchSortOption.RECENTLY_MODIFIED}
+    >
+      <RecentlyModified />
+    </SearchContextProvider>
+  );
+};
 
 export default LibraryRecentlyModified;
