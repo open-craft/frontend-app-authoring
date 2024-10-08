@@ -28,6 +28,30 @@ const messages = defineMessages({
     id: 'course-authoring.pages-resources.progress.enable-graph.help',
     defaultMessage: 'If enabled, students can view the progress graph',
   },
+  showGradesLabel: {
+    id: 'course-authoring.pages-resources.progress.show-grades.label',
+    defaultMessage: 'Show grades',
+  },
+  showGradesHelp: {
+    id: 'course-authoring.pages-resources.progress.show-grades.help',
+    defaultMessage: 'If enabled, students can see their grades on the progress page.',
+  },
+  showGradeSummaryLabel: {
+    id: 'course-authoring.pages-resources.progress.show-grade-summary.label',
+    defaultMessage: 'Show grades Summary',
+  },
+  showGradeSummaryHelp: {
+    id: 'course-authoring.pages-resources.progress.show-grade-summary.help',
+    defaultMessage: 'If enabled, students can see a summary of their grades on the progress page.',
+  },
+  showRelatedLinksLabel: {
+    id: 'course-authoring.pages-resources.progress.show-related-links.label',
+    defaultMessage: 'Show Related Links',
+  },
+  showRelatedLinksHelp: {
+    id: 'course-authoring.pages-resources.progress.show-related-links.help',
+    defaultMessage: 'If enabled, students can see related links in the sidebar on the progress page.',
+  },
 });
 
 export default messages;
