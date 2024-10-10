@@ -19,6 +19,10 @@ import {
   commitLibraryChanges,
   revertLibraryChanges,
   updateLibraryMetadata,
+  getLibraryTeam,
+  addLibraryTeamMember,
+  deleteLibraryTeamMember,
+  updateLibraryTeamMember,
   libraryPasteClipboard,
   getLibraryBlockMetadata,
   getXBlockFields,
@@ -30,6 +34,10 @@ import {
   updateCollectionComponents,
   type CreateLibraryCollectionDataRequest,
   getCollectionMetadata,
+  deleteCollection,
+  restoreCollection,
+  setXBlockOLX,
+  getXBlockAssets,
 } from './api';
 
 export const libraryQueryPredicate = (query: Query, libraryId: string): boolean => {
@@ -58,6 +66,11 @@ export const libraryAuthoringQueryKeys = {
     'list',
     ...(customParams ? [customParams] : []),
   ],
+  libraryTeam: (libraryId?: string) => [
+    ...libraryAuthoringQueryKeys.all,
+    'list',
+    libraryId,
+  ],
   collection: (libraryId?: string, collectionId?: string) => [
     ...libraryAuthoringQueryKeys.all,
     libraryId,
@@ -75,6 +88,8 @@ export const xblockQueryKeys = {
   xblockFields: (usageKey: string) => [...xblockQueryKeys.xblock(usageKey), 'fields'],
   /** OLX (XML representation of the fields/content) */
   xblockOLX: (usageKey: string) => [...xblockQueryKeys.xblock(usageKey), 'OLX'],
+  /** assets (static files) */
+  xblockAssets: (usageKey: string) => [...xblockQueryKeys.xblock(usageKey), 'assets'],
   componentMetadata: (usageKey: string) => [...xblockQueryKeys.xblock(usageKey), 'componentMetadata'],
 };
 
@@ -130,7 +145,7 @@ export const useUpdateLibraryMetadata = () => {
 
       const newLibraryData = {
         ...previousLibraryData,
-        title: data.title,
+        ...camelCaseObject(data),
       };
 
       queryClient.setQueryData(queryKey, newLibraryData);
@@ -177,6 +192,62 @@ export const useRevertLibraryChanges = () => {
     onSettled: (_data, _error, libraryId) => {
       queryClient.invalidateQueries({ queryKey: libraryAuthoringQueryKeys.contentLibrary(libraryId) });
       queryClient.invalidateQueries({ predicate: (query) => libraryQueryPredicate(query, libraryId) });
+    },
+  });
+};
+
+/**
+ * Hook to fetch a content library's team members
+ */
+export const useLibraryTeam = (libraryId: string | undefined) => (
+  useQuery({
+    queryKey: libraryAuthoringQueryKeys.libraryTeam(libraryId),
+    queryFn: () => getLibraryTeam(libraryId!),
+    enabled: libraryId !== undefined,
+  })
+);
+
+/**
+ * Hook to add a new member to a content library's team
+ */
+export const useAddLibraryTeamMember = (libraryId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const queryKey = libraryAuthoringQueryKeys.libraryTeam(libraryId);
+
+  return useMutation({
+    mutationFn: addLibraryTeamMember,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+};
+
+/**
+ * Hook to delete an existing member from a content library's team
+ */
+export const useDeleteLibraryTeamMember = (libraryId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const queryKey = libraryAuthoringQueryKeys.libraryTeam(libraryId);
+
+  return useMutation({
+    mutationFn: deleteLibraryTeamMember,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
+  });
+};
+
+/**
+ * Hook to update an existing member's access in a content library's team
+ */
+export const useUpdateLibraryTeamMember = (libraryId: string | undefined) => {
+  const queryClient = useQueryClient();
+  const queryKey = libraryAuthoringQueryKeys.libraryTeam(libraryId);
+
+  return useMutation({
+    mutationFn: updateLibraryTeamMember,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 };
@@ -255,11 +326,39 @@ export const useCreateLibraryCollection = (libraryId: string) => {
   });
 };
 
-/* istanbul ignore next */ // This is only used in developer builds, and the associated UI doesn't work in test or prod
+/** Get the OLX source of a library component */
 export const useXBlockOLX = (usageKey: string) => (
   useQuery({
     queryKey: xblockQueryKeys.xblockOLX(usageKey),
     queryFn: () => getXBlockOLX(usageKey),
+    enabled: !!usageKey,
+  })
+);
+
+/**
+ * Update the OLX of a library component (advanced feature)
+ */
+export const useUpdateXBlockOLX = (usageKey: string) => {
+  const contentLibraryId = getLibraryId(usageKey);
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (newOLX: string) => setXBlockOLX(usageKey, newOLX),
+    onSuccess: (olxFromServer) => {
+      queryClient.setQueryData(xblockQueryKeys.xblockOLX(usageKey), olxFromServer);
+      // Reload the other data for this component:
+      invalidateComponentData(queryClient, contentLibraryId, usageKey);
+      // And the description and display name etc. may have changed, so refresh everything in the library too:
+      queryClient.invalidateQueries({ queryKey: libraryAuthoringQueryKeys.contentLibrary(contentLibraryId) });
+      queryClient.invalidateQueries({ predicate: (query) => libraryQueryPredicate(query, contentLibraryId) });
+    },
+  });
+};
+
+/** Get the list of assets (static files) attached to a library component */
+export const useXBlockAssets = (usageKey: string) => (
+  useQuery({
+    queryKey: xblockQueryKeys.xblockAssets(usageKey),
+    queryFn: () => getXBlockAssets(usageKey),
     enabled: !!usageKey,
   })
 );
@@ -303,11 +402,38 @@ export const useUpdateCollectionComponents = (libraryId?: string, collectionId?:
       }
       return undefined;
     },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    onSettled: (_data, _error, _variables) => {
+    onSettled: () => {
       if (libraryId !== undefined && collectionId !== undefined) {
         queryClient.invalidateQueries({ predicate: (query) => libraryQueryPredicate(query, libraryId) });
       }
+    },
+  });
+};
+
+/**
+ * Use this mutation to soft delete collections in a library
+ */
+export const useDeleteCollection = (libraryId: string, collectionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => deleteCollection(libraryId, collectionId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: libraryAuthoringQueryKeys.contentLibrary(libraryId) });
+      queryClient.invalidateQueries({ predicate: (query) => libraryQueryPredicate(query, libraryId) });
+    },
+  });
+};
+
+/**
+ * Use this mutation to restore soft deleted collections in a library
+ */
+export const useRestoreCollection = (libraryId: string, collectionId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => restoreCollection(libraryId, collectionId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: libraryAuthoringQueryKeys.contentLibrary(libraryId) });
+      queryClient.invalidateQueries({ predicate: (query) => libraryQueryPredicate(query, libraryId) });
     },
   });
 };

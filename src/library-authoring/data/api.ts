@@ -14,6 +14,16 @@ export const getContentLibraryApiUrl = (libraryId: string) => `${getApiBaseUrl()
 export const getCreateLibraryBlockUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/blocks/`;
 
 /**
+ * Get the URL for the content library team API.
+ */
+export const getLibraryTeamApiUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/team/`;
+
+/**
+ * Get the URL for updating/deleting a content library team member.
+ */
+export const getLibraryTeamMemberApiUrl = (libraryId: string, username: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/team/user/${username}/`;
+
+/**
  * Get the URL for library block metadata.
  */
 export const getLibraryBlockMetadataUrl = (usageKey: string) => `${getApiBaseUrl()}/api/libraries/v2/blocks/${usageKey}/`;
@@ -42,17 +52,25 @@ export const getXBlockFieldsApiUrl = (usageKey: string) => `${getApiBaseUrl()}/a
   */
 export const getXBlockOLXApiUrl = (usageKey: string) => `${getApiBaseUrl()}/api/libraries/v2/blocks/${usageKey}/olx/`;
 /**
+  * Get the URL for the xblock Assets List API
+  */
+export const getXBlockAssetsApiUrl = (usageKey: string) => `${getApiBaseUrl()}/api/libraries/v2/blocks/${usageKey}/assets/`;
+/**
  * Get the URL for the Library Collections API.
  */
 export const getLibraryCollectionsApiUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/collections/`;
 /**
- * Get the URL for the collection API.
+ * Get the URL for the collection detail API.
  */
 export const getLibraryCollectionApiUrl = (libraryId: string, collectionId: string) => `${getLibraryCollectionsApiUrl(libraryId)}${collectionId}/`;
 /**
  * Get the URL for the collection API.
  */
 export const getLibraryCollectionComponentApiUrl = (libraryId: string, collectionId: string) => `${getLibraryCollectionApiUrl(libraryId, collectionId)}components/`;
+/**
+ * Get the API URL for restoring deleted collection.
+ */
+export const getLibraryCollectionRestoreApiUrl = (libraryId: string, collectionId: string) => `${getLibraryCollectionApiUrl(libraryId, collectionId)}restore/`;
 
 export interface ContentLibrary {
   id: string;
@@ -76,6 +94,25 @@ export interface ContentLibrary {
   license: string;
   created: string | null;
   updated: string | null;
+}
+
+export interface AddLibraryTeamMember {
+  libraryId: string,
+  email: string;
+  accessLevel: string;
+}
+
+export interface LibraryTeamMember extends AddLibraryTeamMember {
+  username: string;
+}
+
+export interface DeleteLibraryTeamMember {
+  libraryId: string,
+  username: string;
+}
+
+export interface UpdateLibraryTeamMember extends DeleteLibraryTeamMember {
+  accessLevel: string;
 }
 
 export interface Collection {
@@ -247,6 +284,45 @@ export async function revertLibraryChanges(libraryId: string) {
 }
 
 /**
+ * Fetch  content library's team by library ID.
+ */
+export async function getLibraryTeam(libraryId: string): Promise<LibraryTeamMember[]> {
+  const client = getAuthenticatedHttpClient();
+  const { data } = await client.get(getLibraryTeamApiUrl(libraryId));
+  return camelCaseObject(data);
+}
+
+/**
+ * Add a new member to the library's team by email.
+ */
+export async function addLibraryTeamMember(memberData: AddLibraryTeamMember): Promise<LibraryTeamMember> {
+  const client = getAuthenticatedHttpClient();
+  const url = getLibraryTeamApiUrl(memberData.libraryId);
+  const { data } = await client.post(url, snakeCaseObject(memberData));
+  return camelCaseObject(data);
+}
+
+/**
+ * Delete an existing member from the library's team by username.
+ */
+export async function deleteLibraryTeamMember(memberData: DeleteLibraryTeamMember): Promise<LibraryTeamMember> {
+  const client = getAuthenticatedHttpClient();
+  const url = getLibraryTeamMemberApiUrl(memberData.libraryId, memberData.username);
+  const { data } = await client.delete(url);
+  return camelCaseObject(data);
+}
+
+/**
+ * Update an existing member's access to the library's team by username.
+ */
+export async function updateLibraryTeamMember(memberData: UpdateLibraryTeamMember): Promise<LibraryTeamMember> {
+  const client = getAuthenticatedHttpClient();
+  const url = getLibraryTeamMemberApiUrl(memberData.libraryId, memberData.username);
+  const { data } = await client.put(url, snakeCaseObject(memberData));
+  return camelCaseObject(data);
+}
+
+/**
  * Paste clipboard content into library.
  */
 export async function libraryPasteClipboard({
@@ -300,9 +376,29 @@ export async function createCollection(libraryId: string, collectionData: Create
 /**
  * Fetch the OLX for the given XBlock.
  */
+// istanbul ignore next
 export async function getXBlockOLX(usageKey: string): Promise<string> {
   const { data } = await getAuthenticatedHttpClient().get(getXBlockOLXApiUrl(usageKey));
   return data.olx;
+}
+
+/**
+ * Set the OLX for the given XBlock.
+ * Returns the OLX as it was actually saved.
+ */
+// istanbul ignore next
+export async function setXBlockOLX(usageKey: string, newOLX: string): Promise<string> {
+  const { data } = await getAuthenticatedHttpClient().post(getXBlockOLXApiUrl(usageKey), { olx: newOLX });
+  return data.olx;
+}
+
+/**
+ * Fetch the asset (static file) list for the given XBlock.
+ */
+// istanbul ignore next
+export async function getXBlockAssets(usageKey: string): Promise<{ path: string; url: string; size: number }[]> {
+  const { data } = await getAuthenticatedHttpClient().get(getXBlockAssetsApiUrl(usageKey));
+  return data.files;
 }
 
 /**
@@ -332,4 +428,20 @@ export async function updateCollectionComponents(libraryId: string, collectionId
   await getAuthenticatedHttpClient().patch(getLibraryCollectionComponentApiUrl(libraryId, collectionId), {
     usage_keys: usageKeys,
   });
+}
+
+/**
+ * Soft-Delete collection.
+ */
+export async function deleteCollection(libraryId: string, collectionId: string) {
+  const client = getAuthenticatedHttpClient();
+  await client.delete(getLibraryCollectionApiUrl(libraryId, collectionId));
+}
+
+/**
+ * Restore soft-deleted collection
+ */
+export async function restoreCollection(libraryId: string, collectionId: string) {
+  const client = getAuthenticatedHttpClient();
+  await client.post(getLibraryCollectionRestoreApiUrl(libraryId, collectionId));
 }
