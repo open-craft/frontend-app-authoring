@@ -4,11 +4,16 @@
   align-items: center;
   margin-bottom: var(--pgn-spacing-spacer-6);
 
+  .btn-icon {
+    margin-top: 1.1rem;
+  }
+
   .grading-scale-segments-and-ticks {
     display: inline-block;
-    height: 3.125rem;
+    height: 5.125rem;
+    padding: 1.8rem;
     width: 100%;
-    border: 1px solid var(--pgn-color-black);
+    border: none;
     overflow: hidden;
 
     .grading-scale-tick {
