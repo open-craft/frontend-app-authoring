@@ -22,8 +22,9 @@ const ProgressSettings = ({ onClose }) => {
       ...otherCourseSettings,
       progressPage: {
         showGrades: values.showGrades,
-        showGradeSummary: values.showGradeSummary,
+        showGradeBreakdown: values.showGradeBreakdown,
         showRelatedLinks: values.showRelatedLinks,
+        showCertificateStatus: values.showCertificateStatus,
       },
     };
     await saveOtherCourseSettings(updatedOtherCourseSettings);
@@ -39,15 +40,17 @@ const ProgressSettings = ({ onClose }) => {
       onClose={onClose}
       initialValues={{
         enableProgressGraph: !disableProgressGraph,
-        showGrades: !!otherCourseSettings?.progressPage?.showGrades,
-        showGradeSummary: !!otherCourseSettings?.progressPage?.showGradeSummary,
-        showRelatedLinks: !!otherCourseSettings?.progressPage?.showRelatedLinks,
+        showGrades: otherCourseSettings?.progressPage?.showGrades ?? true,
+        showGradeBreakdown: otherCourseSettings?.progressPage?.showGradeBreakdown ?? true,
+        showRelatedLinks: otherCourseSettings?.progressPage?.showRelatedLinks ?? true,
+        showCertificateStatus: otherCourseSettings?.progressPage?.showCertificateStatus ?? true,
       }}
       validationSchema={{
         enableProgressGraph: Yup.boolean(),
         showGrades: Yup.boolean(),
-        showGradeSummary: Yup.boolean(),
+        showGradeBreakdown: Yup.boolean(),
         showRelatedLinks: Yup.boolean(),
+        showCertificateStatus: Yup.boolean(),
       }}
       onSettingsSave={handleSettingsSave}
     >
@@ -75,13 +78,13 @@ const ProgressSettings = ({ onClose }) => {
               checked={values.showGrades}
             />
             <FormSwitchGroup
-              id="show-grade-summary"
-              name="showGradeSummary"
-              label={intl.formatMessage(messages.showGradeSummaryLabel)}
-              helpText={intl.formatMessage(messages.showGradeSummaryHelp)}
+              id="show-grade-breakdown"
+              name="showGradeBreakdown"
+              label={intl.formatMessage(messages.showGradeBreakdownLabel)}
+              helpText={intl.formatMessage(messages.showGradeBreakdownHelp)}
               onChange={handleChange}
               onBlur={handleBlur}
-              checked={values.showGradeSummary}
+              checked={values.showGradeBreakdown}
             />
             <FormSwitchGroup
               id="show-related-links"
@@ -91,6 +94,15 @@ const ProgressSettings = ({ onClose }) => {
               onChange={handleChange}
               onBlur={handleBlur}
               checked={values.showRelatedLinks}
+            />
+            <FormSwitchGroup
+              id="show-certificate-status"
+              name="showCertificateStatus"
+              label={intl.formatMessage(messages.showCertificateStatusLabel)}
+              helpText={intl.formatMessage(messages.showCertificateStatusHelp)}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              checked={values.showCertificateStatus}
             />
           </>
         )
