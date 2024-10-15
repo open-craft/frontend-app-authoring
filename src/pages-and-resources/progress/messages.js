@@ -28,6 +28,38 @@ const messages = defineMessages({
     id: 'course-authoring.pages-resources.progress.enable-graph.help',
     defaultMessage: 'If enabled, students can view the progress graph',
   },
+  showGradesLabel: {
+    id: 'course-authoring.pages-resources.progress.show-grades.label',
+    defaultMessage: 'Show grades',
+  },
+  showGradesHelp: {
+    id: 'course-authoring.pages-resources.progress.show-grades.help',
+    defaultMessage: 'If enabled, students can see their grades on the progress page.',
+  },
+  showGradeBreakdownLabel: {
+    id: 'course-authoring.pages-resources.progress.show-grade-breakdown.label',
+    defaultMessage: 'Show Grade Breakdown',
+  },
+  showGradeBreakdownHelp: {
+    id: 'course-authoring.pages-resources.progress.show-grade-breakdown.help',
+    defaultMessage: 'If enabled, students can see a summary and detailed breakdown of their grades on the progress page.',
+  },
+  showRelatedLinksLabel: {
+    id: 'course-authoring.pages-resources.progress.show-related-links.label',
+    defaultMessage: 'Show Related Links',
+  },
+  showRelatedLinksHelp: {
+    id: 'course-authoring.pages-resources.progress.show-related-links.help',
+    defaultMessage: 'If enabled, students can see related links in the sidebar on the progress page.',
+  },
+  showCertificateStatusLabel: {
+    id: 'course-authoring.pages-resources.progress.show-certificate-status.label',
+    defaultMessage: 'Show Certificate Status',
+  },
+  showCertificateStatusHelp: {
+    id: 'course-authoring.pages-resources.progress.show-certificate-status.help',
+    defaultMessage: 'If enabled, students can see the status of their certificates on the progress page.',
+  },
 });
 
 export default messages;
