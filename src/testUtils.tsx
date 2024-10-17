@@ -34,6 +34,7 @@ let axiosMock: MockAdapter;
 let mockToastContext: ToastContextData = {
   showToast: jest.fn(),
   closeToast: jest.fn(),
+  toastAction: undefined,
   toastMessage: null,
 };
 
@@ -44,6 +45,10 @@ export interface RouteOptions {
   params?: Record<string, string>;
   /** and/or instead of specifying path and params, specify MemoryRouterProps */
   routerProps?: MemoryRouterProps;
+}
+
+export interface WrapperOptions {
+  extraWrapper?: React.FunctionComponent<{ children: React.ReactNode; }>;
 }
 
 /**
@@ -111,14 +116,14 @@ const RouterAndRoute: React.FC<RouteOptions> = ({
   );
 };
 
-function makeWrapper({ ...routeArgs }: RouteOptions) {
+function makeWrapper({ extraWrapper, ...routeArgs }: WrapperOptions & RouteOptions) {
   const AllTheProviders = ({ children }) => (
     <AppProvider store={reduxStore} wrapWithRouter={false}>
       <IntlProvider locale="en" messages={{}}>
         <QueryClientProvider client={queryClient}>
           <ToastContext.Provider value={mockToastContext}>
             <RouterAndRoute {...routeArgs}>
-              {children}
+              {extraWrapper ? React.createElement(extraWrapper, undefined, children) : children}
             </RouterAndRoute>
           </ToastContext.Provider>
         </QueryClientProvider>
@@ -132,7 +137,7 @@ function makeWrapper({ ...routeArgs }: RouteOptions) {
  * Same as render() from `@testing-library/react` but this one provides all the
  * wrappers our React components need to render properly.
  */
-function customRender(ui: React.ReactElement, options: RouteOptions = {}): RenderResult {
+function customRender(ui: React.ReactElement, options: WrapperOptions & RouteOptions = {}): RenderResult {
   return render(ui, { wrapper: makeWrapper(options) });
 }
 
@@ -172,12 +177,17 @@ export function initializeMocks({ user = defaultUser, initialState = undefined }
     showToast: jest.fn(),
     closeToast: jest.fn(),
     toastMessage: null,
+    toastAction: undefined,
   };
+
+  // Clear the call counts etc. of all mocks. This doesn't remove the mock's effects; just clears their history.
+  jest.clearAllMocks();
 
   return {
     reduxStore,
     axiosMock,
     mockShowToast: mockToastContext.showToast,
+    mockToastAction: mockToastContext.toastAction,
   };
 }
 

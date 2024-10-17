@@ -1,4 +1,3 @@
-import React from 'react';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
   Button,
@@ -6,51 +5,88 @@ import {
   Tabs,
   Stack,
 } from '@openedx/paragon';
-import { Link } from 'react-router-dom';
+import { useContext } from 'react';
 
-import { getEditUrl } from '../components/utils';
+import { ToastContext } from '../../generic/toast-context';
+import { useLibraryContext } from '../common/context';
 import { ComponentMenu } from '../components';
+import { canEditComponent } from '../components/ComponentEditorModal';
+import { useAddComponentToCourse } from '../data/apiHooks';
 import ComponentDetails from './ComponentDetails';
 import ComponentManagement from './ComponentManagement';
 import ComponentPreview from './ComponentPreview';
 import messages from './messages';
 
-interface ComponentInfoProps {
-  usageKey: string;
-}
-
-const ComponentInfo = ({ usageKey }: ComponentInfoProps) => {
+const ComponentInfo = () => {
   const intl = useIntl();
-  const editUrl = getEditUrl(usageKey);
+  const { showToast } = useContext(ToastContext);
+
+  const {
+    sidebarComponentUsageKey: usageKey,
+    readOnly,
+    openComponentEditor,
+    componentPickerMode,
+    parentLocator,
+  } = useLibraryContext();
+
+  // istanbul ignore if: this should never happen
+  if (!usageKey) {
+    throw new Error('usageKey is required');
+  }
+
+  const {
+    mutateAsync: addComponentToCourse,
+    reset,
+  } = useAddComponentToCourse(parentLocator, usageKey);
+
+  const canEdit = canEditComponent(usageKey);
+
+  const handleAddComponentToCourse = () => {
+    addComponentToCourse()
+      .then(() => {
+        window.parent.postMessage('closeComponentPicker', '*');
+      })
+      .catch(() => {
+        showToast(intl.formatMessage(messages.addComponentToCourseError));
+        reset();
+      });
+  };
 
   return (
     <Stack>
-      <div className="d-flex flex-wrap">
-        <Button
-          {...(editUrl ? { as: Link, to: editUrl } : { disabled: true, to: '#' })}
-          variant="outline-primary"
-          className="m-1 text-nowrap flex-grow-1"
-        >
-          {intl.formatMessage(messages.editComponentButtonTitle)}
+      {!readOnly && (
+        <div className="d-flex flex-wrap">
+          <Button
+            {...(canEdit ? { onClick: () => openComponentEditor(usageKey) } : { disabled: true })}
+            variant="outline-primary"
+            className="m-1 text-nowrap flex-grow-1"
+          >
+            {intl.formatMessage(messages.editComponentButtonTitle)}
+          </Button>
+          <Button disabled variant="outline-primary" className="m-1 text-nowrap flex-grow-1">
+            {intl.formatMessage(messages.publishComponentButtonTitle)}
+          </Button>
+          <ComponentMenu usageKey={usageKey} />
+        </div>
+      )}
+      {componentPickerMode && (
+        <Button variant="outline-primary" className="m-1 text-nowrap flex-grow-1" onClick={handleAddComponentToCourse}>
+          {intl.formatMessage(messages.addComponentToCourse)}
         </Button>
-        <Button disabled variant="outline-primary" className="m-1 text-nowrap flex-grow-1">
-          {intl.formatMessage(messages.publishComponentButtonTitle)}
-        </Button>
-        <ComponentMenu usageKey={usageKey} />
-      </div>
+      )}
       <Tabs
         variant="tabs"
         className="my-3 d-flex justify-content-around"
         defaultActiveKey="preview"
       >
         <Tab eventKey="preview" title={intl.formatMessage(messages.previewTabTitle)}>
-          <ComponentPreview usageKey={usageKey} />
+          <ComponentPreview />
         </Tab>
         <Tab eventKey="manage" title={intl.formatMessage(messages.manageTabTitle)}>
-          <ComponentManagement usageKey={usageKey} />
+          <ComponentManagement />
         </Tab>
         <Tab eventKey="details" title={intl.formatMessage(messages.detailsTabTitle)}>
-          <ComponentDetails usageKey={usageKey} />
+          <ComponentDetails />
         </Tab>
       </Tabs>
     </Stack>

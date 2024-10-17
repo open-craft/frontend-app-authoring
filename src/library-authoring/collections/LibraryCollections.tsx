@@ -1,12 +1,11 @@
-import { useContext } from 'react';
-
+import { LoadingSpinner } from '../../generic/Loading';
 import { useLoadOnScroll } from '../../hooks';
 import { useSearchContext } from '../../search-manager';
 import { NoComponents, NoSearchResults } from '../EmptyStates';
 import CollectionCard from '../components/CollectionCard';
 import { LIBRARY_SECTION_PREVIEW_LIMIT } from '../components/LibrarySection';
 import messages from './messages';
-import { LibraryContext } from '../common/context';
+import { useLibraryContext } from '../common/context';
 
 type LibraryCollectionsProps = {
   variant: 'full' | 'preview',
@@ -26,10 +25,11 @@ const LibraryCollections = ({ variant }: LibraryCollectionsProps) => {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    isLoading,
     isFiltered,
   } = useSearchContext();
 
-  const { openCreateCollectionModal } = useContext(LibraryContext);
+  const { openCreateCollectionModal } = useLibraryContext();
 
   const collectionList = variant === 'preview' ? collectionHits.slice(0, LIBRARY_SECTION_PREVIEW_LIMIT) : collectionHits;
 
@@ -39,6 +39,10 @@ const LibraryCollections = ({ variant }: LibraryCollectionsProps) => {
     fetchNextPage,
     variant === 'full',
   );
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   if (totalCollectionHits === 0) {
     return isFiltered

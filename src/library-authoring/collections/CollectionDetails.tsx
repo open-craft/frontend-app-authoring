@@ -6,7 +6,7 @@ import classNames from 'classnames';
 import { getItemIcon } from '../../generic/block-type-utils';
 import { ToastContext } from '../../generic/toast-context';
 import { BlockTypeLabel, useGetBlockTypes } from '../../search-manager';
-import type { ContentLibrary } from '../data/api';
+import { useLibraryContext } from '../common/context';
 import { useCollection, useUpdateCollection } from '../data/apiHooks';
 import HistoryWidget from '../generic/history-widget';
 import messages from './messages';
@@ -36,12 +36,9 @@ const BlockCount = ({
   );
 };
 
-interface CollectionStatsWidgetProps {
-  libraryId: string,
-  collectionId: string,
-}
+const CollectionStatsWidget = () => {
+  const { libraryId, sidebarCollectionId: collectionId } = useLibraryContext();
 
-const CollectionStatsWidget = ({ libraryId, collectionId }: CollectionStatsWidgetProps) => {
   const { data: blockTypes } = useGetBlockTypes([
     `context_key = "${libraryId}"`,
     `collections.key = "${collectionId}"`,
@@ -51,15 +48,9 @@ const CollectionStatsWidget = ({ libraryId, collectionId }: CollectionStatsWidge
     return null;
   }
 
-  const blockTypesArray = Object.entries(blockTypes)
-    .map(([blockType, count]) => ({ blockType, count }))
-    .sort((a, b) => b.count - a.count);
+  const blockSlots = ['problem', 'html', 'video'];
 
-  const totalBlocksCount = blockTypesArray.reduce((acc, { count }) => acc + count, 0);
-  // Show the top 3 block type counts individually, and splice the remaining block types together under "Other".
-  const numBlockTypesShown = 3;
-  const otherBlocks = blockTypesArray.splice(numBlockTypesShown);
-  const otherBlocksCount = otherBlocks.reduce((acc, { count }) => acc + count, 0);
+  const totalBlocksCount = Object.values(blockTypes).reduce((acc, count) => acc + count, 0);
 
   if (totalBlocksCount === 0) {
     return (
@@ -74,6 +65,9 @@ const CollectionStatsWidget = ({ libraryId, collectionId }: CollectionStatsWidge
     );
   }
 
+  const otherBlocksCount = Object.entries(blockTypes).filter(([blockType]) => !blockSlots.includes(blockType))
+    .reduce((acc, [, count]) => acc + count, 0);
+
   return (
     <Stack direction="horizontal" className="p-2 justify-content-between" gap={2}>
       <BlockCount
@@ -81,15 +75,15 @@ const CollectionStatsWidget = ({ libraryId, collectionId }: CollectionStatsWidge
         count={totalBlocksCount}
         className="border-right"
       />
-      {blockTypesArray.map(({ blockType, count }) => (
+      {blockSlots.map((blockType) => (
         <BlockCount
           key={blockType}
-          label={<BlockTypeLabel type={blockType} />}
+          label={<BlockTypeLabel blockType={blockType} />}
           blockType={blockType}
-          count={count}
+          count={blockTypes[blockType] || 0}
         />
       ))}
-      {otherBlocks.length > 0 && (
+      {!!otherBlocksCount && (
         <BlockCount
           label={<FormattedMessage {...messages.detailsTabStatsOtherComponents} />}
           count={otherBlocksCount}
@@ -99,17 +93,22 @@ const CollectionStatsWidget = ({ libraryId, collectionId }: CollectionStatsWidge
   );
 };
 
-interface CollectionDetailsProps {
-  library: ContentLibrary,
-  collectionId: string,
-}
-
-const CollectionDetails = ({ library, collectionId }: CollectionDetailsProps) => {
+const CollectionDetails = () => {
   const intl = useIntl();
   const { showToast } = useContext(ToastContext);
+  const {
+    libraryId,
+    sidebarCollectionId: collectionId,
+    readOnly,
+  } = useLibraryContext();
 
-  const updateMutation = useUpdateCollection(library.id, collectionId);
-  const { data: collection } = useCollection(library.id, collectionId);
+  // istanbul ignore next: This should never happen
+  if (!collectionId) {
+    throw new Error('collectionId is required');
+  }
+
+  const updateMutation = useUpdateCollection(libraryId, collectionId);
+  const { data: collection } = useCollection(libraryId, collectionId);
 
   const [description, setDescription] = useState(collection?.description || '');
 
@@ -145,7 +144,7 @@ const CollectionDetails = ({ library, collectionId }: CollectionDetailsProps) =>
         <h3 className="h5">
           {intl.formatMessage(messages.detailsTabDescriptionTitle)}
         </h3>
-        {library.canEditLibrary ? (
+        {!readOnly ? (
           <textarea
             className="form-control"
             value={description}
@@ -158,7 +157,7 @@ const CollectionDetails = ({ library, collectionId }: CollectionDetailsProps) =>
         <h3 className="h5">
           {intl.formatMessage(messages.detailsTabStatsTitle)}
         </h3>
-        <CollectionStatsWidget libraryId={library.id} collectionId={collectionId} />
+        <CollectionStatsWidget />
       </div>
       <hr className="w-100" />
       <div>

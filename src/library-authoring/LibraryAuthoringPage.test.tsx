@@ -14,7 +14,7 @@ import mockEmptyResult from '../search-modal/__mocks__/empty-search-result.json'
 import {
   mockContentLibrary,
   mockGetCollectionMetadata,
-  mockLibraryBlockTypes,
+  mockGetLibraryTeam,
   mockXBlockFields,
 } from './data/api.mocks';
 import { mockContentSearchConfig } from '../search-manager/data/api.mock';
@@ -25,7 +25,7 @@ import { getLibraryCollectionsApiUrl } from './data/api';
 mockGetCollectionMetadata.applyMock();
 mockContentSearchConfig.applyMock();
 mockContentLibrary.applyMock();
-mockLibraryBlockTypes.applyMock();
+mockGetLibraryTeam.applyMock();
 mockXBlockFields.applyMock();
 mockBroadcastChannel();
 
@@ -82,6 +82,7 @@ describe('<LibraryAuthoringPage />', () => {
     initializeMocks();
 
     // The Meilisearch client-side API uses fetch, not Axios.
+    fetchMock.mockReset();
     fetchMock.post(searchEndpoint, (_url, req) => {
       const requestData = JSON.parse(req.body?.toString() ?? '');
       const query = requestData?.queries[0]?.q ?? '';
@@ -94,11 +95,6 @@ describe('<LibraryAuthoringPage />', () => {
       mockResult.results[0]?.hits.forEach((hit) => { hit._formatted = { ...hit }; });
       return mockResult;
     });
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-    fetchMock.mockReset();
   });
 
   const renderLibraryPage = async () => {
@@ -175,7 +171,7 @@ describe('<LibraryAuthoringPage />', () => {
     expect((await screen.findAllByText(libraryTitle))[0]).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Collections' }));
-    expect(screen.getByText('You have not added any collection to this library yet.')).toBeInTheDocument();
+    expect(screen.getByText('You have not added any collections to this library yet.')).toBeInTheDocument();
 
     // Open Create collection modal
     const addCollectionButton = screen.getByRole('button', { name: /add collection/i });
@@ -308,6 +304,24 @@ describe('<LibraryAuthoringPage />', () => {
     fireEvent.click(libraryInfoButton);
     expect(screen.queryByText('Draft')).not.toBeInTheDocument();
     expect(screen.queryByText('(Never Published)')).not.toBeInTheDocument();
+  });
+
+  it('should show "Manage Access" button in Library Info that opens the Library Team modal', async () => {
+    await renderLibraryPage();
+    const manageAccess = screen.getByRole('button', { name: /manage access/i });
+
+    expect(manageAccess).not.toBeDisabled();
+    fireEvent.click(manageAccess);
+
+    expect(await screen.findByText('Library Team')).toBeInTheDocument();
+  });
+
+  it('should not show "Manage Access" button in Library Info to users who cannot edit the library', async () => {
+    const libraryId = mockContentLibrary.libraryIdReadOnly;
+    render(<LibraryLayout />, { path, params: { libraryId } });
+
+    const manageAccess = screen.queryByRole('button', { name: /manage access/i });
+    expect(manageAccess).not.toBeInTheDocument();
   });
 
   it('show the "View All" button when viewing library with many components', async () => {
@@ -505,7 +519,7 @@ describe('<LibraryAuthoringPage />', () => {
     expect(showProbTypesSubmenuBtn).not.toBeNull();
     fireEvent.click(showProbTypesSubmenuBtn!);
 
-    const validateSubmenu = async (submenuText : string) => {
+    const validateSubmenu = async (submenuText: string) => {
       const submenu = screen.getByText(submenuText);
       expect(submenu).toBeInTheDocument();
       fireEvent.click(submenu);

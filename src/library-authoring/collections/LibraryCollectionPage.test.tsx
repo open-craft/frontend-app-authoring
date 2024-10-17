@@ -1,5 +1,7 @@
 import fetchMock from 'fetch-mock-jest';
 import { cloneDeep } from 'lodash';
+import MockAdapter from 'axios-mock-adapter/types';
+
 import {
   fireEvent,
   initializeMocks,
@@ -11,20 +13,23 @@ import {
 import mockResult from '../__mocks__/collection-search.json';
 import {
   mockContentLibrary,
-  mockLibraryBlockTypes,
   mockXBlockFields,
   mockGetCollectionMetadata,
 } from '../data/api.mocks';
 import { mockContentSearchConfig, mockGetBlockTypes } from '../../search-manager/data/api.mock';
 import { mockBroadcastChannel, mockClipboardEmpty } from '../../generic/data/api.mock';
 import { LibraryLayout } from '..';
+import { ContentTagsDrawer } from '../../content-tags-drawer';
+import { getLibraryCollectionComponentApiUrl } from '../data/api';
+
+let axiosMock: MockAdapter;
+let mockShowToast;
 
 mockClipboardEmpty.applyMock();
 mockGetCollectionMetadata.applyMock();
 mockContentSearchConfig.applyMock();
 mockGetBlockTypes.applyMock();
 mockContentLibrary.applyMock();
-mockLibraryBlockTypes.applyMock();
 mockXBlockFields.applyMock();
 mockBroadcastChannel();
 
@@ -33,16 +38,19 @@ const path = '/library/:libraryId/*';
 const libraryTitle = mockContentLibrary.libraryData.title;
 const mockCollection = {
   collectionId: mockResult.results[2].hits[0].block_id,
-  collectionNeverLoads: 'collection-always-loading',
+  collectionNeverLoads: mockGetCollectionMetadata.collectionIdLoading,
   collectionNoComponents: 'collection-no-components',
   collectionEmpty: mockGetCollectionMetadata.collectionIdError,
 };
 
 const { title } = mockGetCollectionMetadata.collectionData;
+jest.mock('../../content-tags-drawer/ContentTagsDrawer', () => jest.fn(() => <div>Mocked ContentTagsDrawer</div>));
 
 describe('<LibraryCollectionPage />', () => {
   beforeEach(() => {
-    initializeMocks();
+    const mocks = initializeMocks();
+    axiosMock = mocks.axiosMock;
+    mockShowToast = mocks.mockShowToast;
     fetchMock.mockReset();
 
     // The Meilisearch client-side API uses fetch, not Axios.
@@ -79,10 +87,6 @@ describe('<LibraryCollectionPage />', () => {
     });
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
   const renderLibraryCollectionPage = async (collectionId?: string, libraryId?: string) => {
     const libId = libraryId || mockContentLibrary.libraryId;
     const colId = collectionId || mockCollection.collectionId;
@@ -108,7 +112,7 @@ describe('<LibraryCollectionPage />', () => {
   it('shows an error component if no collection returned', async () => {
     // This mock will simulate incorrect collection id
     await renderLibraryCollectionPage(mockCollection.collectionEmpty);
-    expect(await screen.findByText(/Mocked request failed with status code 400./)).toBeInTheDocument();
+    expect(await screen.findByText(/Mocked request failed with status code 404./)).toBeInTheDocument();
   });
 
   it('shows collection data', async () => {
@@ -198,6 +202,8 @@ describe('<LibraryCollectionPage />', () => {
   });
 
   it('should open collection Info by default', async () => {
+    const expectedCollectionUsageKey = 'lib-collection:Axim:TEST:my-first-collection';
+
     await renderLibraryCollectionPage();
 
     expect(await screen.findByText('All Collections')).toBeInTheDocument();
@@ -207,9 +213,18 @@ describe('<LibraryCollectionPage />', () => {
 
     expect(screen.getByText('Manage')).toBeInTheDocument();
     expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Mocked ContentTagsDrawer')).toBeInTheDocument();
+    expect(ContentTagsDrawer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expectedCollectionUsageKey,
+      }),
+      {},
+    );
   });
 
   it('should close and open Collection Info', async () => {
+    const expectedCollectionUsageKey = 'lib-collection:Axim:TEST:my-first-collection';
+
     await renderLibraryCollectionPage();
 
     expect(await screen.findByText('All Collections')).toBeInTheDocument();
@@ -228,6 +243,13 @@ describe('<LibraryCollectionPage />', () => {
     fireEvent.click(collectionInfoBtn);
     expect(screen.getByText('Manage')).toBeInTheDocument();
     expect(screen.getByText('Details')).toBeInTheDocument();
+    expect(screen.getByText('Mocked ContentTagsDrawer')).toBeInTheDocument();
+    expect(ContentTagsDrawer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: expectedCollectionUsageKey,
+      }),
+      {},
+    );
   });
 
   it('sorts collection components', async () => {
@@ -307,7 +329,6 @@ describe('<LibraryCollectionPage />', () => {
     expect(mockResult0.display_name).toStrictEqual(displayName);
     await renderLibraryCollectionPage();
 
-    // Click on the first component. It should appear twice, in both "Recently Modified" and "Components"
     fireEvent.click((await screen.findAllByText(displayName))[0]);
 
     const sidebar = screen.getByTestId('library-sidebar');
@@ -329,5 +350,31 @@ describe('<LibraryCollectionPage />', () => {
     fireEvent.click(filterButton);
 
     expect(screen.getByText(/no matching components/i)).toBeInTheDocument();
+  });
+
+  it('should remove component from collection and hides sidebar', async () => {
+    const url = getLibraryCollectionComponentApiUrl(
+      mockContentLibrary.libraryId,
+      mockCollection.collectionId,
+    );
+    axiosMock.onDelete(url).reply(204);
+    const displayName = 'Introduction to Testing';
+    await renderLibraryCollectionPage();
+
+    // open sidebar
+    fireEvent.click(await screen.findByText(displayName));
+    await waitFor(() => expect(screen.queryByTestId('library-sidebar')).toBeInTheDocument());
+
+    const menuBtns = await screen.findAllByRole('button', { name: 'Component actions menu' });
+    // open menu
+    fireEvent.click(menuBtns[0]);
+
+    fireEvent.click(await screen.findByText('Remove from collection'));
+    await waitFor(() => {
+      expect(axiosMock.history.delete.length).toEqual(1);
+      expect(mockShowToast).toHaveBeenCalledWith('Component successfully removed');
+    });
+    // Should close sidebar as component was removed
+    await waitFor(() => expect(screen.queryByTestId('library-sidebar')).not.toBeInTheDocument());
   });
 });

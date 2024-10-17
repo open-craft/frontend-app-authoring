@@ -1,10 +1,11 @@
-import React from 'react';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { Button, StandardModal, useToggle } from '@openedx/paragon';
 import { OpenInFull } from '@openedx/paragon/icons';
 
+import { useLibraryContext } from '../common/context';
 import { LibraryBlock } from '../LibraryBlock';
 import messages from './messages';
+import { useLibraryBlockMetadata } from '../data/apiHooks';
 
 interface ModalComponentPreviewProps {
   isOpen: boolean;
@@ -28,14 +29,18 @@ const ModalComponentPreview = ({ isOpen, close, usageKey }: ModalComponentPrevie
   );
 };
 
-interface ComponentPreviewProps {
-  usageKey: string;
-}
-
-const ComponentPreview = ({ usageKey }: ComponentPreviewProps) => {
+const ComponentPreview = () => {
   const intl = useIntl();
 
   const [isModalOpen, openModal, closeModal] = useToggle();
+  const { sidebarComponentUsageKey: usageKey } = useLibraryContext();
+
+  // istanbul ignore if: this should never happen
+  if (!usageKey) {
+    throw new Error('usageKey is required');
+  }
+
+  const { data: componentMetadata } = useLibraryBlockMetadata(usageKey);
 
   return (
     <>
@@ -49,7 +54,12 @@ const ComponentPreview = ({ usageKey }: ComponentPreviewProps) => {
         >
           {intl.formatMessage(messages.previewExpandButtonTitle)}
         </Button>
-        <LibraryBlock usageKey={usageKey} />
+        {
+          // key=modified below is used to auto-refresh the preview when changes are made, e.g. via OLX editor
+          componentMetadata
+            ? <LibraryBlock usageKey={usageKey} key={componentMetadata.modified} />
+            : null
+        }
       </div>
       <ModalComponentPreview isOpen={isModalOpen} close={closeModal} usageKey={usageKey} />
     </>

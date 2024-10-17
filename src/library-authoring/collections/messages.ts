@@ -103,7 +103,7 @@ const messages = defineMessages({
   },
   noCollections: {
     id: 'course-authoring.library-authoring.no-collections',
-    defaultMessage: 'You have not added any collection to this library yet.',
+    defaultMessage: 'You have not added any collections to this library yet.',
     description: 'Message displayed when the library has no collections',
   },
   addCollection: {
@@ -125,6 +125,11 @@ const messages = defineMessages({
     id: 'course-authoring.library-authoring.collection.sidebar.edit-name.alt',
     defaultMessage: 'Edit collection title',
     description: 'Alt text for edit collection title icon button',
+  },
+  returnToLibrary: {
+    id: 'course-authoring.library-authoring.collection.component-picker.return-to-library',
+    defaultMessage: 'Back to Library',
+    description: 'Breadcrumbs link to return to library',
   },
 });
 

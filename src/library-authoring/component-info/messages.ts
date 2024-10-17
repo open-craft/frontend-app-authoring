@@ -1,6 +1,56 @@
 import { defineMessages } from '@edx/frontend-platform/i18n';
 
 const messages = defineMessages({
+  advancedDetailsTitle: {
+    id: 'course-authoring.library-authoring.component.advanced.title',
+    defaultMessage: 'Advanced details',
+    description: 'Heading for the advanced technical details of a component',
+  },
+  advancedDetailsAssets: {
+    id: 'course-authoring.library-authoring.component.advanced.assets',
+    defaultMessage: 'Assets (Files)',
+    description: 'Heading for files attached to the component',
+  },
+  advancedDetailsOLX: {
+    id: 'course-authoring.library-authoring.component.advanced.olx',
+    defaultMessage: 'OLX Source',
+    description: 'Heading for the component\'s OLX source code',
+  },
+  advancedDetailsOLXEditButton: {
+    id: 'course-authoring.library-authoring.component.advanced.olx-edit',
+    defaultMessage: 'Edit OLX',
+    description: 'Label for button to enable editing the OLX',
+  },
+  advancedDetailsOLXSaveButton: {
+    id: 'course-authoring.library-authoring.component.advanced.olx-save',
+    defaultMessage: 'Save',
+    description: 'Button to save changes to the OLX',
+  },
+  advancedDetailsOLXCancelButton: {
+    id: 'course-authoring.library-authoring.component.advanced.olx-save',
+    defaultMessage: 'Cancel',
+    description: 'Button to cancel changes to the OLX',
+  },
+  advancedDetailsOLXEditWarning: {
+    id: 'course-authoring.library-authoring.component.advanced.olx-warning',
+    defaultMessage: 'Be careful! This is an advanced feature and errors may break the component.',
+    description: 'Warning for users about editing OLX directly.',
+  },
+  advancedDetailsOLXEditFailed: {
+    id: 'course-authoring.library-authoring.component.advanced.olx-failed',
+    defaultMessage: 'An error occurred and the OLX could not be saved.',
+    description: 'Error message shown when saving the OLX fails.',
+  },
+  advancedDetailsOLXError: {
+    id: 'course-authoring.library-authoring.component.advanced.olx-error',
+    defaultMessage: 'Unable to load OLX',
+    description: 'Error message if OLX is unavailable',
+  },
+  advancedDetailsUsageKey: {
+    id: 'course-authoring.library-authoring.component.advanced.usage-key',
+    defaultMessage: 'ID (Usage key)',
+    description: 'Heading for the component\'s ID',
+  },
   editNameButtonAlt: {
     id: 'course-authoring.library-authoring.component.edit-name.alt',
     defaultMessage: 'Edit component name',
@@ -43,7 +93,7 @@ const messages = defineMessages({
   },
   manageTabCollectionsTitle: {
     id: 'course-authoring.library-authoring.component.manage-tab.collections-title',
-    defaultMessage: 'Collections',
+    defaultMessage: 'Collections ({count})',
     description: 'Title for the Collections container in the management tab',
   },
   detailsTabTitle: {
@@ -70,6 +120,61 @@ const messages = defineMessages({
     id: 'course-authoring.library-authoring.component.preview.modal.title',
     defaultMessage: 'Component Preview',
     description: 'Title for preview modal',
+  },
+  manageCollectionsText: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.text',
+    defaultMessage: 'Manage Collections',
+    description: 'Header and button text for collection section in manage tab',
+  },
+  manageCollectionsAddBtnText: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.btn-text',
+    defaultMessage: 'Add to Collection',
+    description: 'Button text for collection section in manage tab',
+  },
+  manageCollectionsSearchPlaceholder: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.search-placeholder',
+    defaultMessage: 'Search',
+    description: 'Placeholder text for collection search in manage tab',
+  },
+  manageCollectionsSelectionLabel: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.selection-aria-label',
+    defaultMessage: 'Collection selection',
+    description: 'Aria label text for collection selection box',
+  },
+  manageCollectionsToComponentSuccess: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.add-success',
+    defaultMessage: 'Component collections updated',
+    description: 'Message to display on updating component collections',
+  },
+  manageCollectionsToComponentFailed: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.add-failed',
+    defaultMessage: 'Failed to update Component collections',
+    description: 'Message to display on failure of updating component collections',
+  },
+  manageCollectionsToComponentConfirmBtn: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.add-confirm-btn',
+    defaultMessage: 'Confirm',
+    description: 'Button text to confirm collections for a component',
+  },
+  manageCollectionsToComponentCancelBtn: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.add-cancel-btn',
+    defaultMessage: 'Cancel',
+    description: 'Button text to cancel collections selection for a component',
+  },
+  componentNotOrganizedIntoCollection: {
+    id: 'course-authoring.library-authoring.component.manage-tab.collections.no-collections',
+    defaultMessage: 'This component is not organized into any collection.',
+    description: 'Message to display in manage collections section when component is not part of any collection.',
+  },
+  addComponentToCourse: {
+    id: 'course-authoring.library-authoring.component.add-to-course',
+    defaultMessage: 'Add to Course',
+    description: 'Button to add component to course',
+  },
+  addComponentToCourseError: {
+    id: 'course-authoring.library-authoring.component.add-to-course-error',
+    defaultMessage: 'Failed to add component to course',
+    description: 'Error message when adding component to course fails',
   },
 });
 

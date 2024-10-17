@@ -9,19 +9,29 @@ const getApiBaseUrl = () => getConfig().STUDIO_BASE_URL;
 export const getContentLibraryApiUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/`;
 
 /**
- * Get the URL for getting block types of a library (what types can be created).
- */
-export const getLibraryBlockTypesUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/block_types/`;
-
-/**
  * Get the URL for create content in library.
  */
 export const getCreateLibraryBlockUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/blocks/`;
 
 /**
+ * Get the URL for the content library team API.
+ */
+export const getLibraryTeamApiUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/team/`;
+
+/**
+ * Get the URL for updating/deleting a content library team member.
+ */
+export const getLibraryTeamMemberApiUrl = (libraryId: string, username: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/team/user/${username}/`;
+
+/**
  * Get the URL for library block metadata.
  */
 export const getLibraryBlockMetadataUrl = (usageKey: string) => `${getApiBaseUrl()}/api/libraries/v2/blocks/${usageKey}/`;
+
+/**
+ * Get the URL for library block metadata.
+ */
+export const getLibraryBlockCollectionsUrl = (usageKey: string) => `${getLibraryBlockMetadataUrl(usageKey)}collections/`;
 
 /**
  * Get the URL for content library list API.
@@ -45,19 +55,31 @@ export const getXBlockFieldsApiUrl = (usageKey: string) => `${getApiBaseUrl()}/a
 /**
   * Get the URL for the xblock OLX API
   */
-export const getXBlockOLXApiUrl = (usageKey: string) => `${getApiBaseUrl()}/api/libraries/v2/blocks/${usageKey}/olx/`;
+export const getXBlockOLXApiUrl = (usageKey: string) => `${getLibraryBlockMetadataUrl(usageKey)}olx/`;
+/**
+  * Get the URL for the xblock Assets List API
+  */
+export const getXBlockAssetsApiUrl = (usageKey: string) => `${getApiBaseUrl()}/api/libraries/v2/blocks/${usageKey}/assets/`;
 /**
  * Get the URL for the Library Collections API.
  */
 export const getLibraryCollectionsApiUrl = (libraryId: string) => `${getApiBaseUrl()}/api/libraries/v2/${libraryId}/collections/`;
 /**
- * Get the URL for the collection API.
+ * Get the URL for the collection detail API.
  */
 export const getLibraryCollectionApiUrl = (libraryId: string, collectionId: string) => `${getLibraryCollectionsApiUrl(libraryId)}${collectionId}/`;
 /**
- * Get the URL for the collection API.
+ * Get the URL for the collection components API.
  */
 export const getLibraryCollectionComponentApiUrl = (libraryId: string, collectionId: string) => `${getLibraryCollectionApiUrl(libraryId, collectionId)}components/`;
+/**
+ * Get the API URL for restoring deleted collection.
+ */
+export const getLibraryCollectionRestoreApiUrl = (libraryId: string, collectionId: string) => `${getLibraryCollectionApiUrl(libraryId, collectionId)}restore/`;
+/**
+ * Get the URL for the xblock api.
+ */
+export const getXBlockBaseApiUrl = () => `${getApiBaseUrl()}/xblock/`;
 
 export interface ContentLibrary {
   id: string;
@@ -81,6 +103,29 @@ export interface ContentLibrary {
   license: string;
   created: string | null;
   updated: string | null;
+}
+
+export type LibraryAccessLevel = 'read' | 'author' | 'admin';
+
+export interface LibraryTeamMember {
+  username: string;
+  email: string;
+  accessLevel: LibraryAccessLevel,
+}
+
+export interface AddLibraryTeamMember {
+  libraryId: string,
+  email: string;
+  accessLevel: LibraryAccessLevel,
+}
+
+export interface DeleteLibraryTeamMember {
+  libraryId: string,
+  username: string;
+}
+
+export interface UpdateLibraryTeamMember extends DeleteLibraryTeamMember {
+  accessLevel: LibraryAccessLevel,
 }
 
 export interface Collection {
@@ -138,6 +183,11 @@ export interface CreateBlockDataRequest {
   definitionId: string;
 }
 
+export interface CollectionMetadata {
+  key: string;
+  title: string;
+}
+
 export interface LibraryBlockMetadata {
   id: string;
   blockType: string;
@@ -151,6 +201,7 @@ export interface LibraryBlockMetadata {
   created: string | null,
   modified: string | null,
   tagsCount: number;
+  collections: CollectionMetadata[];
 }
 
 export interface UpdateLibraryDataRequest {
@@ -183,14 +234,6 @@ export interface CreateLibraryCollectionDataRequest {
 export type UpdateCollectionComponentsRequest = Partial<CreateLibraryCollectionDataRequest>;
 
 /**
- * Fetch the list of XBlock types that can be added to this library
- */
-export async function getLibraryBlockTypes(libraryId: string): Promise<LibraryBlockType[]> {
-  const { data } = await getAuthenticatedHttpClient().get(getLibraryBlockTypesUrl(libraryId));
-  return camelCaseObject(data);
-}
-
-/**
  * Fetch a content library by its ID.
  */
 export async function getContentLibrary(libraryId: string): Promise<ContentLibrary> {
@@ -219,7 +262,8 @@ export async function createLibraryBlock({
  */
 export async function updateLibraryMetadata(libraryData: UpdateLibraryDataRequest): Promise<ContentLibrary> {
   const client = getAuthenticatedHttpClient();
-  const { data } = await client.patch(getContentLibraryApiUrl(libraryData.id), libraryData);
+  const { id: libraryId, ...updateData } = libraryData;
+  const { data } = await client.patch(getContentLibraryApiUrl(libraryId), updateData);
 
   return camelCaseObject(data);
 }
@@ -257,6 +301,45 @@ export async function commitLibraryChanges(libraryId: string) {
 export async function revertLibraryChanges(libraryId: string) {
   const client = getAuthenticatedHttpClient();
   await client.delete(getCommitLibraryChangesUrl(libraryId));
+}
+
+/**
+ * Fetch  content library's team by library ID.
+ */
+export async function getLibraryTeam(libraryId: string): Promise<LibraryTeamMember[]> {
+  const client = getAuthenticatedHttpClient();
+  const { data } = await client.get(getLibraryTeamApiUrl(libraryId));
+  return camelCaseObject(data);
+}
+
+/**
+ * Add a new member to the library's team by email.
+ */
+export async function addLibraryTeamMember(memberData: AddLibraryTeamMember): Promise<LibraryTeamMember> {
+  const client = getAuthenticatedHttpClient();
+  const url = getLibraryTeamApiUrl(memberData.libraryId);
+  const { data } = await client.post(url, snakeCaseObject(memberData));
+  return camelCaseObject(data);
+}
+
+/**
+ * Delete an existing member from the library's team by username.
+ */
+export async function deleteLibraryTeamMember(memberData: DeleteLibraryTeamMember): Promise<LibraryTeamMember> {
+  const client = getAuthenticatedHttpClient();
+  const url = getLibraryTeamMemberApiUrl(memberData.libraryId, memberData.username);
+  const { data } = await client.delete(url);
+  return camelCaseObject(data);
+}
+
+/**
+ * Update an existing member's access to the library's team by username.
+ */
+export async function updateLibraryTeamMember(memberData: UpdateLibraryTeamMember): Promise<LibraryTeamMember> {
+  const client = getAuthenticatedHttpClient();
+  const url = getLibraryTeamMemberApiUrl(memberData.libraryId, memberData.username);
+  const { data } = await client.put(url, snakeCaseObject(memberData));
+  return camelCaseObject(data);
 }
 
 /**
@@ -313,9 +396,29 @@ export async function createCollection(libraryId: string, collectionData: Create
 /**
  * Fetch the OLX for the given XBlock.
  */
+// istanbul ignore next
 export async function getXBlockOLX(usageKey: string): Promise<string> {
   const { data } = await getAuthenticatedHttpClient().get(getXBlockOLXApiUrl(usageKey));
   return data.olx;
+}
+
+/**
+ * Set the OLX for the given XBlock.
+ * Returns the OLX as it was actually saved.
+ */
+// istanbul ignore next
+export async function setXBlockOLX(usageKey: string, newOLX: string): Promise<string> {
+  const { data } = await getAuthenticatedHttpClient().post(getXBlockOLXApiUrl(usageKey), { olx: newOLX });
+  return data.olx;
+}
+
+/**
+ * Fetch the asset (static file) list for the given XBlock.
+ */
+// istanbul ignore next
+export async function getXBlockAssets(usageKey: string): Promise<{ path: string; url: string; size: number }[]> {
+  const { data } = await getAuthenticatedHttpClient().get(getXBlockAssetsApiUrl(usageKey));
+  return data.files;
 }
 
 /**
@@ -339,10 +442,56 @@ export async function updateCollectionMetadata(
 }
 
 /**
- * Update collection components.
+ * Add components to collection.
  */
-export async function updateCollectionComponents(libraryId: string, collectionId: string, usageKeys: string[]) {
+export async function addComponentsToCollection(libraryId: string, collectionId: string, usageKeys: string[]) {
   await getAuthenticatedHttpClient().patch(getLibraryCollectionComponentApiUrl(libraryId, collectionId), {
     usage_keys: usageKeys,
+  });
+}
+
+/**
+ * Remove components from collection.
+ */
+export async function removeComponentsFromCollection(libraryId: string, collectionId: string, usageKeys: string[]) {
+  await getAuthenticatedHttpClient().delete(getLibraryCollectionComponentApiUrl(libraryId, collectionId), {
+    data: { usage_keys: usageKeys },
+  });
+}
+
+/**
+ * Soft-Delete collection.
+ */
+export async function deleteCollection(libraryId: string, collectionId: string) {
+  const client = getAuthenticatedHttpClient();
+  await client.delete(getLibraryCollectionApiUrl(libraryId, collectionId));
+}
+
+/**
+ * Restore soft-deleted collection
+ */
+export async function restoreCollection(libraryId: string, collectionId: string) {
+  const client = getAuthenticatedHttpClient();
+  await client.post(getLibraryCollectionRestoreApiUrl(libraryId, collectionId));
+}
+
+/**
+ * Update component collections.
+ */
+export async function updateComponentCollections(usageKey: string, collectionKeys: string[]) {
+  await getAuthenticatedHttpClient().patch(getLibraryBlockCollectionsUrl(usageKey), {
+    collection_keys: collectionKeys,
+  });
+}
+
+/**
+ * Add a component to a course.
+ */
+// istanbul ignore next
+export async function addComponentToCourse(parentLocator: string, componentUsageKey: string) {
+  const client = getAuthenticatedHttpClient();
+  await client.post(getXBlockBaseApiUrl(), {
+    parent_locator: parentLocator,
+    library_content_key: componentUsageKey,
   });
 }
