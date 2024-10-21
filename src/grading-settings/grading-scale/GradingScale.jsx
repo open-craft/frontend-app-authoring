@@ -55,30 +55,31 @@ const GradingScale = ({
   }, [gradingSegments, letters]);
 
   const addNewGradingSegment = () => {
-    setGradingSegments(prevSegments => {
+    setGradingSegments((prevSegments) => {
       let updatedGradingSegment = [];
       if (prevSegments.length >= 5) {
         const segSize = MAXIMUM_SCALE_LENGTH / (prevSegments.length + 1);
-        updatedGradingSegment = Array.from({ length: prevSegments.length + 1 }).map((_, i) => (
-          {
-            current: 100 - i * segSize,
-            previous: 100 - (i + 1) * segSize,
-          }
-        ));
-      }
-      else {
+        updatedGradingSegment = Array.from({
+          length: prevSegments.length + 1,
+        }).map((_, i) => ({
+          current: 100 - i * segSize,
+          previous: 100 - (i + 1) * segSize,
+        }));
+      } else {
         const firstSegment = prevSegments[prevSegments.length - 1];
         const secondSegment = prevSegments[prevSegments.length - 2];
-        const newCurrentValue = Math.ceil((secondSegment.current - secondSegment.previous) / 2);
+        const newCurrentValue = Math.ceil(
+          (secondSegment.current - secondSegment.previous) / 2,
+        );
 
         const newSegment = {
-          current: (firstSegment.current + newCurrentValue),
+          current: firstSegment.current + newCurrentValue,
           previous: firstSegment.current,
         };
 
         const updatedSecondSegment = {
           ...secondSegment,
-          previous: (firstSegment.current + newCurrentValue),
+          previous: firstSegment.current + newCurrentValue,
         };
         updatedGradingSegment = [
           ...prevSegments.slice(0, prevSegments.length - 2),
