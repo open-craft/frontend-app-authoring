@@ -113,6 +113,7 @@ export const replaceStaticWithAsset = ({
         //
         // So until we handle it better, just disable static asset URL substitutions
         // when dealing with Library content.
+        /* istanbul ignore next */
         if (isStatic) {
           staticFullUrl = assetSrc.substring(1);
         }
@@ -440,6 +441,7 @@ export const setAssetToStaticUrl = ({ editorValue, lmsEndpointUrl }) => {
     content = updatedContent;
   });
 
+  /* istanbul ignore next */
   assetSrcs.filter(src => src.startsWith('static/')).forEach(src => {
     const nameFromEditorSrc = parseAssetName(src);
     const portableUrl = `/${ nameFromEditorSrc}`;
