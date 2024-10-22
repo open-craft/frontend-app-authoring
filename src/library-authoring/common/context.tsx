@@ -211,3 +211,7 @@ export function useLibraryContext(): LibraryContextData {
   }
   return ctx;
 }
+
+export function useOptionalLibraryContext(): LibraryContextData | undefined {
+  return useContext(LibraryContext);
+}
