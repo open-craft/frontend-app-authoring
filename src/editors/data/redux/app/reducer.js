@@ -39,6 +39,7 @@ const app = createSlice({
     setUnitUrl: (state, { payload }) => ({ ...state, unitUrl: payload }),
     setBlockValue: (state, { payload }) => ({
       ...state,
+      blockId: payload.blockId,
       blockValue: payload,
       blockTitle: payload.data.display_name,
     }),
