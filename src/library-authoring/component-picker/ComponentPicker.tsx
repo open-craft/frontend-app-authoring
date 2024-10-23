@@ -10,9 +10,8 @@ import {
   useLibraryContext,
 } from '../common/context';
 import SelectLibrary from './SelectLibrary';
+import LibraryComponentPicker from './LibraryComponentPicker';
 
-// eslint-disable-next-line import/no-cycle
-const LibraryAuthoringPage = React.lazy(() => import('../LibraryAuthoringPage'));
 const LibraryCollectionPage = React.lazy(() => import('../collections/LibraryCollectionPage'));
 
 interface LibraryComponentPickerProps {
@@ -31,7 +30,7 @@ const InnerComponentPicker: React.FC<LibraryComponentPickerProps> = ({ returnToL
   }
   return (
     <Suspense fallback={<Loading />}>
-      <LibraryAuthoringPage returnToLibrarySelection={returnToLibrarySelection} />;
+      <LibraryComponentPicker returnToLibrarySelection={returnToLibrarySelection} />;
     </Suspense>
   );
 };

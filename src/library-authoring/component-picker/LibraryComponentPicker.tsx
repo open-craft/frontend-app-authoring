@@ -1,30 +1,30 @@
-import React, { useEffect } from 'react';
 import { Helmet } from 'react-helmet';
 import classNames from 'classnames';
-import { StudioFooter } from '@edx/frontend-component-footer';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
+  Breadcrumb,
   Button,
   Container,
+  Icon,
 } from '@openedx/paragon';
-import { Add, InfoOutline } from '@openedx/paragon/icons';
+import { ArrowBack, InfoOutline } from '@openedx/paragon/icons';
+import {
+  Link,
+} from 'react-router-dom';
 
-import Loading from '../generic/Loading';
-import Header from '../header';
-import NotFoundAlert from '../generic/NotFoundAlert';
-import { LibrarySidebar } from './library-sidebar';
-import LibrarySubHeader from './LibrarySubHeader';
-import { SidebarBodyComponentId, useLibraryContext } from './common/context';
-import messages from './messages';
+import Loading from '../../generic/Loading';
+import NotFoundAlert from '../../generic/NotFoundAlert';
+import { LibrarySidebar } from '../library-sidebar';
+import LibrarySubHeader from '../LibrarySubHeader';
+import { SidebarBodyComponentId, useLibraryContext } from '../common/context';
+import messages from '../messages';
 
 const HeaderActions = () => {
   const intl = useIntl();
   const {
-    openAddContentSidebar,
     openInfoSidebar,
     closeLibrarySidebar,
     sidebarComponentInfo,
-    readOnly,
   } = useLibraryContext();
 
   const infoSidebarIsOpen = () => (
@@ -52,33 +52,23 @@ const HeaderActions = () => {
       >
         {intl.formatMessage(messages.libraryInfoButton)}
       </Button>
-      <Button
-        className="ml-1"
-        iconBefore={Add}
-        variant="primary rounded-0"
-        onClick={openAddContentSidebar}
-        disabled={readOnly}
-      >
-        {intl.formatMessage(messages.newContentButton)}
-      </Button>
     </div>
   );
 };
 
-const LibraryAuthoringPage: React.FC<Record<never, never>> = () => {
+interface LibraryComponentPickerProps {
+  returnToLibrarySelection?: () => void,
+}
+
+const LibraryComponentPicker = ({ returnToLibrarySelection }: LibraryComponentPickerProps) => {
   const intl = useIntl();
 
   const {
-    libraryId,
     libraryData,
     isLoadingLibraryData,
+    restrictToLibrary,
     sidebarComponentInfo,
-    openInfoSidebar,
   } = useLibraryContext();
-
-  useEffect(() => {
-    openInfoSidebar();
-  }, []);
 
   if (isLoadingLibraryData) {
     return <Loading />;
@@ -88,27 +78,34 @@ const LibraryAuthoringPage: React.FC<Record<never, never>> = () => {
     return <NotFoundAlert />;
   }
 
+  const breadcrumbs = !restrictToLibrary ? (
+    <Breadcrumb
+      links={[
+        {
+          label: '',
+          to: '',
+        },
+        {
+          label: intl.formatMessage(messages.returnToLibrarySelection),
+          onClick: returnToLibrarySelection,
+        },
+      ]}
+      spacer={<Icon src={ArrowBack} size="sm" />}
+      linkAs={Link}
+    />
+  ) : undefined;
+
   return (
     <div className="d-flex">
       <div className="flex-grow-1">
         <Helmet><title>{libraryData.title} | {process.env.SITE_NAME}</title></Helmet>
-        <Header
-          number={libraryData.slug}
-          title={libraryData.title}
-          org={libraryData.org}
-          contextId={libraryId}
-          isLibrary
-          containerProps={{
-            size: undefined,
-          }}
-        />
         <Container className="px-4 mt-4 mb-5 library-authoring-page">
           <LibrarySubHeader
-            subtitle={intl.formatMessage(messages.headingSubtitle)}
+            subtitle=""
             headerActions={<HeaderActions />}
+            breadcrumbs
           />
         </Container>
-        <StudioFooter containerProps={{ size: undefined }} />
       </div>
       {!!sidebarComponentInfo?.type && (
         <div className="library-authoring-sidebar box-shadow-left-1 bg-white" data-testid="library-sidebar">
@@ -119,4 +116,4 @@ const LibraryAuthoringPage: React.FC<Record<never, never>> = () => {
   );
 };
 
-export default LibraryAuthoringPage;
+export default LibraryComponentPicker;
