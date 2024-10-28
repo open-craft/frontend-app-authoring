@@ -36,13 +36,21 @@ const messages = defineMessages({
     id: 'course-authoring.pages-resources.progress.show-grades.help',
     defaultMessage: 'If enabled, students can see their grades on the progress page.',
   },
-  showGradeBreakdownLabel: {
-    id: 'course-authoring.pages-resources.progress.show-grade-breakdown.label',
-    defaultMessage: 'Show Grade Breakdown',
+  showGradeSummaryLabel: {
+    id: 'course-authoring.pages-resources.progress.show-grade-summary.label',
+    defaultMessage: 'Show Grade Summary',
   },
-  showGradeBreakdownHelp: {
-    id: 'course-authoring.pages-resources.progress.show-grade-breakdown.help',
-    defaultMessage: 'If enabled, students can see a summary and detailed breakdown of their grades on the progress page.',
+  showGradeSummaryHelp: {
+    id: 'course-authoring.pages-resources.progress.show-grade-summary.help',
+    defaultMessage: 'If enabled, students can see a summary of their grades on the progress page.',
+  },
+  showGradeDetailsLabel: {
+    id: 'course-authoring.pages-resources.progress.show-grade-details.label',
+    defaultMessage: 'Show Grade Details',
+  },
+  showGradeDetailsHelp: {
+    id: 'course-authoring.pages-resources.progress.show-grade-details.help',
+    defaultMessage: 'If enabled, students can see details of their grades on the progress page.',
   },
   showRelatedLinksLabel: {
     id: 'course-authoring.pages-resources.progress.show-related-links.label',

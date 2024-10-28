@@ -22,7 +22,8 @@ const ProgressSettings = ({ onClose }) => {
       ...otherCourseSettings,
       progressPage: {
         showGrades: values.showGrades,
-        showGradeBreakdown: values.showGradeBreakdown,
+        showGradeSummary: values.showGradeSummary,
+        showGradeDetails: values.showGradeDetails,
         showRelatedLinks: values.showRelatedLinks,
         showCertificateStatus: values.showCertificateStatus,
       },
@@ -41,14 +42,16 @@ const ProgressSettings = ({ onClose }) => {
       initialValues={{
         enableProgressGraph: !disableProgressGraph,
         showGrades: otherCourseSettings?.progressPage?.showGrades ?? true,
-        showGradeBreakdown: otherCourseSettings?.progressPage?.showGradeBreakdown ?? true,
+        showGradeSummary: otherCourseSettings?.progressPage?.showGradeSummary ?? true,
+        showGradeDetails: otherCourseSettings?.progressPage?.showGradeDetails ?? true,
         showRelatedLinks: otherCourseSettings?.progressPage?.showRelatedLinks ?? true,
         showCertificateStatus: otherCourseSettings?.progressPage?.showCertificateStatus ?? true,
       }}
       validationSchema={{
         enableProgressGraph: Yup.boolean(),
         showGrades: Yup.boolean(),
-        showGradeBreakdown: Yup.boolean(),
+        showGradeSummary: Yup.boolean(),
+        showGradeDetails: Yup.boolean(),
         showRelatedLinks: Yup.boolean(),
         showCertificateStatus: Yup.boolean(),
       }}
@@ -78,13 +81,22 @@ const ProgressSettings = ({ onClose }) => {
               checked={values.showGrades}
             />
             <FormSwitchGroup
-              id="show-grade-breakdown"
-              name="showGradeBreakdown"
-              label={intl.formatMessage(messages.showGradeBreakdownLabel)}
-              helpText={intl.formatMessage(messages.showGradeBreakdownHelp)}
+              id="show-grade-summary"
+              name="showGradeSummary"
+              label={intl.formatMessage(messages.showGradeSummaryLabel)}
+              helpText={intl.formatMessage(messages.showGradeSummaryHelp)}
               onChange={handleChange}
               onBlur={handleBlur}
-              checked={values.showGradeBreakdown}
+              checked={values.showGradeSummary}
+            />
+            <FormSwitchGroup
+              id="show-grade-details"
+              name="showGradeDetails"
+              label={intl.formatMessage(messages.showGradeDetailsLabel)}
+              helpText={intl.formatMessage(messages.showGradeDetailsHelp)}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              checked={values.showGradeDetails}
             />
             <FormSwitchGroup
               id="show-related-links"
