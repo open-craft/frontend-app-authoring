@@ -35,7 +35,7 @@ const defaultSelectionChangedCallback: ComponentSelectionChangedEvent = (selecti
   window.parent.postMessage({ type: 'pickerSelectionChanged', selections }, '*');
 };
 
-type ComponentPickerProps = { libraryId?: string } & (
+type ComponentPickerProps = { libraryId?: string, showOnlyPublished?: boolean } & (
   {
     componentPickerMode?: 'single',
     onComponentSelected?: ComponentSelectedEvent,
@@ -51,6 +51,7 @@ type ComponentPickerProps = { libraryId?: string } & (
 export const ComponentPicker: React.FC<ComponentPickerProps> = ({
   /** Restrict the component picker to a specific library */
   libraryId,
+  showOnlyPublished,
   componentPickerMode = 'single',
   /** This default callback is used to send the selected component back to the parent window,
    * when the component picker is used in an iframe.
@@ -99,7 +100,7 @@ export const ComponentPicker: React.FC<ComponentPickerProps> = ({
       <Stepper.Step eventKey="pick-components" title="Pick some components">
         <LibraryProvider
           libraryId={selectedLibrary}
-          showOnlyPublished={variant === 'published'}
+          showOnlyPublished={variant === 'published' || showOnlyPublished}
           {...libraryProviderProps}
         >
           <InnerComponentPicker returnToLibrarySelection={returnToLibrarySelection} />
