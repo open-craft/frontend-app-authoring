@@ -28,7 +28,7 @@ const AddComponent = ({ blockId, handleCreateNewCourseXBlock }) => {
       libraryContentKey: selection.usageKey,
     });
     closeAddLibraryContentModal();
-  }
+  };
 
   const handleCreateNewXBlock = (type, moduleName) => {
     switch (type) {
