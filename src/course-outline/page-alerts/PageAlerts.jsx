@@ -1,3 +1,4 @@
+import CourseOutlinePageAlertsSlot from 'CourseAuthoring/plugin-slots/CourseOutlinePageAlertsSlot';
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { getConfig } from '@edx/frontend-platform';
@@ -413,6 +414,7 @@ const PageAlerts = ({
       {errorFilesPasteAlert()}
       {conflictingFilesPasteAlert()}
       {newFilesPasteAlert()}
+      <CourseOutlinePageAlertsSlot />
     </>
   );
 };
