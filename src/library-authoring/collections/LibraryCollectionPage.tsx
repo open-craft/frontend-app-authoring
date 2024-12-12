@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { StudioFooter } from '@edx/frontend-component-footer';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
@@ -13,6 +13,7 @@ import {
 import { Add, ArrowBack, InfoOutline } from '@openedx/paragon/icons';
 import { Link } from 'react-router-dom';
 
+import { useLibraryRoutes } from '../routes';
 import Loading from '../../generic/Loading';
 import ErrorAlert from '../../generic/alert-error';
 import SubHeader from '../../generic/sub-header/SubHeader';
@@ -105,8 +106,8 @@ const LibraryCollectionPage = () => {
   }
 
   const { componentPickerMode } = useComponentPickerContext();
-  const { showOnlyPublished, setCollectionId } = useLibraryContext();
-  const { sidebarComponentInfo, openCollectionInfoSidebar } = useSidebarContext();
+  const { showOnlyPublished, setCollectionId, componentId } = useLibraryContext();
+  const { sidebarComponentInfo, openCollectionInfoSidebar, openInfoSidebar } = useSidebarContext();
 
   const {
     data: collectionData,
@@ -115,9 +116,15 @@ const LibraryCollectionPage = () => {
     error,
   } = useCollection(libraryId, collectionId);
 
-  useEffect(() => {
+  const { navigateTo } = useLibraryRoutes();
+  const openCollection = useCallback(() => {
     openCollectionInfoSidebar(collectionId);
-  }, [collectionData]);
+    navigateTo({ collectionId });
+  }, [navigateTo, openCollectionInfoSidebar]);
+
+  useEffect(() => {
+    openInfoSidebar(componentId, collectionId);
+  }, []);
 
   const { data: libraryData, isLoading: isLibLoading } = useContentLibrary(libraryId);
 
@@ -198,7 +205,7 @@ const LibraryCollectionPage = () => {
               title={(
                 <SubHeaderTitle
                   title={collectionData.title}
-                  infoClickHandler={() => openCollectionInfoSidebar(collectionId)}
+                  infoClickHandler={openCollection}
                 />
               )}
               breadcrumbs={breadcumbs}
