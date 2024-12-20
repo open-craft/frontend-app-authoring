@@ -42,15 +42,92 @@ function useStateOrUrlSearchParam<Type>(
   return skipUrlUpdate ? useStateManager : urlStateManager;
 }
 
+// Block / Problem type helper class
+export class TypesFilterData {
+  #blocks = new Set<string>();
+
+  #problems = new Set<string>();
+
+  #typeToList: FromStringFn<string[]>;
+
+  #listToType: ToStringFn<string[]>;
+
+  // Constructs a TypesFilterData from a string as generated from toString().
+  constructor(
+    value: string | null,
+    typeToList: FromStringFn<string[]>,
+    listToType: ToStringFn<string[]>,
+  ) {
+    this.#typeToList = typeToList;
+    this.#listToType = listToType;
+
+    const [blocks, problems] = (value || '').split('|');
+    this.union({ blocks, problems });
+  }
+
+  // Serialize the TypesFilterData to a string, or undefined if isEmpty().
+  toString(): string | undefined {
+    if (this.isEmpty()) {
+      return undefined;
+    }
+    return [
+      this.#listToType([...this.blocks]),
+      this.#listToType([...this.problems]),
+    ].join('|');
+  }
+
+  // Returns true if there are no block or problem types.
+  isEmpty(): boolean {
+    return !(this.#blocks.size || this.#problems.size);
+  }
+
+  get blocks() : Set<string> {
+    return this.#blocks;
+  }
+
+  get problems(): Set<string> {
+    return this.#problems;
+  }
+
+  clear(): TypesFilterData {
+    this.#blocks.clear();
+    this.#problems.clear();
+    return this;
+  }
+
+  union({ blocks, problems }: {
+    blocks?: string[] | Set<string> | string | undefined,
+    problems?: string[] | Set<string> | string | undefined,
+  }): void {
+    let newBlocks: string[];
+    if (!blocks) {
+      newBlocks = [];
+    } else if (typeof blocks === 'string') {
+      newBlocks = this.#typeToList(blocks) || [];
+    } else {
+      newBlocks = [...blocks];
+    }
+    this.#blocks = new Set<string>([...this.#blocks, ...newBlocks]);
+
+    let newProblems: string[];
+    if (!problems) {
+      newProblems = [];
+    } else if (typeof problems === 'string') {
+      newProblems = this.#typeToList(problems) || [];
+    } else {
+      newProblems = [...problems];
+    }
+    this.#problems = new Set<string>([...this.#problems, ...newProblems]);
+  }
+}
+
 export interface SearchContextData {
   client?: MeiliSearch;
   indexName?: string;
   searchKeywords: string;
   setSearchKeywords: React.Dispatch<React.SetStateAction<string>>;
-  blockTypesFilter: string[];
-  setBlockTypesFilter: React.Dispatch<React.SetStateAction<string[]>>;
-  problemTypesFilter: string[];
-  setProblemTypesFilter: React.Dispatch<React.SetStateAction<string[]>>;
+  typesFilter: TypesFilterData;
+  setTypesFilter: React.Dispatch<React.SetStateAction<TypesFilterData>>;
   tagsFilter: string[];
   setTagsFilter: React.Dispatch<React.SetStateAction<string[]>>;
   blockTypes: Record<string, number>;
@@ -86,7 +163,7 @@ export const SearchContextProvider: React.FC<{
   overrideSearchSortOrder, skipBlockTypeFetch, skipUrlUpdate, ...props
 }) => {
   // Search parameters can be set via the query string
-  // E.g. q=draft+text
+  // E.g. ?q=draft+text
   // TODO -- how to sanitize search terms?
   const [searchKeywords, setSearchKeywords] = useStateOrUrlSearchParam<string>(
     '',
@@ -96,7 +173,8 @@ export const SearchContextProvider: React.FC<{
     skipUrlUpdate,
   );
 
-  // Block/problem types can be alphanumeric with underscores or dashes
+  // Block + problem types
+  // E.g ?type=html,video|multiplechoiceresponse,choiceresponse
   const sanitizeType = (value: string | null | undefined): string | undefined => (
     (value && /^[a-z0-9_-]+$/.test(value))
       ? value
@@ -105,25 +183,26 @@ export const SearchContextProvider: React.FC<{
   const [typeToList, listToType] = useListHelpers<string>({
     toString: sanitizeType,
     fromString: sanitizeType,
-    separator: '|',
+    separator: ',',
   });
-  const [blockTypesFilter, setBlockTypesFilter] = useStateOrUrlSearchParam<string[]>(
-    [],
-    'bt',
-    typeToList,
-    listToType,
-    skipUrlUpdate,
+  const stringToTypesFilter = (value: string | null): TypesFilterData | undefined => (
+    new TypesFilterData(value, typeToList, listToType)
   );
-  const [problemTypesFilter, setProblemTypesFilter] = useStateOrUrlSearchParam<string[]>(
-    [],
-    'pt',
-    typeToList,
-    listToType,
+  const typesFilterToString = (value: TypesFilterData | undefined): string | undefined => (
+    value ? value.toString() : undefined
+  );
+  const [typesFilter, setTypesFilter] = useStateOrUrlSearchParam<TypesFilterData>(
+    new TypesFilterData('', typeToList, listToType),
+    'types',
+    stringToTypesFilter,
+    typesFilterToString,
+    // Returns e.g 'problem,text|multiplechoice,checkbox'
     skipUrlUpdate,
   );
 
   // Tags can be almost any string value, except our separator (|)
   // TODO how to sanitize tags?
+  // E.g ?tags=Skills+>+Abilities|Skills+>+Knowledge
   const sanitizeTag = (value: string | null | undefined): string | undefined => (
     (value && /^[^|]+$/.test(value))
       ? value
@@ -136,12 +215,13 @@ export const SearchContextProvider: React.FC<{
   });
   const [tagsFilter, setTagsFilter] = useStateOrUrlSearchParam<string[]>(
     [],
-    'tg',
+    'tags',
     tagToList,
     listToTag,
     skipUrlUpdate,
   );
 
+  // E.g ?usageKey=lb:OpenCraft:libA:problem:5714eb65-7c36-4eee-8ab9-a54ed5a95849
   const [usageKey, setUsageKey] = useStateOrUrlSearchParam<string>(
     '',
     'usageKey',
@@ -175,20 +255,18 @@ export const SearchContextProvider: React.FC<{
   }
 
   const canClearFilters = (
-    blockTypesFilter.length > 0
-    || problemTypesFilter.length > 0
+    !typesFilter.isEmpty()
     || tagsFilter.length > 0
     || !!usageKey
   );
   const isFiltered = canClearFilters || (searchKeywords !== '');
   const clearFilters = React.useCallback(() => {
-    setBlockTypesFilter([]);
+    setTypesFilter((types) => types.clear());
     setTagsFilter([]);
-    setProblemTypesFilter([]);
     if (usageKey !== '') {
       setUsageKey('');
     }
-  }, []);
+  }, [setTypesFilter, setTagsFilter, setUsageKey]);
 
   // Initialize a connection to Meilisearch:
   const { client, indexName, hasConnectionError } = useContentSearchConnection();
@@ -199,8 +277,8 @@ export const SearchContextProvider: React.FC<{
     indexName,
     extraFilter,
     searchKeywords,
-    blockTypesFilter,
-    problemTypesFilter,
+    blockTypesFilter: [...typesFilter.blocks],
+    problemTypesFilter: [...typesFilter.problems],
     tagsFilter,
     sort,
     skipBlockTypeFetch,
@@ -212,10 +290,8 @@ export const SearchContextProvider: React.FC<{
       indexName,
       searchKeywords,
       setSearchKeywords,
-      blockTypesFilter,
-      setBlockTypesFilter,
-      problemTypesFilter,
-      setProblemTypesFilter,
+      typesFilter,
+      setTypesFilter,
       tagsFilter,
       setTagsFilter,
       extraFilter,

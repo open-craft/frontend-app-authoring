@@ -3,6 +3,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { history } from '@edx/frontend-platform';
@@ -107,10 +108,28 @@ export function useStateWithUrlSearchParam<Type>(
   fromString: FromStringFn<Type>,
   toString: ToStringFn<Type>,
 ): [value: Type, setter: Dispatch<SetStateAction<Type>>] {
+  // STATE WORKAROUND:
+  // If we use this hook to control multiple state parameters on the same
+  // page, we can run into state update issues. Because our state variables
+  // are actually stored in setSearchParams, and not in separate variables like
+  // useState would do, the searchParams "previous" state may not be updated
+  // for sequential calls to returnSetter in the same render loop (like in
+  // SearchManager's clearFilters).
+  //
+  // One workaround could be to use window.location.search as the "previous"
+  // value when returnSetter constructs the new URLSearchParams. This works
+  // fine with BrowserRouter, but our test suite uses MemoryRouter, and that
+  // router doesn't store URL search params, cf
+  // https://github.com/remix-run/react-router/issues/9757
+  //
+  // So instead, we maintain a reference to the current useLocation()
+  // object, and use its search params as the "previous" value when
+  // initializing URLSearchParams.
   const location = useLocation();
+  const locationRef = useRef(location);
   const [searchParams, setSearchParams] = useSearchParams();
-  const returnValue: Type = fromString(searchParams.get(paramName)) ?? defaultValue;
 
+  const returnValue: Type = fromString(searchParams.get(paramName)) ?? defaultValue;
   // Update the url search parameter using:
   type ReturnSetterParams = (
     // a Type value
@@ -122,13 +141,7 @@ export function useStateWithUrlSearchParam<Type>(
     setSearchParams((/* prev */) => {
       const useValue = value instanceof Function ? value(returnValue) : value;
       const paramValue = toString(useValue);
-
-      // We have to parse the current location.search instead of using prev
-      // in case we call returnSetter multiple times in the same hook
-      // (like clearFilters does).
-      // cf https://github.com/remix-run/react-router/issues/9757
-      const newSearchParams = new URLSearchParams(location.search);
-
+      const newSearchParams = new URLSearchParams(locationRef.current.search);
       // If the provided value was invalid (toString returned undefined)
       // or the same as the defaultValue, remove it from the search params.
       if (paramValue === undefined || paramValue === defaultValue) {
@@ -136,6 +149,10 @@ export function useStateWithUrlSearchParam<Type>(
       } else {
         newSearchParams.set(paramName, paramValue);
       }
+
+      // Update locationRef
+      locationRef.current.search = newSearchParams.toString();
+
       return newSearchParams;
     }, { replace: true });
   }, [returnValue, setSearchParams]);
