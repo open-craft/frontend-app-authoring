@@ -1,6 +1,8 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { act, render, fireEvent } from '@testing-library/react';
+import {
+  act, render, fireEvent, waitFor,
+} from '@testing-library/react';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
 import { initializeMockApp, getConfig } from '@edx/frontend-platform';
@@ -103,9 +105,11 @@ describe('<PageAlerts />', () => {
     const discussionAlertDismissKey = `discussionAlertDismissed-${pageAlertsData.courseId}`;
     expect(localStorage.getItem(discussionAlertDismissKey)).toBe('true');
 
-    const feedbackLink = queryByText(messages.discussionNotificationFeedback.defaultMessage);
-    expect(feedbackLink).toBeInTheDocument();
-    expect(feedbackLink).toHaveAttribute('href', 'some-feedback-url');
+    await waitFor(() => {
+      const feedbackLink = queryByText(messages.discussionNotificationFeedback.defaultMessage);
+      expect(feedbackLink).toBeInTheDocument();
+      expect(feedbackLink).toHaveAttribute('href', 'some-feedback-url');
+    });
   });
 
   it('renders deprecation warning alerts', async () => {
