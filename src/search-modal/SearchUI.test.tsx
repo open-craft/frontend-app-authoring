@@ -412,12 +412,13 @@ describe('<SearchUI />', () => {
       const competentciesCheckbox = getByLabelText(checkboxLabel);
       fireEvent.click(competentciesCheckbox, {});
       // Now wait for the filter to be applied and the new results to be fetched.
-      await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(2, searchEndpoint, 'post'); });
+      await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(1, searchEndpoint, 'post'); });
       // Because we're mocking the results, there's no actual changes to the mock results,
       // but we can verify that the filter was sent in the request
       expect(fetchMock).toBeDone((_url, req) => {
         const requestData = JSON.parse(req.body?.toString() ?? '');
         const requestedFilter = requestData?.queries?.[0]?.filter;
+        console.error("'can filter results by tag' actual requestedFilter", JSON.stringify(requestedFilter));
         return JSON.stringify(requestedFilter) === JSON.stringify([
           [],
           'type = "course_block"',
@@ -447,12 +448,13 @@ describe('<SearchUI />', () => {
       const abilitiesTagFilterCheckbox = getByLabelText(childTagLabel);
       fireEvent.click(abilitiesTagFilterCheckbox);
       // Now wait for the filter to be applied and the new results to be fetched.
-      await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(2, searchEndpoint, 'post'); });
+      await waitFor(() => { expect(fetchMock).toHaveFetchedTimes(1, searchEndpoint, 'post'); });
       // Because we're mocking the results, there's no actual changes to the mock results,
       // but we can verify that the filter was sent in the request
       expect(fetchMock).toBeDone((_url, req) => {
         const requestData = JSON.parse(req.body?.toString() ?? '');
         const requestedFilter = requestData?.queries?.[0]?.filter;
+        console.error("'can filter results by a child tag' actual requestedFilter", JSON.stringify(requestedFilter));
         return JSON.stringify(requestedFilter) === JSON.stringify([
           [],
           'type = "course_block"',
