@@ -6,17 +6,16 @@ import { useSelector } from 'react-redux';
 import {
   Form,
   Button,
-  Dropdown,
   ActionRow,
   StatefulButton,
   TransitionReplace,
 } from '@openedx/paragon';
 import { Info as InfoIcon } from '@openedx/paragon/icons';
-import TypeaheadDropdown from '../../editors/sharedComponents/TypeaheadDropdown';
 
 import AlertMessage from '../alert-message';
 import { STATEFUL_BUTTON_STATES } from '../../constants';
 import { RequestStatus, TOTAL_LENGTH_KEY } from '../../data/constants';
+import OrganizationField from '../../editors/sharedComponents/OrganizationField';
 import { getSavingStatus } from '../data/selectors';
 import { getStudioHomeData } from '../../studio-home/data/selectors';
 import { updatePostErrors } from '../data/slice';
@@ -152,46 +151,6 @@ const CreateOrRerunCourseForm = ({
     onClickCancel();
   };
 
-  const handleCustomBlurForDropdown = (e) => {
-    // it needs to correct handleOnChange Form.Autosuggest
-    const { value, name } = e.target;
-    setFieldValue(name, value);
-    handleBlur(e);
-  };
-
-  const renderOrgField = (field) => (allowToCreateNewOrg ? (
-    <TypeaheadDropdown
-      readOnly={false}
-      name={field.name}
-      value={field.value}
-      controlClassName={classNames({ 'is-invalid': hasErrorField(field.name) })}
-      options={field.options}
-      placeholder={field.placeholder}
-      handleBlur={handleCustomBlurForDropdown}
-      handleChange={(value) => setFieldValue(field.name, value)}
-      noOptionsMessage={intl.formatMessage(messages.courseOrgNoOptions)}
-      helpMessage=""
-      errorMessage=""
-      floatingLabel=""
-    />
-  ) : (
-    <Dropdown className="mr-2">
-      <Dropdown.Toggle id={`${field.name}-dropdown`} variant="outline-primary">
-        {field.value || intl.formatMessage(messages.courseOrgNoOptions)}
-      </Dropdown.Toggle>
-      <Dropdown.Menu>
-        {field.options?.map((value) => (
-          <Dropdown.Item
-            key={value}
-            onClick={() => setFieldValue(field.name, value)}
-          >
-            {value}
-          </Dropdown.Item>
-        ))}
-      </Dropdown.Menu>
-    </Dropdown>
-  ));
-
   useEffect(() => {
     // it needs to display the initial focus for the field depending on the current page
     if (!isCreateNewCourse) {
@@ -222,14 +181,14 @@ const CreateOrRerunCourseForm = ({
       <h3 className="mb-3">{title}</h3>
       <Form>
         {newCourseFields.map((field) => (
-          <Form.Group
-            className={classNames('form-group-custom', {
-              'form-group-custom_isInvalid': hasErrorField(field.name),
-            })}
-            key={field.label}
-          >
-            <Form.Label>{field.label}</Form.Label>
-            {field.name !== 'org' ? (
+          field.name !== 'org' ? (
+            <Form.Group
+              className={classNames('form-group-custom', {
+                'form-group-custom_isInvalid': hasErrorField(field.name),
+              })}
+              key={field.label}
+            >
+              <Form.Label>{field.label}</Form.Label>
               <Form.Control
                 value={field.value}
                 placeholder={field.placeholder}
@@ -240,18 +199,32 @@ const CreateOrRerunCourseForm = ({
                 disabled={field.disabled}
                 ref={field?.ref}
               />
-            ) : renderOrgField(field)}
-            <Form.Text>{field.helpText}</Form.Text>
-            {hasErrorField(field.name) && (
-              <Form.Control.Feedback
-                className="feedback-error"
-                type="invalid"
-                hasIcon={false}
-              >
-                {errors[field.name]}
-              </Form.Control.Feedback>
-            )}
-          </Form.Group>
+              <Form.Text>{field.helpText}</Form.Text>
+              {hasErrorField(field.name) && (
+                <Form.Control.Feedback
+                  className="feedback-error"
+                  type="invalid"
+                  hasIcon={false}
+                >
+                  {errors[field.name]}
+                </Form.Control.Feedback>
+              )}
+            </Form.Group>
+          ) : (
+            <OrganizationField
+              {...field}
+              className={classNames('form-group-custom', {
+                'form-group-custom_isInvalid': hasErrorField(field.name),
+              })}
+              allowToCreateNewOrg={allowToCreateNewOrg}
+              onBlur={handleBlur}
+              onChange={(value) => setFieldValue(field.name, value)}
+              noOptionsMessage={intl.formatMessage(messages.courseOrgNoOptions)}
+              hasError={hasErrorField(field.name)}
+              errorMessage={errors[field.name]}
+              helpMessage={field.helpText}
+            />
+          )
         ))}
         <ActionRow className="justify-content-start">
           <Button
