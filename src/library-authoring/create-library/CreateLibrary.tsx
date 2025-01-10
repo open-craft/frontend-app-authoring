@@ -13,9 +13,10 @@ import { useNavigate } from 'react-router-dom';
 import * as Yup from 'yup';
 
 import { REGEX_RULES } from '../../constants';
+import OrganizationField from '../../editors/sharedComponents/OrganizationField';
+import { useStudioHome } from '../../studio-home/hooks';
 import Header from '../../header';
 import FormikControl from '../../generic/FormikControl';
-import FormikErrorFeedback from '../../generic/FormikErrorFeedback';
 import AlertError from '../../generic/alert-error';
 import { useOrganizationListData } from '../../generic/data/apiHooks';
 import SubHeader from '../../generic/sub-header/SubHeader';
@@ -41,6 +42,8 @@ const CreateLibrary = () => {
     data: organizationListData,
     isLoading: isOrganizationListLoading,
   } = useOrganizationListData();
+
+  const { studioHomeData: { allowToCreateNewOrg } } = useStudioHome();
 
   const handleOnClickCancel = () => {
     navigate('/libraries');
@@ -95,22 +98,22 @@ const CreateLibrary = () => {
                 className=""
                 controlClasses="pb-2"
               />
-              <Form.Group>
-                <Form.Label>{intl.formatMessage(messages.orgLabel)}</Form.Label>
-                <Form.Autosuggest
-                  name="org"
-                  isLoading={isOrganizationListLoading}
-                  onChange={(event) => formikProps.setFieldValue('org', event.selectionId)}
-                  placeholder={intl.formatMessage(messages.orgPlaceholder)}
-                >
-                  {organizationListData ? organizationListData.map((org) => (
-                    <Form.AutosuggestOption key={org} id={org}>{org}</Form.AutosuggestOption>
-                  )) : []}
-                </Form.Autosuggest>
-                <FormikErrorFeedback name="org">
-                  <Form.Text>{intl.formatMessage(messages.orgHelp)}</Form.Text>
-                </FormikErrorFeedback>
-              </Form.Group>
+              <OrganizationField
+                allowToCreateNewOrg={allowToCreateNewOrg}
+                name="org"
+                label={intl.formatMessage(messages.orgLabel)}
+                value={formikProps.values.org}
+                options={organizationListData || []}
+                placeholder={intl.formatMessage(messages.orgPlaceholder)}
+                onChange={(value) => formikProps.setFieldValue('org', value)}
+                onBlur={formikProps.handleBlur}
+                onFocus={() => formikProps.setFieldError('org', undefined)}
+                noOptionsMessage={intl.formatMessage(messages.orgNoOptions)}
+                isLoading={isOrganizationListLoading}
+                hasError={formikProps.touched.org && !!formikProps.errors.org}
+                errorMessage={formikProps.errors.org}
+                helpMessage={intl.formatMessage(messages.orgHelp)}
+              />
               <FormikControl
                 name="slug"
                 label={<Form.Label>{intl.formatMessage(messages.slugLabel)}</Form.Label>}

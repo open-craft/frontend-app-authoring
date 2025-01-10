@@ -31,6 +31,10 @@ const messages = defineMessages({
     defaultMessage: 'e.g. UniversityX or OrganizationX',
     description: 'Placeholder text for the organization field.',
   },
+  orgNoOptions: {
+    id: 'course-authoring.library-authoring.create-library.form.org.no-options',
+    defaultMessage: 'No options',
+  },
   orgHelp: {
     id: 'course-authoring.library-authoring.create-library.form.org.help',
     defaultMessage: 'The public organization name for your library. This cannot be changed.',

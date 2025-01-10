@@ -93,7 +93,7 @@ describe('<CreateOrRerunCourseForm />', () => {
     expect(screen.getByPlaceholderText(messages.courseDisplayNamePlaceholder.defaultMessage)).toBeInTheDocument();
 
     expect(screen.getByText(messages.courseOrgLabel.defaultMessage)).toBeInTheDocument();
-    expect(screen.getByText(messages.courseOrgNoOptions.defaultMessage)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(messages.courseOrgPlaceholder.defaultMessage)).toBeInTheDocument();
 
     expect(screen.getByText(messages.courseNumberLabel.defaultMessage)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(messages.courseNumberPlaceholder.defaultMessage)).toBeInTheDocument();
@@ -139,7 +139,7 @@ describe('<CreateOrRerunCourseForm />', () => {
       await mockStore();
       const url = '/course/courseId';
       const displayNameInput = screen.getByPlaceholderText(messages.courseDisplayNamePlaceholder.defaultMessage);
-      const orgInput = screen.getByText(messages.courseOrgNoOptions.defaultMessage);
+      const orgInput = screen.getByPlaceholderText(messages.courseOrgPlaceholder.defaultMessage);
       const numberInput = screen.getByPlaceholderText(messages.courseNumberPlaceholder.defaultMessage);
       const runInput = screen.getByPlaceholderText(messages.courseRunPlaceholder.defaultMessage);
       const createBtn = screen.getByRole('button', { name: messages.createButton.defaultMessage });
@@ -160,7 +160,7 @@ describe('<CreateOrRerunCourseForm />', () => {
       const url = '/course/';
       const destinationCourseKey = 'courseKey';
       const displayNameInput = screen.getByPlaceholderText(messages.courseDisplayNamePlaceholder.defaultMessage);
-      const orgInput = screen.getByText(messages.courseOrgNoOptions.defaultMessage);
+      const orgInput = screen.getByPlaceholderText(messages.courseOrgPlaceholder.defaultMessage);
       const numberInput = screen.getByPlaceholderText(messages.courseNumberPlaceholder.defaultMessage);
       const runInput = screen.getByPlaceholderText(messages.courseRunPlaceholder.defaultMessage);
       const createBtn = screen.getByRole('button', { name: messages.createButton.defaultMessage });
@@ -219,7 +219,7 @@ describe('<CreateOrRerunCourseForm />', () => {
     await mockStore();
     const createBtn = screen.getByRole('button', { name: messages.createButton.defaultMessage });
     const displayNameInput = screen.getByPlaceholderText(messages.courseDisplayNamePlaceholder.defaultMessage);
-    const orgInput = screen.getByText(messages.courseOrgNoOptions.defaultMessage);
+    const orgInput = screen.getByPlaceholderText(messages.courseOrgPlaceholder.defaultMessage);
     const numberInput = screen.getByPlaceholderText(messages.courseNumberPlaceholder.defaultMessage);
     const runInput = screen.getByPlaceholderText(messages.courseRunPlaceholder.defaultMessage);
 

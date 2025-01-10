@@ -5,7 +5,7 @@
  * or a Form.Autosuggest drop-down if the user must choose from the list of existing organizations.
  */
 import classNames from 'classnames';
-import { Dropdown, Form } from '@openedx/paragon';
+import { Form } from '@openedx/paragon';
 import TypeaheadDropdown from '../TypeaheadDropdown';
 
 const OrganizationField = ({
@@ -23,6 +23,7 @@ const OrganizationField = ({
   helpMessage = '',
   className = '',
   allowToCreateNewOrg = false,
+  isLoading = false,
 }: {
   name: string;
   label: string;
@@ -61,21 +62,21 @@ const OrganizationField = ({
         />
       ) : (
         <>
-          <Dropdown className="mr-2">
-            <Dropdown.Toggle id={`${name}-dropdown`} variant="outline-primary">
-              {value || noOptionsMessage}
-            </Dropdown.Toggle>
-            <Dropdown.Menu>
-              {options?.map((option) => (
-                <Dropdown.Item
-                  key={option}
-                  onClick={() => onChange(option)}
-                >
-                  {option}
-                </Dropdown.Item>
-              ))}
-            </Dropdown.Menu>
-          </Dropdown>
+          <Form.Autosuggest
+            name={name}
+            isLoading={isLoading}
+            onChange={
+              (event) => onChange(event.selectionId)
+            }
+            placeholder={placeholder}
+            className="mr-2"
+          >
+            {options ? options.map((org) => (
+              <Form.AutosuggestOption key={org} id={org}>
+                {org}
+              </Form.AutosuggestOption>
+            )) : []}
+          </Form.Autosuggest>
           <Form.Text>{helpMessage}</Form.Text>
           {hasError && (
             <Form.Control.Feedback
