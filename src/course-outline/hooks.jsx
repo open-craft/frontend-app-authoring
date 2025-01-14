@@ -240,7 +240,7 @@ const useCourseOutline = ({ courseId }) => {
   };
 
   const handleDismissNotification = () => {
-    dispatch(dismissNotificationQuery(notificationDismissUrl));
+    dispatch(dismissNotificationQuery(`${getConfig().STUDIO_BASE_URL}${notificationDismissUrl}`));
   };
 
   const handleSectionDragAndDrop = (
