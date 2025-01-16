@@ -82,13 +82,7 @@ export const useLibraryRoutes = (): LibraryRoutesData => {
       route = ROUTES.HOME;
     } else if (insideCollections) {
       // We're inside the Collections tab,
-      route = (
-        (collectionId && collectionId === params.collectionId)
-          // now open the previously-selected collection,
-          ? ROUTES.COLLECTION
-          // or stay there to list all collections, or a selected collection.
-          : ROUTES.COLLECTIONS
-      );
+      route = ROUTES.COLLECTIONS;
     } else if (insideCollection) {
       // We're viewing a Collection, so stay there,
       // and optionally select a component in that collection.
@@ -103,13 +97,7 @@ export const useLibraryRoutes = (): LibraryRoutesData => {
       route = ROUTES.COMPONENT;
     } else {
       // We're inside the All Content tab,
-      route = (
-        (collectionId && collectionId === params.collectionId)
-          // now open the previously-selected collection
-          ? ROUTES.COLLECTION
-          // or stay there to list all content, or optionally select a collection.
-          : ROUTES.HOME
-      );
+      route = ROUTES.HOME;
     }
 
     const newPath = generatePath(BASE_ROUTE + route, routeParams);

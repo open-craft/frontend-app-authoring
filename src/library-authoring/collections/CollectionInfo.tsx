@@ -6,6 +6,7 @@ import {
   Tabs,
 } from '@openedx/paragon';
 import { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useComponentPickerContext } from '../common/context/ComponentPickerContext';
 import { useLibraryContext } from '../common/context/LibraryContext';
@@ -24,6 +25,7 @@ import messages from './messages';
 
 const CollectionInfo = () => {
   const intl = useIntl();
+  const navigate = useNavigate();
 
   const { componentPickerMode } = useComponentPickerContext();
   const { libraryId, setCollectionId } = useLibraryContext();
@@ -48,7 +50,7 @@ const CollectionInfo = () => {
     if (componentPickerMode) {
       setCollectionId(collectionId);
     } else {
-      navigateTo({ collectionId });
+      navigate(`/library/${libraryId}/collection/${collectionId}`);
     }
   }, [componentPickerMode, navigateTo]);
 
