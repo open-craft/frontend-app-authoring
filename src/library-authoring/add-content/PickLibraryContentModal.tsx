@@ -5,23 +5,25 @@ import { ActionRow, Button, StandardModal } from '@openedx/paragon';
 import { ToastContext } from '../../generic/toast-context';
 import { useLibraryContext } from '../common/context/LibraryContext';
 import type { SelectedComponent } from '../common/context/ComponentPickerContext';
-import { useAddComponentsToCollection } from '../data/apiHooks';
+import { useAddComponentsToCollection, useAddComponentsToContainer } from '../data/apiHooks';
 import messages from './messages';
 
 interface PickLibraryContentModalFooterProps {
   onSubmit: () => void;
   selectedComponents: SelectedComponent[];
+  buttonText: React.ReactNode;
 }
 
 const PickLibraryContentModalFooter: React.FC<PickLibraryContentModalFooterProps> = ({
   onSubmit,
   selectedComponents,
+  buttonText,
 }) => (
   <ActionRow>
     <FormattedMessage {...messages.selectedComponents} values={{ count: selectedComponents.length }} />
     <ActionRow.Spacer />
     <Button variant="primary" onClick={onSubmit}>
-      <FormattedMessage {...messages.addToCollectionButton} />
+      {buttonText}
     </Button>
   </ActionRow>
 );
@@ -40,6 +42,7 @@ export const PickLibraryContentModal: React.FC<PickLibraryContentModalProps> = (
   const {
     libraryId,
     collectionId,
+    unitId,
     /** We need to get it as a reference instead of directly importing it to avoid the import cycle:
      * ComponentPicker > LibraryAuthoringPage/LibraryCollectionPage >
      * Sidebar > AddContent > ComponentPicker */
@@ -47,11 +50,12 @@ export const PickLibraryContentModal: React.FC<PickLibraryContentModalProps> = (
   } = useLibraryContext();
 
   // istanbul ignore if: this should never happen
-  if (!collectionId || !ComponentPicker) {
-    throw new Error('libraryId and componentPicker are required');
+  if (!(collectionId || unitId) || !ComponentPicker) {
+    throw new Error('collectionId/unitId and componentPicker are required');
   }
 
-  const updateComponentsMutation = useAddComponentsToCollection(libraryId, collectionId);
+  const updateCollectionItemsMutation = useAddComponentsToCollection(libraryId, collectionId);
+  const updateUnitComponentsMutation = useAddComponentsToContainer(libraryId, unitId);
 
   const { showToast } = useContext(ToastContext);
 
@@ -60,13 +64,23 @@ export const PickLibraryContentModal: React.FC<PickLibraryContentModalProps> = (
   const onSubmit = useCallback(() => {
     const usageKeys = selectedComponents.map(({ usageKey }) => usageKey);
     onClose();
-    updateComponentsMutation.mutateAsync(usageKeys)
-      .then(() => {
-        showToast(intl.formatMessage(messages.successAssociateComponentMessage));
-      })
-      .catch(() => {
-        showToast(intl.formatMessage(messages.errorAssociateComponentToCollectionMessage));
-      });
+    if (collectionId) {
+      updateCollectionItemsMutation.mutateAsync(usageKeys)
+        .then(() => {
+          showToast(intl.formatMessage(messages.successAssociateComponentMessage));
+        })
+        .catch(() => {
+          showToast(intl.formatMessage(messages.errorAssociateComponentToCollectionMessage));
+        });
+    } else if (unitId) {
+      updateUnitComponentsMutation.mutateAsync(usageKeys)
+        .then(() => {
+          showToast(intl.formatMessage(messages.successAssociateComponentMessage));
+        })
+        .catch(() => {
+          showToast(intl.formatMessage(messages.errorAssociateComponentToContainerMessage));
+        });
+    }
   }, [selectedComponents]);
 
   return (
@@ -76,7 +90,16 @@ export const PickLibraryContentModal: React.FC<PickLibraryContentModalProps> = (
       size="xl"
       isOpen={isOpen}
       onClose={onClose}
-      footerNode={<PickLibraryContentModalFooter onSubmit={onSubmit} selectedComponents={selectedComponents} />}
+      footerNode={(
+        <PickLibraryContentModalFooter
+          onSubmit={onSubmit}
+          selectedComponents={selectedComponents}
+          buttonText={(collectionId
+            ? intl.formatMessage(messages.addToCollectionButton)
+            : intl.formatMessage(messages.addToUnitButton)
+          )}
+        />
+      )}
     >
       <ComponentPicker
         libraryId={libraryId}
