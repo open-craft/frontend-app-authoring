@@ -113,18 +113,12 @@ const VideoGallery = ({ returnFunction, onCancel }) => {
           />
         </div>
       </StandardModal>
-      <StandardModal
-        title={intl.formatMessage(messages.videoEditorModalTitle)}
-        isOpen={isVideoEditorModalOpen}
-        onClose={closeVideoEditorModal}
-        isOverflowVisible={false}
-        size="xl"
-      >
+      {isVideoEditorModalOpen && (
         <VideoEditor
           onClose={closeVideoEditorModal}
           returnFunction={returnFunction}
         />
-      </StandardModal>
+      )}
     </div>
   );
 };
