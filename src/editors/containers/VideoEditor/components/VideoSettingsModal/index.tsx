@@ -20,7 +20,7 @@ import messages from '../../messages';
 interface Props {
   onReturn: () => void;
   isLibrary: boolean;
-  onClose: (() => void) | null;
+  onClose?: (() => void) | null;
 }
 
 const VideoSettingsModal: React.FC<Props> = ({
