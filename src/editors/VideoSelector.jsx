@@ -9,6 +9,7 @@ const VideoSelector = ({
   learningContextId,
   lmsEndpointUrl,
   studioEndpointUrl,
+  returnFunction,
   onCancel,
 }) => {
   const dispatch = useDispatch();
@@ -27,7 +28,7 @@ const VideoSelector = ({
     return null;
   }
   return (
-    <VideoGallery onCancel={onCancel} />
+    <VideoGallery returnFunction={returnFunction} onCancel={onCancel} />
   );
 };
 
@@ -36,6 +37,7 @@ VideoSelector.propTypes = {
   learningContextId: PropTypes.string.isRequired,
   lmsEndpointUrl: PropTypes.string.isRequired,
   studioEndpointUrl: PropTypes.string.isRequired,
+  returnFunction: PropTypes.func,
   onCancel: PropTypes.func,
 };
 

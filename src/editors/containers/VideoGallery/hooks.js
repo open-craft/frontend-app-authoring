@@ -138,12 +138,14 @@ export const useVideoListProps = ({
   };
 };
 
-export const useVideoUploadHandler = ({ replace, newTab }) => {
+export const useVideoUploadHandler = ({ replace, uploadHandler }) => {
   const learningContextId = useSelector(selectors.app.learningContextId);
   const blockId = useSelector(selectors.app.blockId);
   const path = `/course/${learningContextId}/editor/video_upload/${blockId}`;
-  if (newTab) {
-    return () => window.open(path, '_blank');
+  if (uploadHandler) {
+    return () => {
+      uploadHandler();
+    };
   }
   if (replace) {
     return () => window.location.replace(path);
@@ -194,7 +196,7 @@ export const getstatusBadgeVariant = ({ status }) => {
 
 export const getStatusMessage = ({ status }) => Object.values(filterMessages).find((m) => m.defaultMessage === status);
 
-export const useVideoProps = ({ videos }) => {
+export const useVideoProps = ({ videos, uploadHandler }) => {
   const searchSortProps = useSearchAndSortProps();
   const videoList = useVideoListProps({
     searchSortProps,
@@ -206,7 +208,7 @@ export const useVideoProps = ({ videos }) => {
     inputError,
     selectBtnProps,
   } = videoList;
-  const fileInput = { click: useVideoUploadHandler({ replace: false }) };
+  const fileInput = { click: useVideoUploadHandler({ replace: false, uploadHandler }) };
 
   return {
     galleryError,

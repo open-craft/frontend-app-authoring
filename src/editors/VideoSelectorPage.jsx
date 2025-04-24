@@ -10,6 +10,7 @@ const VideoSelectorPage = ({
   courseId,
   lmsEndpointUrl,
   studioEndpointUrl,
+  returnFunction,
   onCancel,
 }) => (
   <Provider store={store}>
@@ -25,6 +26,7 @@ const VideoSelectorPage = ({
           learningContextId: courseId,
           lmsEndpointUrl,
           studioEndpointUrl,
+          returnFunction,
           onCancel,
         }}
       />
@@ -44,6 +46,7 @@ VideoSelectorPage.propTypes = {
   courseId: PropTypes.string,
   lmsEndpointUrl: PropTypes.string,
   studioEndpointUrl: PropTypes.string,
+  returnFunction: PropTypes.func,
   onCancel: PropTypes.func,
 };
 

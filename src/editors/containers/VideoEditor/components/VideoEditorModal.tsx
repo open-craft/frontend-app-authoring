@@ -8,6 +8,7 @@ import { RequestKeys } from '../../../data/constants/requests';
 
 interface Props {
   isLibrary: boolean;
+  onClose: (() => void) | null;
 }
 
 export const {
@@ -27,6 +28,7 @@ export const hooks = {
 
 const VideoEditorModal: React.FC<Props> = ({
   isLibrary,
+  onClose,
 }) => {
   const dispatch = useDispatch();
   const location = useLocation();
@@ -46,6 +48,7 @@ const VideoEditorModal: React.FC<Props> = ({
     <VideoSettingsModal {...{
       onReturn,
       isLibrary,
+      onClose,
     }}
     />
   );

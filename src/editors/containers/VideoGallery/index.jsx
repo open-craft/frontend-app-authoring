@@ -1,6 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Image } from '@openedx/paragon';
+import { useIntl } from '@edx/frontend-platform/i18n';
+import {
+  Image, useToggle, StandardModal,
+} from '@openedx/paragon';
+import { useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { selectors } from '../../data/redux';
 import * as hooks from './hooks';
@@ -9,8 +13,11 @@ import { acceptedImgKeys } from './utils';
 import messages from './messages';
 import { RequestKeys } from '../../data/constants/requests';
 import videoThumbnail from '../../data/images/videoThumbnail.svg';
+import VideoUploadEditor from '../VideoUploadEditor';
+import VideoEditor from '../VideoEditor';
 
-const VideoGallery = ({ onCancel }) => {
+const VideoGallery = ({ returnFunction, onCancel }) => {
+  const intl = useIntl();
   const rawVideos = useSelector(selectors.app.videos);
   const isLoaded = useSelector(
     (state) => selectors.requests.isFinished(state, { requestKey: RequestKeys.fetchVideos }),
@@ -22,14 +29,27 @@ const VideoGallery = ({ onCancel }) => {
     (state) => selectors.requests.isFailed(state, { requestKey: RequestKeys.uploadVideo }),
   );
   const videos = hooks.buildVideos({ rawVideos });
-  const handleVideoUpload = hooks.useVideoUploadHandler({ replace: !onCancel, newTab: !!onCancel });
+  const [isVideoUploadModalOpen, showVideoUploadModal, closeVideoUploadModal] = useToggle();
+  const [isVideoEditorModalOpen, showVideoEditorModal, closeVideoEditorModal] = useToggle();
+  const setSearchParams = useSearchParams()[1];
 
   useEffect(() => {
     // If no videos exists redirects to the video upload screen
     if (isLoaded && videos.length === 0) {
-      handleVideoUpload();
+      showVideoUploadModal();
     }
   }, [isLoaded]);
+
+  const onVideoUpload = useCallback((videoUrl) => {
+    closeVideoUploadModal();
+    showVideoEditorModal();
+    setSearchParams({ selectedVideoUrl: videoUrl });
+  }, [closeVideoUploadModal, showVideoEditorModal, setSearchParams]);
+
+  const uploadHandler = useCallback(() => {
+    showVideoUploadModal();
+  });
+
   const {
     galleryError,
     inputError,
@@ -37,7 +57,7 @@ const VideoGallery = ({ onCancel }) => {
     galleryProps,
     searchSortProps,
     selectBtnProps,
-  } = hooks.useVideoProps({ videos });
+  } = hooks.useVideoProps({ videos, uploadHandler });
   const handleCancel = hooks.useCancelHandler();
 
   const modalMessages = {
@@ -62,7 +82,7 @@ const VideoGallery = ({ onCancel }) => {
         {...{
           isOpen: true,
           close: onCancel || handleCancel,
-          size: 'fullscreen',
+          size: 'xl',
           isFullscreenScroll: false,
           galleryError,
           inputError,
@@ -80,12 +100,38 @@ const VideoGallery = ({ onCancel }) => {
           isFetchError,
         }}
       />
+      <StandardModal
+        title={intl.formatMessage(messages.videoUploadModalTitle)}
+        isOpen={isVideoUploadModalOpen}
+        onClose={closeVideoUploadModal}
+        isOverflowVisible={false}
+        size="xl"
+      >
+        <div className="editor-page">
+          <VideoUploadEditor
+            onClose={onVideoUpload}
+          />
+        </div>
+      </StandardModal>
+      <StandardModal
+        title={intl.formatMessage(messages.videoEditorModalTitle)}
+        isOpen={isVideoEditorModalOpen}
+        onClose={closeVideoEditorModal}
+        isOverflowVisible={false}
+        size="xl"
+      >
+        <VideoEditor
+          onClose={closeVideoEditorModal}
+          returnFunction={returnFunction}
+        />
+      </StandardModal>
     </div>
   );
 };
 
 VideoGallery.propTypes = {
   onCancel: PropTypes.func,
+  returnFunction: PropTypes.func,
 };
 
 export default VideoGallery;

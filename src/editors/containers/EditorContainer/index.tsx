@@ -14,7 +14,6 @@ import { Close } from '@openedx/paragon/icons';
 import { useIntl, FormattedMessage } from '@edx/frontend-platform/i18n';
 
 import { EditorComponent } from '../../EditorComponent';
-import { useEditorContext } from '../../EditorContext';
 import TitleHeader from './components/TitleHeader';
 import * as hooks from './hooks';
 import messages from './messages';

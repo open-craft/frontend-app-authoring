@@ -33,8 +33,8 @@ const AddComponent = ({
   const { componentTemplates = {} } = useSelector(getCourseSectionVertical);
   const blockId = addComponentTemplateData.parentLocator || parentLocator;
   const [isAddLibraryContentModalOpen, showAddLibraryContentModal, closeAddLibraryContentModal] = useToggle();
-  const [isAddVideoSelectorModalOpen, showAddVideoSelectorModal, closeAddVideoSelectorModal] = useToggle();
-  const [isAddXBlockEditorModalOpen, showAddXBlockEditorModal, closeAddXBlockEditorModal] = useToggle();
+  const [isVideoSelectorModalOpen, showVideoSelectorModal, closeVideoSelectorModal] = useToggle();
+  const [isXBlockEditorModalOpen, showXBlockEditorModal, closeXBlockEditorModal] = useToggle();
 
   const [blockType, setBlockType] = useState(null);
   const [courseId, setCourseId] = useState(null);
@@ -62,9 +62,10 @@ const AddComponent = ({
   }, [selectedComponents]);
 
   const onXBlockSave = useCallback(() => {
-    closeAddXBlockEditorModal();
+    closeXBlockEditorModal();
+    closeVideoSelectorModal();
     sendMessageToIframe(messageTypes.refreshXBlock, null);
-  }, [closeAddXBlockEditorModal]);
+  }, [closeXBlockEditorModal, closeVideoSelectorModal, sendMessageToIframe]);
 
   const handleLibraryV2Selection = useCallback((selection) => {
     handleCreateNewCourseXBlock({
@@ -87,7 +88,7 @@ const AddComponent = ({
           setCourseId(courseKey);
           setBlockType(type);
           setNewBlockId(locator);
-          showAddXBlockEditorModal();
+          showXBlockEditorModal();
         });
         break;
       case COMPONENT_TYPES.video:
@@ -95,7 +96,7 @@ const AddComponent = ({
           setCourseId(courseKey);
           setBlockType(type);
           setNewBlockId(locator);
-          showAddVideoSelectorModal();
+          showVideoSelectorModal();
         });
         break;
         // TODO: The library functional will be a bit different of current legacy (CMS)
@@ -124,7 +125,7 @@ const AddComponent = ({
           setCourseId(courseKey);
           setBlockType(type);
           setNewBlockId(locator);
-          showAddXBlockEditorModal();
+          showXBlockEditorModal();
         });
         break;
       default:
@@ -226,8 +227,8 @@ const AddComponent = ({
         </StandardModal>
         <StandardModal
           title={intl.formatMessage(messages.videoPickerModalTitle)}
-          isOpen={isAddVideoSelectorModalOpen}
-          onClose={closeAddVideoSelectorModal}
+          isOpen={isVideoSelectorModalOpen}
+          onClose={closeVideoSelectorModal}
           isOverflowVisible={false}
           size="xl"
         >
@@ -237,14 +238,15 @@ const AddComponent = ({
               courseId={courseId}
               studioEndpointUrl={getConfig().STUDIO_BASE_URL}
               lmsEndpointUrl={getConfig().LMS_BASE_URL}
-              onCancel={closeAddVideoSelectorModal}
+              onCancel={closeVideoSelectorModal}
+              returnFunction={() => onXBlockSave}
             />
           </div>
         </StandardModal>
         <StandardModal
           title={intl.formatMessage(messages.blockEditorModalTitle)}
-          isOpen={isAddXBlockEditorModalOpen}
-          onClose={closeAddXBlockEditorModal}
+          isOpen={isXBlockEditorModalOpen}
+          onClose={closeXBlockEditorModal}
           isOverflowVisible={false}
           size="xl"
         >
@@ -255,7 +257,7 @@ const AddComponent = ({
               blockId={newBlockId}
               studioEndpointUrl={getConfig().STUDIO_BASE_URL}
               lmsEndpointUrl={getConfig().LMS_BASE_URL}
-              onClose={closeAddXBlockEditorModal}
+              onClose={closeXBlockEditorModal}
               returnFunction={() => onXBlockSave}
             />
           </div>
