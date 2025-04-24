@@ -109,7 +109,7 @@ const VideoGallery = ({ returnFunction, onCancel }) => {
       >
         <div className="editor-page">
           <VideoUploadEditor
-            onClose={onVideoUpload}
+            onUpload={onVideoUpload}
           />
         </div>
       </StandardModal>
