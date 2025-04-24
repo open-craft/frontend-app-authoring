@@ -8,7 +8,7 @@ import { RequestKeys } from '../../../data/constants/requests';
 
 interface Props {
   isLibrary: boolean;
-  onClose: (() => void) | null;
+  onClose?: (() => void);
 }
 
 export const {
