@@ -6,13 +6,13 @@ import './index.scss';
 import messages from './messages';
 import { VideoUploader } from './VideoUploader';
 
-const VideoUploadEditor = ({ onUpload }) => {
+const VideoUploadEditor = ({ onUpload, onClose }) => {
   const [loading, setLoading] = React.useState(false);
   const intl = useIntl();
 
   return (!loading) ? (
     <div className="d-flex marked-area flex-column p-3">
-      <VideoUploader onUpload={onUpload} setLoading={setLoading} />
+      <VideoUploader onUpload={onUpload} onClose={onClose} setLoading={setLoading} />
     </div>
   ) : (
     <div style={{
@@ -33,6 +33,7 @@ const VideoUploadEditor = ({ onUpload }) => {
 
 VideoUploadEditor.propTypes = {
   onUpload: PropTypes.func,
+  onClose: PropTypes.func,
 };
 
 export default VideoUploadEditor;

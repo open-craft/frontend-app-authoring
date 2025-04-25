@@ -106,10 +106,12 @@ const VideoGallery = ({ returnFunction, onCancel }) => {
         onClose={closeVideoUploadModal}
         isOverflowVisible={false}
         size="xl"
+        hasCloseButton={false}
       >
         <div className="editor-page">
           <VideoUploadEditor
             onUpload={onVideoUpload}
+            onClose={closeVideoUploadModal}
           />
         </div>
       </StandardModal>

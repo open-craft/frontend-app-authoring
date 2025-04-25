@@ -58,10 +58,10 @@ const URLUploader = ({ onUpload }) => {
   );
 };
 
-export const VideoUploader = ({ setLoading, onUpload }) => {
+export const VideoUploader = ({ setLoading, onUpload, onClose }) => {
   const dispatch = useDispatch();
   const intl = useIntl();
-  const goBack = hooks.useHistoryGoBack();
+  const goBack = onClose || hooks.useHistoryGoBack();
 
   const handleProcessUpload = ({ fileData }) => {
     dispatch(thunkActions.video.uploadVideo({
@@ -98,6 +98,7 @@ URLUploader.propTypes = {
 VideoUploader.propTypes = {
   setLoading: PropTypes.func.isRequired,
   onUpload: PropTypes.func,
+  onClose: PropTypes.func,
 };
 
 export default VideoUploader;
