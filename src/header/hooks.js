@@ -19,7 +19,7 @@ export const useContentMenuItems = courseId => {
       title: intl.formatMessage(messages['header.links.updates']),
     },
     {
-      href: getPagePath(courseId, 'true', 'tabs'),
+      href: `/course/${courseId}/pages-and-resources`,
       title: intl.formatMessage(messages['header.links.pages']),
     },
     {
