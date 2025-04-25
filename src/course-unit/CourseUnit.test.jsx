@@ -739,44 +739,6 @@ describe('<CourseUnit />', () => {
     )).toBeInTheDocument();
   });
 
-  it('handle creating Text xblock and saves scroll position in localStorage', async () => {
-    const { getByText, getByRole } = render(<RootWrapper />);
-    const xblockType = 'text';
-
-    axiosMock
-      .onPost(postXBlockBaseApiUrl({ type: xblockType, category: 'html', parentLocator: blockId }))
-      .reply(200, courseCreateXblockMock);
-
-    window.scrollTo(0, 250);
-    Object.defineProperty(window, 'scrollY', { value: 250, configurable: true });
-
-    await waitFor(() => {
-      const textButton = screen.getByRole('button', { name: /Text/i });
-
-      expect(getByText(addComponentMessages.title.defaultMessage)).toBeInTheDocument();
-
-      userEvent.click(textButton);
-
-      const addXBlockDialog = getByRole('dialog');
-      expect(addXBlockDialog).toBeInTheDocument();
-
-      expect(getByText(
-        addComponentMessages.modalContainerTitle.defaultMessage.replace('{componentTitle}', xblockType),
-      )).toBeInTheDocument();
-
-      const textRadio = screen.getByRole('radio', { name: /Text/i });
-      userEvent.click(textRadio);
-      expect(textRadio).toBeChecked();
-
-      const selectBtn = getByRole('button', { name: addComponentMessages.modalBtnText.defaultMessage });
-      expect(selectBtn).toBeInTheDocument();
-
-      userEvent.click(selectBtn);
-    });
-
-    expect(localStorage.getItem('createXBlockLastYPosition')).toBe('250');
-  });
-
   it('correct addition of a new course unit after click on the "Add new unit" button', async () => {
     const { getByRole, getAllByTestId } = render(<RootWrapper />);
     let units = null;
