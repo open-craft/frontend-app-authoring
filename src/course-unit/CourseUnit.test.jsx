@@ -701,11 +701,16 @@ describe('<CourseUnit />', () => {
     await waitFor(() => {
       const problemButton = getByRole('button', {
         name: new RegExp(`problem ${addComponentMessages.buttonText.defaultMessage} Problem`, 'i'),
+        hidden: true,
       });
 
       userEvent.click(problemButton);
-      expect(mockedUsedNavigate).toHaveBeenCalled();
-      expect(mockedUsedNavigate).toHaveBeenCalledWith(`/course/${courseKey}/editor/problem/${locator}`);
+    });
+
+    await waitFor(() => {
+      expect(getByRole('heading', {
+        name: new RegExp(`${addComponentMessages.blockEditorModalTitle.defaultMessage}`, 'i'),
+      })).toBeInTheDocument();
     });
 
     axiosMock
@@ -863,8 +868,7 @@ describe('<CourseUnit />', () => {
     });
   });
 
-  it('handles creating Video xblock and navigates to editor page', async () => {
-    const { courseKey, locator } = courseCreateXblockMock;
+  it('handles creating Video xblock and navigate to editor page', async () => {
     axiosMock
       .onPost(postXBlockBaseApiUrl({ type: 'video', category: 'video', parentLocator: blockId }))
       .reply(200, courseCreateXblockMock);
@@ -902,11 +906,14 @@ describe('<CourseUnit />', () => {
 
       const videoButton = getByRole('button', {
         name: new RegExp(`${addComponentMessages.buttonText.defaultMessage} Video`, 'i'),
+        hidden: true,
       });
 
       userEvent.click(videoButton);
-      expect(mockedUsedNavigate).toHaveBeenCalled();
-      expect(mockedUsedNavigate).toHaveBeenCalledWith(`/course/${courseKey}/editor/video/${locator}`);
+    });
+
+    await waitFor(() => {
+      expect(getByRole('textbox', { name: /paste your video id or url/i })).toBeInTheDocument();
     });
 
     axiosMock
