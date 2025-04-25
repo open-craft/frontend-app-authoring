@@ -672,7 +672,6 @@ describe('<CourseUnit />', () => {
   });
 
   it('handle creating Problem xblock and navigate to editor page', async () => {
-    const { courseKey, locator } = courseCreateXblockMock;
     axiosMock
       .onPost(postXBlockBaseApiUrl({ type: 'problem', category: 'problem', parentLocator: blockId }))
       .reply(200, courseCreateXblockMock);
