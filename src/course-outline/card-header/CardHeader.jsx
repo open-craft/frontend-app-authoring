@@ -15,6 +15,7 @@ import {
 import {
   MoreVert as MoveVertIcon,
   EditOutline as EditIcon,
+  Sync as SyncIcon,
 } from '@openedx/paragon/icons';
 
 import { useContentTagsCount } from '../../generic/data/apiHooks';
@@ -55,6 +56,8 @@ const CardHeader = ({
   discussionsSettings,
   parentInfo,
   extraActionsComponent,
+  onClickSync,
+  readyToSync,
 }) => {
   const intl = useIntl();
   const [searchParams] = useSearchParams();
@@ -130,12 +133,23 @@ const CardHeader = ({
         ) : (
           <>
             {titleComponent}
+            {readyToSync && (
+              <IconButton
+                className="item-card-button-icon"
+                data-testid={`${namePrefix}-sync-button`}
+                alt={intl.formatMessage(messages.readyToSyncButtonAlt)}
+                iconAs={SyncIcon}
+                onClick={onClickSync}
+              />
+            )}
             <IconButton
-              className="item-card-edit-icon"
+              className="item-card-button-icon"
               data-testid={`${namePrefix}-edit-button`}
               alt={intl.formatMessage(messages.altButtonEdit)}
               iconAs={EditIcon}
               onClick={onClickEdit}
+              // @ts-ignore
+              disabled={isDisabledEditField}
             />
           </>
         )}
@@ -178,6 +192,7 @@ const CardHeader = ({
               </Dropdown.Item>
               <Dropdown.Item
                 data-testid={`${namePrefix}-card-header__menu-configure-button`}
+                disabled={isDisabledEditField}
                 onClick={onClickConfigure}
               >
                 {intl.formatMessage(messages.menuConfigure)}
@@ -185,6 +200,7 @@ const CardHeader = ({
               {getConfig().ENABLE_TAGGING_TAXONOMY_PAGES === 'true' && (
                 <Dropdown.Item
                   data-testid={`${namePrefix}-card-header__menu-manage-tags-button`}
+                  disabled={isDisabledEditField}
                   onClick={openManageTagsDrawer}
                 >
                   {intl.formatMessage(messages.menuManageTags)}
@@ -255,6 +271,8 @@ CardHeader.defaultProps = {
   parentInfo: {},
   cardId: '',
   extraActionsComponent: null,
+  readyToSync: false,
+  onClickSync: null,
 };
 
 CardHeader.propTypes = {
@@ -301,6 +319,8 @@ CardHeader.propTypes = {
   // An optional component that is rendered before the dropdown. This is used by the Subsection
   // and Unit card components to render their plugin slots.
   extraActionsComponent: PropTypes.node,
+  onClickSync: PropTypes.func,
+  readyToSync: PropTypes.bool,
 };
 
 export default CardHeader;

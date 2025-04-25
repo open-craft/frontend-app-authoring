@@ -269,10 +269,6 @@ const AddComponent = ({
   return null;
 };
 
-AddComponent.defaultProps = {
-  addComponentTemplateData: {},
-};
-
 AddComponent.propTypes = {
   isSplitTestType: PropTypes.bool.isRequired,
   isUnitVerticalType: PropTypes.bool.isRequired,

@@ -40,6 +40,26 @@ export const initialState = {
       },
     },
   },
+  videos: {
+    videoIds: ['mOckID1'],
+    pageSettings: {},
+    loadingStatus: RequestStatus.SUCCESSFUL,
+    updatingStatus: '',
+    addingStatus: '',
+    deletingStatus: '',
+    usageStatus: '',
+    transcriptStatus: '',
+    errors: {
+      add: [],
+      delete: [],
+      thumbnail: [],
+      download: [],
+      usageMetrics: [],
+      transcript: [],
+      loading: '',
+    },
+    defaultView: 'card',
+  },
 };
 
 export const generateFetchAssetApiResponse = () => ({

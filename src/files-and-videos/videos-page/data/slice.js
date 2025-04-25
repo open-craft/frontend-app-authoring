@@ -23,6 +23,7 @@ const slice = createSlice({
       transcript: [],
       loading: '',
     },
+    defaultView: 'list',
   },
   reducers: {
     setVideoIds: (state, { payload }) => {

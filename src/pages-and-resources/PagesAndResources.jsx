@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { getConfig } from '@edx/frontend-platform';
-import { injectIntl, intlShape } from '@edx/frontend-platform/i18n';
+import { useIntl } from '@edx/frontend-platform/i18n';
 import { PageWrap, AppContext } from '@edx/frontend-platform/react';
 
 import { Routes, Route } from 'react-router-dom';
@@ -20,8 +20,11 @@ import { RequestStatus } from '../data/constants';
 import SettingsComponent from './SettingsComponent';
 import PermissionDeniedAlert from '../generic/PermissionDeniedAlert';
 import getPageHeadTitle from '../generic/utils';
+import { AdditionalCoursePluginSlot } from '../plugin-slots/AdditionalCoursePluginSlot';
+import { AdditionalCourseContentPluginSlot } from '../plugin-slots/AdditionalCourseContentPluginSlot';
 
-const PagesAndResources = ({ courseId, intl }) => {
+const PagesAndResources = ({ courseId }) => {
+  const intl = useIntl();
   const courseDetails = useModel('courseDetails', courseId);
   document.title = getPageHeadTitle(courseDetails?.name, intl.formatMessage(messages.heading));
 
@@ -89,7 +92,7 @@ const PagesAndResources = ({ courseId, intl }) => {
           <Route path=":appId/settings" element={<PageWrap><SettingsComponent url={redirectUrl} /></PageWrap>} />
         </Routes>
 
-        <PageGrid pages={pages} pluginSlotId="additional_course_plugin" courseId={courseId} />
+        <PageGrid pages={pages} pluginSlotComponent={AdditionalCoursePluginSlot} courseId={courseId} />
         {
           (contentPermissionsPages.length > 0 || hasAdditionalCoursePlugin)
             && (
@@ -97,7 +100,7 @@ const PagesAndResources = ({ courseId, intl }) => {
                 <div className="d-flex justify-content-between my-4 my-md-5 align-items-center">
                   <h3 className="m-0">{intl.formatMessage(messages.contentPermissions)}</h3>
                 </div>
-                <PageGrid pages={contentPermissionsPages} pluginSlotId="additional_course_content_plugin" />
+                <PageGrid pages={contentPermissionsPages} pluginSlotComponent={AdditionalCourseContentPluginSlot} />
               </>
             )
         }
@@ -108,7 +111,6 @@ const PagesAndResources = ({ courseId, intl }) => {
 
 PagesAndResources.propTypes = {
   courseId: PropTypes.string.isRequired,
-  intl: intlShape.isRequired,
 };
 
-export default injectIntl(PagesAndResources);
+export default PagesAndResources;

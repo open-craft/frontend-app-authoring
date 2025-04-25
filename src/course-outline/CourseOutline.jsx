@@ -45,12 +45,12 @@ import HighlightsModal from './highlights-modal/HighlightsModal';
 import EmptyPlaceholder from './empty-placeholder/EmptyPlaceholder';
 import PublishModal from './publish-modal/PublishModal';
 import PageAlerts from './page-alerts/PageAlerts';
-import DraggableList from '../generic/drag-helper/DraggableList';
+import DraggableList from './drag-helper/DraggableList';
 import {
   canMoveSection,
   possibleUnitMoves,
   possibleSubsectionMoves,
-} from '../generic/drag-helper/utils';
+} from './drag-helper/utils';
 import { useCourseOutline } from './hooks';
 import messages from './messages';
 import { getTagsExportFile } from './data/api';
@@ -103,6 +103,7 @@ const CourseOutline = ({ courseId }) => {
     handleNewSectionSubmit,
     handleNewSubsectionSubmit,
     handleNewUnitSubmit,
+    handleAddUnitFromLibrary,
     getUnitUrl,
     handleVideoSharingOptionChange,
     handlePasteClipboardClick,
@@ -383,6 +384,7 @@ const CourseOutline = ({ courseId }) => {
                                           onDuplicateSubmit={handleDuplicateSubsectionSubmit}
                                           onOpenConfigureModal={openConfigureModal}
                                           onNewUnitSubmit={handleNewUnitSubmit}
+                                          onAddUnitFromLibrary={handleAddUnitFromLibrary}
                                           onOrderChange={updateSubsectionOrderByIndex}
                                           onPasteClick={handlePasteClipboardClick}
                                         >
@@ -453,7 +455,11 @@ const CourseOutline = ({ courseId }) => {
               </article>
             </Layout.Element>
             <Layout.Element>
-              <CourseAuthoringOutlineSidebarSlot courseId={courseId} />
+              <CourseAuthoringOutlineSidebarSlot
+                courseId={courseId}
+                courseName={courseName}
+                sections={sections}
+              />
             </Layout.Element>
           </Layout>
           <EnableHighlightsModal

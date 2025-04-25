@@ -84,6 +84,7 @@ export const initialState = {
       transcript: [],
       loading: '',
     },
+    defaultView: 'card',
   },
   models: {
     videos: {

@@ -84,7 +84,7 @@ describe('<AddContent />', () => {
     expect(screen.queryByRole('button', { name: /collection/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /text/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /problem/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /open reponse/i })).not.toBeInTheDocument(); // Excluded from MVP
+    expect(screen.queryByRole('button', { name: /open reponse/i })).toBeInTheDocument(); // Excluded from MVP
     expect(screen.queryByRole('button', { name: /drag drop/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /video/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /copy from clipboard/i })).not.toBeInTheDocument();
@@ -205,6 +205,23 @@ describe('<AddContent />', () => {
     fireEvent.click(pasteButton);
 
     await waitFor(() => expect(axiosMock.history.post[0].url).toEqual(pasteUrl));
+  });
+
+  it('should show error toast on paste failure', async () => {
+    // Simulate having an HTML block in the clipboard:
+    mockClipboardHtml.applyMock();
+
+    const pasteUrl = getLibraryPasteClipboardUrl(libraryId);
+    axiosMock.onPost(pasteUrl).reply(500, { block_type: 'Unsupported block type.' });
+
+    render();
+    const pasteButton = await screen.findByRole('button', { name: /paste from clipboard/i });
+    fireEvent.click(pasteButton);
+
+    await waitFor(() => expect(axiosMock.history.post[0].url).toEqual(pasteUrl));
+    expect(mockShowToast).toHaveBeenCalledWith(
+      'There was an error pasting the content: {"block_type":"Unsupported block type."}',
+    );
   });
 
   it('should paste content inside a collection', async () => {

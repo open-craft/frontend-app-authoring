@@ -10,18 +10,23 @@ export const CourseAuthoringUnitSidebarSlot = (
     blockId,
     courseId,
     unitTitle,
+    xBlocks,
+    readOnly,
   }: CourseAuthoringUnitSidebarSlotProps,
 ) => (
   <PluginSlot
-    id="course_authoring_unit_sidebar_slot"
-    pluginProps={{ blockId, courseId, unitTitle }}
+    id="org.openedx.frontend.authoring.course_unit_sidebar.v1"
+    idAliases={['course_authoring_unit_sidebar_slot']}
+    pluginProps={{
+      blockId, courseId, unitTitle, xBlocks, readOnly,
+    }}
   >
     <Sidebar data-testid="course-unit-sidebar">
       <PublishControls blockId={blockId} />
     </Sidebar>
     {getConfig().ENABLE_TAGGING_TAXONOMY_PAGES === 'true' && (
     <Sidebar className="tags-sidebar">
-      <TagsSidebarControls />
+      <TagsSidebarControls readOnly={readOnly} />
     </Sidebar>
     )}
     <Sidebar data-testid="course-unit-location-sidebar">
@@ -30,8 +35,16 @@ export const CourseAuthoringUnitSidebarSlot = (
   </PluginSlot>
 );
 
+type XBlock = {
+  id: string,
+  name: string,
+  blockType: string,
+};
+
 interface CourseAuthoringUnitSidebarSlotProps {
   blockId: string;
   courseId: string;
   unitTitle: string;
+  xBlocks: XBlock[];
+  readOnly: boolean;
 }

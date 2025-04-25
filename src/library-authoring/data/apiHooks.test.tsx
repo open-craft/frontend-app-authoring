@@ -15,6 +15,7 @@ import {
   getLibraryContainerApiUrl,
   getLibraryContainerRestoreApiUrl,
   getLibraryContainerChildrenApiUrl,
+  getLibraryContainerPublishApiUrl,
 } from './api';
 import {
   useCommitLibraryChanges,
@@ -29,6 +30,9 @@ import {
   useRestoreContainer,
   useContainerChildren,
   useAddComponentsToContainer,
+  useUpdateContainerChildren,
+  useRemoveContainerChildren,
+  usePublishContainer,
 } from './apiHooks';
 
 let axiosMock;
@@ -160,7 +164,7 @@ describe('library api hooks', () => {
   });
 
   it('should delete a container', async () => {
-    const containerId = 'lct:org:lib1';
+    const containerId = 'lct:org:lib:unit:unit1';
     const url = getLibraryContainerApiUrl(containerId);
 
     axiosMock.onDelete(url).reply(200);
@@ -172,7 +176,7 @@ describe('library api hooks', () => {
   });
 
   it('should restore a container', async () => {
-    const containerId = 'lct:org:lib1';
+    const containerId = 'lct:org:lib:unit:unit1';
     const url = getLibraryContainerRestoreApiUrl(containerId);
 
     axiosMock.onPost(url).reply(200);
@@ -191,7 +195,6 @@ describe('library api hooks', () => {
       {
         id: 'lb:org1:Demo_course:html:text',
         block_type: 'html',
-        def_key: 'def_key',
         display_name: 'text block',
         last_published: null,
         published_by: null,
@@ -206,7 +209,6 @@ describe('library api hooks', () => {
       {
         id: 'lb:org1:Demo_course:video:video1',
         block_type: 'video',
-        def_key: 'def_key',
         display_name: 'video block',
         last_published: null,
         published_by: null,
@@ -227,7 +229,6 @@ describe('library api hooks', () => {
       {
         id: 'lb:org1:Demo_course:html:text',
         blockType: 'html',
-        defKey: 'def_key',
         displayName: 'text block',
         lastPublished: null,
         publishedBy: null,
@@ -242,7 +243,6 @@ describe('library api hooks', () => {
       {
         id: 'lb:org1:Demo_course:video:video1',
         blockType: 'video',
-        defKey: 'def_key',
         displayName: 'video block',
         lastPublished: null,
         publishedBy: null,
@@ -260,7 +260,7 @@ describe('library api hooks', () => {
 
   it('should add components to container', async () => {
     const componentId = 'lb:org:lib:html:1';
-    const containerId = 'ltc:org:lib:unit:1';
+    const containerId = 'lct:org:lib:unit:1';
 
     const url = getLibraryContainerChildrenApiUrl(containerId);
 
@@ -269,5 +269,57 @@ describe('library api hooks', () => {
     await result.current.mutateAsync([componentId]);
 
     expect(axiosMock.history.post[0].url).toEqual(url);
+  });
+
+  it('should update container children', async () => {
+    const containerId = 'lct:org:lib:unit:unit-1';
+    const url = getLibraryContainerChildrenApiUrl(containerId);
+
+    axiosMock.onPatch(url).reply(200);
+    const { result } = renderHook(() => useUpdateContainerChildren(containerId), { wrapper });
+    await result.current.mutateAsync([]);
+    await waitFor(() => {
+      expect(axiosMock.history.patch[0].url).toEqual(url);
+    });
+  });
+
+  it('should not attempt request if containerId is not defined', async () => {
+    const { result } = renderHook(() => useUpdateContainerChildren(), { wrapper });
+    await result.current.mutateAsync([]);
+    await waitFor(() => {
+      expect(axiosMock.history.patch.length).toEqual(0);
+    });
+  });
+
+  it('should remove container children', async () => {
+    const containerId = 'lct:org:lib1';
+    const url = getLibraryContainerChildrenApiUrl(containerId);
+
+    axiosMock.onDelete(url).reply(200);
+    const { result } = renderHook(() => useRemoveContainerChildren(containerId), { wrapper });
+    await result.current.mutateAsync([]);
+    await waitFor(() => {
+      expect(axiosMock.history.delete[0].url).toEqual(url);
+    });
+  });
+
+  it('should not attempt request if containerId is not defined in remove children from container', async () => {
+    const { result } = renderHook(() => useRemoveContainerChildren(), { wrapper });
+    await result.current.mutateAsync([]);
+    await waitFor(() => {
+      expect(axiosMock.history.patch.length).toEqual(0);
+    });
+  });
+
+  describe('publishContainer', () => {
+    it('should publish a container', async () => {
+      const containerId = 'lct:org:lib:unit:1';
+      const url = getLibraryContainerPublishApiUrl(containerId);
+      axiosMock.onPost(url).reply(200);
+      const { result } = renderHook(() => usePublishContainer(containerId), { wrapper });
+      await result.current.mutateAsync();
+
+      expect(axiosMock.history.post[0].url).toEqual(url);
+    });
   });
 });

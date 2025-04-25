@@ -1,11 +1,9 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import { injectIntl } from '@edx/frontend-platform/i18n';
 import { CardGrid } from '@openedx/paragon';
-import { PluginSlot } from '@openedx/frontend-plugin-framework';
 import PageCard, { CoursePageShape } from './PageCard';
 
-const PageGrid = ({ pages, pluginSlotId, courseId }) => (
+const PageGrid = ({ pages, pluginSlotComponent, courseId }) => (
   <CardGrid columnSizes={{
     xs: 12,
     sm: 6,
@@ -16,19 +14,19 @@ const PageGrid = ({ pages, pluginSlotId, courseId }) => (
     {pages.map((page) => (
       <PageCard page={page} key={page.id} courseId={courseId} />
     ))}
-    {pluginSlotId && <PluginSlot id={pluginSlotId} />}
+    {pluginSlotComponent}
   </CardGrid>
 );
 
 PageGrid.defaultProps = {
-  pluginSlotId: null,
+  pluginSlotComponent: null,
   courseId: null,
 };
 
 PageGrid.propTypes = {
   pages: PropTypes.arrayOf(CoursePageShape.isRequired).isRequired,
-  pluginSlotId: PropTypes.string,
+  pluginSlotComponent: PropTypes.element,
   courseId: PropTypes.string,
 };
 
-export default injectIntl(PageGrid);
+export default PageGrid;

@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import PropTypes from 'prop-types';
 import isEmpty from 'lodash/isEmpty';
 import { injectIntl, intlShape } from '@edx/frontend-platform/i18n';
@@ -44,7 +45,6 @@ const FileTable = ({
   // injected
   intl,
 }) => {
-  const defaultVal = 'card';
   const pageCount = Math.ceil(files.length / 50);
   const columnSizes = {
     xs: 12,
@@ -53,7 +53,7 @@ const FileTable = ({
     lg: 3,
     xl: 2,
   };
-  const [currentView, setCurrentView] = useState(defaultVal);
+  const { defaultView } = useSelector((state) => state.videos);
   const [isDeleteOpen, setDeleteOpen, setDeleteClose] = useToggle(false);
   const [isDownloadOpen, setDownloadOpen, setDownloadClose] = useToggle(false);
   const [isAssetInfoOpen, openAssetInfo, closeAssetinfo] = useToggle(false);
@@ -77,6 +77,8 @@ const FileTable = ({
     supportedFileFormats,
     fileType,
   } = data;
+  const defaultCurrentView = (fileType === 'video' && localStorage.getItem('videosCurrentView')) || (fileType === 'file' && localStorage.getItem('filesCurrentView')) || defaultView;
+  const [currentView, setCurrentView] = useState(defaultCurrentView);
 
   useEffect(() => {
     if (!isEmpty(selectedRows) && Object.keys(selectedRows[0]).length > 0) {
@@ -198,8 +200,17 @@ const FileTable = ({
         defaultColumnValues={{ Filter: TextFilter }}
         dataViewToggleOptions={{
           isDataViewToggleEnabled: true,
-          onDataViewToggle: val => setCurrentView(val),
-          defaultActiveStateValue: defaultVal,
+          onDataViewToggle: (val) => {
+            if (fileType === 'video') {
+              localStorage.setItem('videosCurrentView', val);
+              setCurrentView(val);
+            } else {
+              // There's only 2 fileTypes currently being used i.e. video or file
+              localStorage.setItem('filesCurrentView', val);
+              setCurrentView(val);
+            }
+          },
+          defaultActiveStateValue: defaultCurrentView,
           togglePlacement: 'left',
         }}
         initialState={initialState}
@@ -243,7 +254,7 @@ const FileTable = ({
           fileType={fileType}
         />
 
-        {fileType === 'files' && (
+        {fileType === 'file' && (
           <ApiStatusToast
             actionType={intl.formatMessage(messages.apiStatusAddingAction)}
             selectedRowCount={selectedRows.length}

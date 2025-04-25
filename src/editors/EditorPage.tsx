@@ -11,6 +11,7 @@ interface Props extends EditorComponent {
   blockId?: string;
   blockType: string;
   courseId: string;
+  isMarkdownEditorEnabledForCourse?: boolean;
   lmsEndpointUrl?: string;
   studioEndpointUrl?: string;
   children?: never;
@@ -24,6 +25,7 @@ const EditorPage: React.FC<Props> = ({
   courseId,
   blockType,
   blockId = null,
+  isMarkdownEditorEnabledForCourse = false,
   lmsEndpointUrl = null,
   studioEndpointUrl = null,
   onClose = null,
@@ -43,6 +45,7 @@ const EditorPage: React.FC<Props> = ({
             learningContextId: courseId,
             blockType,
             blockId,
+            isMarkdownEditorEnabledForCourse,
             lmsEndpointUrl,
             studioEndpointUrl,
             returnFunction,
