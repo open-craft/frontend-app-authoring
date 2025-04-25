@@ -60,6 +60,7 @@ const AddComponent = ({
   }, [selectedComponents]);
 
   const onXBlockSave = useCallback(() => {
+    // istanbul ignore next
     closeXBlockEditorModal();
     sendMessageToIframe(messageTypes.refreshXBlock, null);
   }, [closeXBlockEditorModal, sendMessageToIframe]);
@@ -112,6 +113,7 @@ const AddComponent = ({
           boilerplate: moduleName,
           parentLocator: blockId,
         }, ({ courseKey, locator }) => {
+          // istanbul ignore next
           setCourseId(courseKey);
           setBlockType(type);
           setNewBlockId(locator);

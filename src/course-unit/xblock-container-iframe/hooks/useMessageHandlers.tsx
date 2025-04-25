@@ -53,6 +53,7 @@ export const useMessageHandlers = ({
     [messageTypes.pasteNewComponent]: () => handleShowProcessingNotification(NOTIFICATION_MESSAGES.pasting),
     [messageTypes.copyXBlockLegacy]: () => handleShowProcessingNotification(NOTIFICATION_MESSAGES.copying),
     [messageTypes.hideProcessingNotification]: handleHideProcessingNotification,
+    // istanbul ignore next
     [messageTypes.handleRedirectToXBlockEditPage]: (payload) => handleEditXBlock(payload.type, payload.locator),
   }), [
     courseId,

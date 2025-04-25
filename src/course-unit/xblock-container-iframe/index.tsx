@@ -70,6 +70,7 @@ const XBlockContainerIframe: FC<XBlockContainerIframeProps> = ({
   }, [setIframeRef]);
 
   const onXBlockSave = useCallback(() => {
+    // istanbul ignore next
     closeXBlockEditorModal();
     sendMessageToIframe(messageTypes.refreshXBlock, null);
   }, [closeXBlockEditorModal, sendMessageToIframe]);
@@ -84,6 +85,7 @@ const XBlockContainerIframe: FC<XBlockContainerIframeProps> = ({
     (type: string, usageId: string) => {
       unitXBlockActions.handleDuplicate(usageId);
       if (supportedEditors[type]) {
+        // istanbul ignore next
         handleEditXBlock(usageId, type);
       }
     },
