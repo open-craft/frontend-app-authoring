@@ -120,10 +120,11 @@ describe('VideoGallery', () => {
         expect(screen.getByText(video.client_video_id)).toBeInTheDocument()
       ));
     });
-    it('renders video upload modal when there are no videos', async () => {
+    it('navigates to video upload page when there are no videos', async () => {
+      expect(window.location.replace).not.toHaveBeenCalled();
       updateState({ videos: [] });
       await renderComponent();
-      expect(screen.getByRole('heading', { name: /upload or embed a new video/i })).toBeInTheDocument();
+      expect(window.location.replace).toHaveBeenCalled();
     });
     it.each([
       [/newest/i, [2, 1, 3]],

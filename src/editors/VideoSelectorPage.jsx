@@ -10,8 +10,6 @@ const VideoSelectorPage = ({
   courseId,
   lmsEndpointUrl,
   studioEndpointUrl,
-  returnFunction,
-  onCancel,
 }) => (
   <Provider store={store}>
     <ErrorBoundary
@@ -26,8 +24,6 @@ const VideoSelectorPage = ({
           learningContextId: courseId,
           lmsEndpointUrl,
           studioEndpointUrl,
-          returnFunction,
-          onCancel,
         }}
       />
     </ErrorBoundary>
@@ -46,8 +42,6 @@ VideoSelectorPage.propTypes = {
   courseId: PropTypes.string,
   lmsEndpointUrl: PropTypes.string,
   studioEndpointUrl: PropTypes.string,
-  returnFunction: PropTypes.func,
-  onCancel: PropTypes.func,
 };
 
 export default VideoSelectorPage;
