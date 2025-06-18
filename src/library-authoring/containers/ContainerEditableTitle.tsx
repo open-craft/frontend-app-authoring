@@ -10,24 +10,18 @@ interface EditableTitleProps {
   containerId: string;
   readOnly?: boolean;
   textClassName?: string;
-  // In some cases, the title is already available, but it's retrieved in a list of containers.
-  // In these cases, it's necessary to use this `ContainerEditableTitle` for the optimistic update to work.
-  // By using `placeHolderText`, we can give the illusion that the data
-  // has already been loaded before using the real data.
-  placeHolderText?: string;
 }
 
 export const ContainerEditableTitle = ({
   containerId,
   readOnly,
   textClassName,
-  placeHolderText,
 }: EditableTitleProps) => {
   const intl = useIntl();
 
   const { readOnly: libReadOnly, showOnlyPublished } = useLibraryContext();
 
-  const { data: container, isLoading } = useContainer(containerId);
+  const { data: container } = useContainer(containerId);
 
   const updateMutation = useUpdateContainer(containerId);
   const { showToast } = useContext(ToastContext);
@@ -43,19 +37,14 @@ export const ContainerEditableTitle = ({
     }
   };
 
-  let textTitle;
-  if (isLoading && placeHolderText) {
-    textTitle = placeHolderText;
-  } else if (isLoading || !container) {
-    textTitle = '';
-  } else {
-    textTitle = showOnlyPublished ? (container.publishedDisplayName ?? container.displayName) : container.displayName;
+  if (!container) {
+    return null;
   }
 
   return (
     <InplaceTextEditor
       onSave={handleSaveDisplayName}
-      text={textTitle}
+      text={showOnlyPublished ? (container.publishedDisplayName ?? container.displayName) : container.displayName}
       readOnly={readOnly || libReadOnly}
       textClassName={textClassName}
     />
