@@ -1,4 +1,10 @@
-import { useState, useContext, useEffect } from 'react';
+import {
+  useState,
+  useContext,
+  useEffect,
+  useRef,
+  useCallback,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useMediaQuery } from 'react-responsive';
 import * as Yup from 'yup';
@@ -308,6 +314,7 @@ export const getFileSizeToClosestByte = (fileSize) => {
 */
 export const useRunOnNextRender = (callback) => {
   const [scheduled, setScheduled] = useState(false);
+  const argsRef = useRef();
 
   useEffect(() => {
     if (!scheduled) {
@@ -315,8 +322,13 @@ export const useRunOnNextRender = (callback) => {
     }
 
     setScheduled(false);
-    callback();
+    callback(argsRef.current);
   }, [scheduled]);
 
-  return () => setScheduled(true);
+  const trigger = useCallback((...args) => {
+    argsRef.current = args;
+    setScheduled(true);
+  }, []);
+
+  return trigger;
 };

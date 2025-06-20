@@ -10,6 +10,7 @@ import { useParams } from 'react-router-dom';
 import { useStateWithUrlSearchParam } from '../../../hooks';
 import { useComponentPickerContext } from './ComponentPickerContext';
 import { useLibraryContext } from './LibraryContext';
+import { useRunOnNextRender } from '@src/utils';
 
 export enum SidebarBodyItemId {
   AddContent = 'add-content',
@@ -124,19 +125,22 @@ export const SidebarProvider = ({
   const [defaultTab, setDefaultTab] = useState<DefaultTabs>(DEFAULT_TAB);
   const [hiddenTabs, setHiddenTabs] = useState<Array<SidebarInfoTab>>([]);
 
-  const [sidebarTab, setSidebarTab] = useStateWithUrlSearchParam<SidebarInfoTab>(
+  const [sidebarTab, setSidebarTabInternal] = useStateWithUrlSearchParam<SidebarInfoTab>(
     defaultTab.component,
     'st',
     (value: string) => toSidebarInfoTab(value),
     (value: SidebarInfoTab) => value.toString(),
   );
+  const setSidebarTab = useRunOnNextRender((tab: SidebarInfoTab) => setSidebarTabInternal(tab));
 
-  const [sidebarAction, setSidebarAction] = useStateWithUrlSearchParam<SidebarActions>(
+  const [sidebarAction, setSidebarActionInternal] = useStateWithUrlSearchParam<SidebarActions>(
     SidebarActions.None,
     'sa',
     (value: string) => Object.values(SidebarActions).find((enumValue) => value === enumValue),
     (value: SidebarActions) => value.toString(),
   );
+  const setSidebarAction = useRunOnNextRender((action: SidebarActions) => setSidebarActionInternal(action));
+
   const resetSidebarAction = useCallback(() => {
     setSidebarAction(SidebarActions.None);
   }, [setSidebarAction]);

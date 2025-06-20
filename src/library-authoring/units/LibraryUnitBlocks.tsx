@@ -31,7 +31,6 @@ import messages from './messages';
 import { SidebarActions, useSidebarContext } from '../common/context/SidebarContext';
 import { ToastContext } from '../../generic/toast-context';
 import { canEditComponent } from '../components/ComponentEditorModal';
-import { useRunOnNextRender } from '../../utils';
 
 /** Components that need large min height in preview */
 const LARGE_COMPONENTS = [
@@ -76,16 +75,8 @@ const BlockHeader = ({ block, readOnly }: ComponentBlockProps) => {
   };
 
   /* istanbul ignore next */
-  const scheduleJumpToTags = useRunOnNextRender(() => {
-    // TODO: Ugly hack to make sure sidebar shows manage tags section
-    // This needs to run after all changes to url takes place to avoid conflicts.
-    setTimeout(() => setSidebarAction(SidebarActions.JumpToManageTags), 250);
-  });
-
-  /* istanbul ignore next */
   const jumpToManageTags = () => {
-    navigateTo({ selectedItemId: block.originalId });
-    scheduleJumpToTags();
+    navigateTo({ selectedItemId: block.originalId }, () => setSidebarAction(SidebarActions.JumpToManageTags));
   };
 
   return (

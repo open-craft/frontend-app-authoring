@@ -23,7 +23,6 @@ import AddComponentWidget from './AddComponentWidget';
 import BaseCard from './BaseCard';
 import messages from './messages';
 import ContainerDeleter from './ContainerDeleter';
-import { useRunOnNextRender } from '../../utils';
 
 type ContainerMenuProps = {
   containerKey: string;
@@ -56,16 +55,9 @@ export const ContainerMenu = ({ containerKey, displayName } : ContainerMenuProps
     });
   };
 
-  const scheduleJumpToCollection = useRunOnNextRender(() => {
-    // TODO: Ugly hack to make sure sidebar shows add to collection section
-    // This needs to run after all changes to url takes place to avoid conflicts.
-    setTimeout(() => setSidebarAction(SidebarActions.JumpToManageCollections));
-  });
-
   const showManageCollections = useCallback(() => {
-    navigateTo({ selectedItemId: containerKey });
-    scheduleJumpToCollection();
-  }, [scheduleJumpToCollection, navigateTo, containerKey]);
+    navigateTo({ selectedItemId: containerKey }, () => setSidebarAction(SidebarActions.JumpToManageCollections));
+  }, [navigateTo, containerKey]);
 
   const openContainer = useCallback(() => {
     navigateTo({ containerId: containerKey });

@@ -25,7 +25,6 @@ import TagCount from '../../generic/tag-count';
 import { ContainerMenu } from '../components/ContainerCard';
 import { useLibraryRoutes } from '../routes';
 import { SidebarActions, useSidebarContext } from '../common/context/SidebarContext';
-import { useRunOnNextRender } from '../../utils';
 
 interface LibraryContainerChildrenProps {
   containerKey: string;
@@ -60,17 +59,9 @@ const ContainerRow = ({ containerKey, container, readOnly }: ContainerRowProps) 
     }
   };
 
-  /* istanbul ignore next */
-  const scheduleJumpToTags = useRunOnNextRender(() => {
-    // TODO: Ugly hack to make sure sidebar shows manage tags section
-    // This needs to run after all changes to url takes place to avoid conflicts.
-    setTimeout(() => setSidebarAction(SidebarActions.JumpToManageTags), 250);
-  });
-
-  const jumpToManageTags = () => {
-    navigateTo({ selectedItemId: container.originalId });
-    scheduleJumpToTags();
-  };
+  const jumpToManageTags = useCallback(() => {
+    navigateTo({ selectedItemId: container.originalId }, () => setSidebarAction(SidebarActions.JumpToManageTags))
+  }, [navigateTo, container.originalId, setSidebarAction]);
 
   return (
     <>

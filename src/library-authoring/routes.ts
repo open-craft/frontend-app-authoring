@@ -1,7 +1,13 @@
 /**
  * Constants and utility hook for the Library Authoring routes.
  */
-import { useCallback, useMemo } from 'react';
+import {
+  useCallback,
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+} from 'react';
 import {
   generatePath,
   matchPath,
@@ -9,6 +15,7 @@ import {
   useLocation,
   useNavigate,
   useSearchParams,
+  useNavigation,
   type PathMatch,
 } from 'react-router-dom';
 import { ContainerType, getBlockType } from '../generic/key-utils';
@@ -76,7 +83,7 @@ export type LibraryRoutesData = {
    *  This function can be mutated if there are changes in the current route, so always include
    *  it in the dependencies array if used on a `useCallback`.
    */
-  navigateTo: (dict?: NavigateToData) => void;
+  navigateTo: (dict?: NavigateToData, callback?: () => void) => void;
 };
 
 export const useLibraryRoutes = (): LibraryRoutesData => {
@@ -84,6 +91,9 @@ export const useLibraryRoutes = (): LibraryRoutesData => {
   const params = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const navigation = useNavigation();
+  const [hasNavigated, setHasNavigated] = useState(false);
+  const navigationCallbackRef = useRef<() => void>();
 
   const insideCollection = matchPath(BASE_ROUTE + ROUTES.COLLECTION, pathname);
   const insideCollections = matchPath(BASE_ROUTE + ROUTES.COLLECTIONS, pathname);
@@ -119,7 +129,7 @@ export const useLibraryRoutes = (): LibraryRoutesData => {
     collectionId,
     containerId,
     contentType,
-  }: NavigateToData = {}) => {
+  }: NavigateToData = {}, callback?: () => void) => {
     const routeParams = {
       ...params,
       // Overwrite the params with the provided values.
@@ -237,6 +247,8 @@ export const useLibraryRoutes = (): LibraryRoutesData => {
         pathname: newPath,
         search: searchParams.toString(),
       });
+      navigationCallbackRef.current = callback;
+      setHasNavigated(true);
     }
   }, [
     navigate,
@@ -244,6 +256,14 @@ export const useLibraryRoutes = (): LibraryRoutesData => {
     searchParams,
     pathname,
   ]);
+
+  useEffect(() => {
+    if (hasNavigated && navigation.state === 'idle') {
+      navigationCallbackRef.current?.();
+      navigationCallbackRef.current = undefined;
+      setHasNavigated(false);
+    }
+  }, [navigation.state, hasNavigated]);
 
   return useMemo(() => ({
     navigateTo,

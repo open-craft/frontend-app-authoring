@@ -21,7 +21,6 @@ import { canEditComponent } from './ComponentEditorModal';
 import ComponentDeleter from './ComponentDeleter';
 import messages from './messages';
 import { useLibraryRoutes } from '../routes';
-import { useRunOnNextRender } from '../../utils';
 
 export const ComponentMenu = ({ usageKey }: { usageKey: string }) => {
   const intl = useIntl();
@@ -95,21 +94,9 @@ export const ComponentMenu = ({ usageKey }: { usageKey: string }) => {
     openComponentEditor(usageKey);
   }, [usageKey, navigateTo]);
 
-  const scheduleJumpToCollection = useRunOnNextRender(() => {
-    // TODO: Ugly hack to make sure sidebar shows add to collection section
-    // This needs to run after all changes to url takes place to avoid conflicts.
-    setTimeout(() => setSidebarAction(SidebarActions.JumpToManageCollections), 250);
-  });
-
   const showManageCollections = useCallback(() => {
-    navigateTo({ selectedItemId: usageKey });
-    scheduleJumpToCollection();
-  }, [
-    scheduleJumpToCollection,
-    openComponentInfoSidebar,
-    usageKey,
-    navigateTo,
-  ]);
+    navigateTo({ selectedItemId: usageKey }, () => setSidebarAction(SidebarActions.JumpToManageCollections));
+  }, [usageKey, setSidebarAction, navigateTo]);
 
   return (
     <Dropdown id="component-card-dropdown">
