@@ -24,6 +24,10 @@ const rootReducer = (state: any, action: any) => {
   if (action.type === 'resetEditor') {
     return editorReducer(undefined, action);
   }
+  // For test purposes only:
+  if (action.type === 'UPDATE_STATE') {
+    return action.newState;
+  }
 
   return editorReducer(state, action);
 };
