@@ -14,7 +14,9 @@ const TitleLink = ({
     className="item-card-header__title-btn"
     to={titleLink}
   >
-    <Truncate lines={1} className={`${namePrefix}-card-title mb-0`}>{title}</Truncate>
+    <span className="truncate-1-line">
+      {title}
+    </span>
   </Button>
 );
 
