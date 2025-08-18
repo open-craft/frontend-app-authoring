@@ -13,8 +13,9 @@ const TitleLink = ({
     data-testid={`${namePrefix}-card-header__title-link`}
     className="item-card-header__title-btn"
     to={titleLink}
+    title={title}
   >
-    <span className="truncate-1-line">
+    <span className={`${namePrefix}-card-title mb-0 truncate-1-line`}>
       {title}
     </span>
   </Button>
