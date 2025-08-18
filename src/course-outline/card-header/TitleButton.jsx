@@ -37,8 +37,9 @@ const TitleButton = ({
         data-testid={`${namePrefix}-card-header__expanded-btn`}
         className="item-card-header__title-btn"
         onClick={onTitleClick}
+        title={title}
       >
-        <span className="truncate-1-line">
+        <span className={`${namePrefix}-card-title mb-0 truncate-1-line`}>
           {title}
         </span>
       </Button>

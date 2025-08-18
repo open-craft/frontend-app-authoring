@@ -1,6 +1,6 @@
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-import { Button, Truncate } from '@openedx/paragon';
+import { Button } from '@openedx/paragon';
 
 const TitleLink = ({
   title,
@@ -13,8 +13,9 @@ const TitleLink = ({
     data-testid={`${namePrefix}-card-header__title-link`}
     className="item-card-header__title-btn"
     to={titleLink}
+    title={title}
   >
-    <span className="truncate-1-line">
+    <span className={`${namePrefix}-card-title mb-0 truncate-1-line`}>
       {title}
     </span>
   </Button>
