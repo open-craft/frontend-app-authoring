@@ -4,7 +4,6 @@ import {
   Button,
   OverlayTrigger,
   Tooltip,
-  Truncate,
 } from '@openedx/paragon';
 import {
   ArrowDropDown as ArrowDownIcon,
@@ -38,8 +37,11 @@ const TitleButton = ({
         data-testid={`${namePrefix}-card-header__expanded-btn`}
         className="item-card-header__title-btn"
         onClick={onTitleClick}
+        title={title}
       >
-        <Truncate lines={1} className={`${namePrefix}-card-title mb-0`}>{title}</Truncate>
+        <span className={`${namePrefix}-card-title mb-0 truncate-1-line`}>
+          {title}
+        </span>
       </Button>
     </OverlayTrigger>
   );
