@@ -398,3 +398,4 @@ Please do not report security issues in public, and email security@openedx.org i
     :target: https://codecov.io/github/openedx/frontend-app-course-authoring?branch=master
     :alt: Codecov
 Dummy text appeneded to test sandboxes
+Dummy text appeneded to test sandboxes
