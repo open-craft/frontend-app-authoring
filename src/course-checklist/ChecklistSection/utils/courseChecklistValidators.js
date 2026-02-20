@@ -34,6 +34,7 @@ export const hasAssignmentDeadlines = (assignments, dates) => {
 };
 
 export const hasShortVideoDuration = (videos) => {
+  /*
   if (videos.totalNumber === 0) {
     return false;
   } if (videos.totalNumber > 0 && videos.durations.median !== null && videos.durations.median <= 600) {
@@ -41,6 +42,8 @@ export const hasShortVideoDuration = (videos) => {
   }
 
   return false;
+  */
+ return true;
 };
 
 export const hasDiverseSequences = (subsections) => {
