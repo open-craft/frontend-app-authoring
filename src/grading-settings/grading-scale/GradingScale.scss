@@ -58,12 +58,12 @@
         display: none;
       }
 
-      @each $key, $color in $grading-scale-segment-colors {
-        &.segment-#{$key} {
-          background-color: $color;
-          z-index: #{$key};
-        }
-      }
+      // @each $key, $color in $grading-scale-segment-colors {
+      //   &.segment-#{$key} {
+      //     background-color: $color;
+      //     z-index: #{$key};
+      //   }
+      // }
 
       &:hover .grading-scale-segment-btn-remove {
         display: block;
