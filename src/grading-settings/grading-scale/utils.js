@@ -88,3 +88,16 @@ export const convertGradeData = (letters, gradingSegments, setConvertedResult) =
 
   setConvertedResult(convertedData);
 };
+
+/**
+ * Determines hue(range 0–130) and saturation value of grade segment
+ *
+ * @param {number} index - The current grade letter index.
+ * @param {number} total - Configured total number of grade letters.
+ * @returns {string} - css hsla function call with hue and saturation values set for a grade segment
+ */
+  export const setGradeSegmentColor = (index, total) => {
+    const hue = ((total-index) / (total - 1)) * 130;
+    const saturation = index % 2 === 0 ? 100 : 50;
+    return `hsla(${hue}, ${saturation}%, 50%, 1)`;
+  };

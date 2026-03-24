@@ -227,6 +227,7 @@ const GradingScale = ({
             idx={idx}
             handleLetterChange={handleLetterChange}
             letters={letters}
+            totalSegments={gradingSegments.length}
           />
         ))}
         {handles.map(({ value, getHandleProps }, idx) => (

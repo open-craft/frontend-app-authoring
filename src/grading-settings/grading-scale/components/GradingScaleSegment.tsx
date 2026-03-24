@@ -3,7 +3,7 @@ import { Button } from '@openedx/paragon';
 import React, { ChangeEvent } from 'react';
 import messages from '../messages';
 
-import { getLettersOnLongScale, getLettersOnShortScale } from '../utils';
+import { getLettersOnLongScale, getLettersOnShortScale, setGradeSegmentColor } from '../utils';
 
 interface RangeSegment {
   previous: number,
@@ -18,6 +18,7 @@ interface GradingScaleSegmentProps {
   letters: [string],
   gradingSegments: RangeSegment[],
   removeGradingSegment: (idx: number) => void,
+  totalSegments: number,
 }
 
 const GradingScaleSegment = ({
@@ -28,17 +29,22 @@ const GradingScaleSegment = ({
   letters,
   gradingSegments,
   removeGradingSegment,
+  totalSegments
 }: GradingScaleSegmentProps) => {
   const intl = useIntl();
   const prevValue = gradingSegments[idx === 0 ? 0 : idx - 1]?.previous ?? 0;
   const segmentRightMargin = (value - prevValue) < 6 ? '0.125rem' : '1.25rem';
   return (
-    <div
-      key={value}
-      className={`grading-scale-segment segment-${idx - 1}`}
-      data-testid="grading-scale-segment"
-      {...getSegmentProps()}
-    >
+      <div
+        key={value}
+        className={`grading-scale-segment`}
+        data-testid={`grading-scale-segment`}
+        {...getSegmentProps()}
+        style={{
+          ...getSegmentProps().style,
+          backgroundColor: setGradeSegmentColor(idx, totalSegments),
+        }}
+      >
       <div
         className="grading-scale-segment-content"
         style={{
