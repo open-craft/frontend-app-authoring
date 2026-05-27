@@ -203,12 +203,14 @@ export async function publishCourseSection(sectionId: string): Promise<object> {
  * @param {string} sectionId
  * @param {boolean} isVisibleToStaffOnly
  * @param {string} startDatetime
+ * @param {boolean} optionalCompletion
  * @returns {Promise<Object>}
  */
 export async function configureCourseSection(
   sectionId: string,
   isVisibleToStaffOnly: boolean,
   startDatetime: string,
+  optionalCompletion: boolean,
 ): Promise<object> {
   const { data } = await getAuthenticatedHttpClient()
     .post(getCourseItemApiUrl(sectionId), {
@@ -217,6 +219,8 @@ export async function configureCourseSection(
         // The backend expects metadata.visible_to_staff_only to either true or null
         visible_to_staff_only: isVisibleToStaffOnly ? true : null,
         start: startDatetime,
+        // Relies on the inheritance mechanism, so we unset instead of explicitly setting `false`.
+        optional_completion: optionalCompletion ? true : null,
       },
     });
 
@@ -262,6 +266,7 @@ export async function configureCourseSubsection(
   prereqUsageKey: string,
   prereqMinScore: number,
   prereqMinCompletion: number,
+  optionalCompletion: boolean,
 ): Promise<object> {
   const { data } = await getAuthenticatedHttpClient()
     .post(getCourseItemApiUrl(itemId), {
@@ -284,6 +289,8 @@ export async function configureCourseSubsection(
         default_time_limit_minutes: defaultTimeLimitMin,
         is_onboarding_exam: isOnboardingExam,
         start: releaseDate,
+        // Relies on the inheritance mechanism, so we unset instead of explicitly setting `false`.
+        optional_completion: optionalCompletion ? true : null,
       },
     });
   return data;
@@ -295,6 +302,7 @@ export async function configureCourseSubsection(
  * @param {boolean} isVisibleToStaffOnly
  * @param {object} groupAccess
  * @param {boolean} discussionEnabled
+ * @param {boolean} optionalCompletion
  * @returns {Promise<Object>}
  */
 export async function configureCourseUnit(
@@ -302,6 +310,7 @@ export async function configureCourseUnit(
   isVisibleToStaffOnly: boolean,
   groupAccess: object,
   discussionEnabled: boolean,
+  optionalCompletion: boolean,
 ): Promise<object> {
   const { data } = await getAuthenticatedHttpClient()
     .post(getCourseItemApiUrl(unitId), {
@@ -311,6 +320,8 @@ export async function configureCourseUnit(
         visible_to_staff_only: isVisibleToStaffOnly ? true : null,
         group_access: groupAccess,
         discussion_enabled: discussionEnabled,
+        // Relies on the inheritance mechanism, so we unset instead of explicitly setting `false`.
+        optional_completion: optionalCompletion ? true : null,
       },
     });
 

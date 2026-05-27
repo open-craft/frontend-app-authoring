@@ -24,6 +24,8 @@ export interface XBlockTypes {
   validationMessages: any[];
   renderError: string;
   id: string;
+  optionalCompletion?: boolean;
+  ancestorHasOptionalCompletion?: boolean;
 }
 
 export interface XBlockContainerIframeProps {
@@ -70,6 +72,8 @@ export type AccessManagedXBlockDataTypes = {
   showReviewRules?: boolean;
   onlineProctoringRules?: string;
   discussionEnabled: boolean;
+  optionalCompletion?: boolean;
+  ancestorHasOptionalCompletion?: boolean;
 };
 
 export type FormattedAccessManagedXBlockDataTypes = Omit<AccessManagedXBlockDataTypes, 'discussionEnabled'>;

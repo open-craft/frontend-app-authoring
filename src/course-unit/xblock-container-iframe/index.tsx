@@ -54,7 +54,7 @@ const XBlockContainerIframe: FC<XBlockContainerIframeProps> = ({
   const [isVideoSelectorModalOpen, showVideoSelectorModal, closeVideoSelectorModal] = useToggle();
   const [isXBlockEditorModalOpen, showXBlockEditorModal, closeXBlockEditorModal] = useToggle();
   const [blockType, setBlockType] = useState<string>('');
-  const { useVideoGalleryFlow } = useWaffleFlags(courseId);
+  const { useVideoGalleryFlow, enableCompletionTracking } = useWaffleFlags(courseId);
   const [newBlockId, setNewBlockId] = useState<string>('');
   const [accessManagedXBlockData, setAccessManagedXBlockData] = useState<AccessManagedXBlockDataTypes | {}>({});
   const [iframeOffset, setIframeOffset] = useState(0);
@@ -273,6 +273,7 @@ const XBlockContainerIframe: FC<XBlockContainerIframeProps> = ({
           }}
           onConfigureSubmit={onManageXBlockAccessSubmit}
           currentItemData={accessManagedXBlockData as AccessManagedXBlockDataTypes}
+          enableCompletionTracking={enableCompletionTracking}
           isSelfPaced={false}
         />
       ) : null}

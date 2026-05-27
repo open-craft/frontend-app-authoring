@@ -101,6 +101,8 @@ export interface XBlock {
   childInfo: XblockChildInfo;
   ancestorHasStaffLock: boolean;
   staffOnlyMessage: boolean;
+  optionalCompletion?: boolean;
+  ancestorHasOptionalCompletion?: boolean;
   hasPartitionGroupComponents: boolean;
   userPartitionInfo?: UserPartitionInfoTypes;
   enableCopyPasteUnits: boolean;

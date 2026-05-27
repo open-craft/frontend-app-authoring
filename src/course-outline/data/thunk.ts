@@ -307,11 +307,16 @@ export function configureCourseItemQuery(sectionId: string, configureFn: () => P
   };
 }
 
-export function configureCourseSectionQuery(sectionId: string, isVisibleToStaffOnly: boolean, startDatetime: string) {
+export function configureCourseSectionQuery(
+  sectionId: string,
+  isVisibleToStaffOnly: boolean,
+  startDatetime: string,
+  optionalCompletion: boolean,
+) {
   return async (dispatch) => {
     dispatch(configureCourseItemQuery(
       sectionId,
-      async () => configureCourseSection(sectionId, isVisibleToStaffOnly, startDatetime),
+      async () => configureCourseSection(sectionId, isVisibleToStaffOnly, startDatetime, optionalCompletion),
     ));
   };
 }
@@ -335,6 +340,7 @@ export function configureCourseSubsectionQuery(
   prereqUsageKey: string,
   prereqMinScore: number,
   prereqMinCompletion: number,
+  optionalCompletion: boolean,
 ) {
   return async (dispatch) => {
     dispatch(configureCourseItemQuery(
@@ -357,6 +363,7 @@ export function configureCourseSubsectionQuery(
         prereqUsageKey,
         prereqMinScore,
         prereqMinCompletion,
+        optionalCompletion,
       ),
     ));
   };
@@ -368,11 +375,12 @@ export function configureCourseUnitQuery(
   isVisibleToStaffOnly: boolean,
   groupAccess: object,
   discussionEnabled: boolean,
+  optionalCompletion: boolean,
 ) {
   return async (dispatch) => {
     dispatch(configureCourseItemQuery(
       sectionId,
-      async () => configureCourseUnit(itemId, isVisibleToStaffOnly, groupAccess, discussionEnabled),
+      async () => configureCourseUnit(itemId, isVisibleToStaffOnly, groupAccess, discussionEnabled, optionalCompletion),
     ));
   };
 }

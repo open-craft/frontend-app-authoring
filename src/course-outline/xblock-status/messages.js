@@ -73,6 +73,10 @@ const messages = defineMessages({
     id: 'course-authoring.course-outline.xblock-status.hiddenAfterDueDate.text',
     defaultMessage: 'Subsection is hidden after due date',
   },
+  optionalCompletionLabel: {
+    id: 'course-authoring.course-outline.xblock-status.optionalCompletion.label',
+    defaultMessage: 'Optional completion',
+  },
 });
 
 export default messages;

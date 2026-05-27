@@ -28,6 +28,7 @@ const ConfigureModal = ({
   currentItemData,
   enableProctoredExams = false,
   enableTimedExams = false,
+  enableCompletionTracking = false,
   isXBlockComponent = false,
   isSelfPaced,
 }) => {
@@ -61,6 +62,8 @@ const ConfigureModal = ({
     showReviewRules,
     onlineProctoringRules,
     discussionEnabled,
+    optionalCompletion,
+    ancestorHasOptionalCompletion,
   } = currentItemData;
 
   const getSelectedGroups = () => {
@@ -102,6 +105,7 @@ const ConfigureModal = ({
     selectedPartitionIndex: userPartitionInfo?.selectedPartitionIndex,
     selectedGroups: getSelectedGroups(),
     discussionEnabled,
+    optionalCompletion: optionalCompletion ?? false,
   };
 
   const validationSchema = Yup.object().shape({
@@ -132,6 +136,7 @@ const ConfigureModal = ({
     selectedPartitionIndex: Yup.number().integer(),
     selectedGroups: Yup.array().of(Yup.string()),
     discussionEnabled: Yup.boolean(),
+    optionalCompletion: Yup.boolean(),
   });
 
   const isSubsection = category === COURSE_BLOCK_NAMES.sequential.id;
@@ -147,7 +152,7 @@ const ConfigureModal = ({
     const groupAccess = {};
     switch (category) {
       case COURSE_BLOCK_NAMES.chapter.id:
-        onConfigureSubmit(data.isVisibleToStaffOnly, releaseDate);
+        onConfigureSubmit(data.isVisibleToStaffOnly, releaseDate, data.optionalCompletion);
         break;
       case COURSE_BLOCK_NAMES.sequential.id:
         onConfigureSubmit(
@@ -167,6 +172,7 @@ const ConfigureModal = ({
           data.prereqUsageKey,
           data.prereqMinScore,
           data.prereqMinCompletion,
+          data.optionalCompletion,
         );
         break;
       case COURSE_BLOCK_NAMES.vertical.id:
@@ -178,7 +184,7 @@ const ConfigureModal = ({
           const partitionId = userPartitionInfo.selectablePartitions[data.selectedPartitionIndex].id;
           groupAccess[partitionId] = data.selectedGroups.map(g => parseInt(g, 10));
         }
-        onConfigureSubmit(data.isVisibleToStaffOnly, groupAccess, data.discussionEnabled);
+        onConfigureSubmit(data.isVisibleToStaffOnly, groupAccess, data.discussionEnabled, data.optionalCompletion);
         break;
       default:
         break;
@@ -197,6 +203,8 @@ const ConfigureModal = ({
                 isSubsection={isSubsection}
                 courseGraders={courseGraders === 'undefined' ? [] : courseGraders}
                 isSelfPaced={isSelfPaced}
+                enableCompletionTracking={enableCompletionTracking}
+                ancestorHasOptionalCompletion={ancestorHasOptionalCompletion}
               />
             </Tab>
             <Tab eventKey="visibility" title={intl.formatMessage(messages.visibilityTabTitle)}>
@@ -220,6 +228,8 @@ const ConfigureModal = ({
                 isSubsection={isSubsection}
                 courseGraders={courseGraders === 'undefined' ? [] : courseGraders}
                 isSelfPaced={isSelfPaced}
+                enableCompletionTracking={enableCompletionTracking}
+                ancestorHasOptionalCompletion={ancestorHasOptionalCompletion}
               />
             </Tab>
             <Tab eventKey="visibility" title={intl.formatMessage(messages.visibilityTabTitle)}>
@@ -261,6 +271,8 @@ const ConfigureModal = ({
             setFieldValue={setFieldValue}
             showWarning={visibilityState === VisibilityTypes.STAFF_ONLY && !ancestorHasStaffLock}
             userPartitionInfo={userPartitionInfo}
+            enableCompletionTracking={enableCompletionTracking}
+            ancestorHasOptionalCompletion={ancestorHasOptionalCompletion}
           />
         );
       default:
@@ -328,6 +340,7 @@ ConfigureModal.propTypes = {
   onConfigureSubmit: PropTypes.func.isRequired,
   enableProctoredExams: PropTypes.bool,
   enableTimedExams: PropTypes.bool,
+  enableCompletionTracking: PropTypes.bool,
   currentItemData: PropTypes.shape({
     displayName: PropTypes.string,
     start: PropTypes.string,
@@ -356,6 +369,8 @@ ConfigureModal.propTypes = {
       selectedGroupsLabel: PropTypes.string,
     }),
     ancestorHasStaffLock: PropTypes.bool,
+    ancestorHasOptionalCompletion: PropTypes.bool,
+    optionalCompletion: PropTypes.bool,
     isPrereq: PropTypes.bool,
     prereqs: PropTypes.arrayOf({
       blockDisplayName: PropTypes.string,

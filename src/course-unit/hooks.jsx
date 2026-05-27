@@ -94,7 +94,7 @@ export const useCourseUnit = ({ courseId, blockId }) => {
     dispatch(changeEditTitleFormOpen(!isTitleEditFormOpen));
   };
 
-  const handleConfigureSubmit = (id, isVisible, groupAccess, isDiscussionEnabled, closeModalFn) => {
+  const handleConfigureSubmit = (id, isVisible, groupAccess, isDiscussionEnabled, isOptionalCompletion, closeModalFn) => {
     dispatch(editCourseUnitVisibilityAndData(
       id,
       PUBLISH_TYPES.republish,
@@ -103,6 +103,7 @@ export const useCourseUnit = ({ courseId, blockId }) => {
       isDiscussionEnabled,
       () => sendMessageToIframe(messageTypes.completeManageXBlockAccess, { locator: id }),
       blockId,
+      isOptionalCompletion,
     ));
     if (typeof closeModalFn === 'function') {
       closeModalFn();

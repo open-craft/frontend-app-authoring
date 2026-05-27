@@ -36,6 +36,7 @@ import { ComponentPicker, SelectedComponent } from '@src/library-authoring';
 import { ContentType } from '@src/library-authoring/routes';
 import { NOTIFICATION_MESSAGES } from '@src/constants';
 import { COMPONENT_TYPES } from '@src/generic/block-type-utils/constants';
+import { useWaffleFlags } from '@src/data/apiHooks';
 import { XBlock } from '@src/data/types';
 import {
   getCurrentItem,
@@ -179,6 +180,7 @@ const CourseOutline = ({ courseId }: CourseOutlineProps) => {
 
   const enableProctoredExams = useSelector(getProctoredExamsFlag);
   const enableTimedExams = useSelector(getTimedExamsFlag);
+  const { enableCompletionTracking } = useWaffleFlags();
 
   /**
    * Move section to new index
@@ -521,6 +523,7 @@ const CourseOutline = ({ courseId }: CourseOutlineProps) => {
           currentItemData={currentItemData}
           enableProctoredExams={enableProctoredExams}
           enableTimedExams={enableTimedExams}
+          enableCompletionTracking={enableCompletionTracking}
           isSelfPaced={statusBarData.isSelfPaced}
         />
         <DeleteModal

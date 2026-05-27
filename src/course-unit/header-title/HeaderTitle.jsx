@@ -10,6 +10,7 @@ import {
 
 import ConfigureModal from '../../generic/configure-modal/ConfigureModal';
 import { COURSE_BLOCK_NAMES } from '../../constants';
+import { useWaffleFlags } from '../../data/apiHooks';
 import { getCourseUnitData } from '../data/selectors';
 import { updateQueryPendingStatus } from '../data/slice';
 import messages from './messages';
@@ -25,6 +26,7 @@ const HeaderTitle = ({
   const dispatch = useDispatch();
   const [titleValue, setTitleValue] = useState(unitTitle);
   const currentItemData = useSelector(getCourseUnitData);
+  const { enableCompletionTracking } = useWaffleFlags();
   const [isConfigureModalOpen, openConfigureModal, closeConfigureModal] = useToggle(false);
   const { selectedPartitionIndex, selectedGroupsLabel } = currentItemData.userPartitionInfo ?? {};
 
@@ -94,6 +96,7 @@ const HeaderTitle = ({
           currentItemData={currentItemData}
           isSelfPaced={false}
           isXBlockComponent={isXBlockComponent}
+          enableCompletionTracking={enableCompletionTracking}
           userPartitionInfo={currentItemData?.userPartitionInfo || {}}
         />
       </div>

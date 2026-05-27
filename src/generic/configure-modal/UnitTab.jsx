@@ -17,6 +17,8 @@ const UnitTab = ({
   setFieldValue,
   showWarning,
   userPartitionInfo,
+  enableCompletionTracking,
+  ancestorHasOptionalCompletion,
 }) => {
   const intl = useIntl();
   const {
@@ -24,6 +26,7 @@ const UnitTab = ({
     selectedPartitionIndex,
     selectedGroups,
     discussionEnabled,
+    optionalCompletion,
   } = values;
 
   const handleVisibilityChange = (e) => {
@@ -32,6 +35,10 @@ const UnitTab = ({
 
   const handleDiscussionChange = (e) => {
     setFieldValue('discussionEnabled', e.target.checked);
+  };
+
+  const handleOptionalCompletionChange = (e) => {
+    setFieldValue('optionalCompletion', e.target.checked);
   };
 
   const handleSelect = (e) => {
@@ -155,6 +162,30 @@ const UnitTab = ({
           <p className="x-small font-weight-bold"><FormattedMessage {...messages.discussionEnabledDescription} /></p>
         </>
       )}
+      {enableCompletionTracking && (
+        <div className="edit-optional-completion">
+          <h4 className="mt-4">
+            <FormattedMessage {...messages.optionalCompletionTitle} />
+          </h4>
+          <hr />
+          <Form.Checkbox
+            checked={!!optionalCompletion}
+            onChange={handleOptionalCompletionChange}
+            disabled={!!ancestorHasOptionalCompletion}
+            data-testid="optional-completion-checkbox"
+          >
+            <FormattedMessage {...messages.optionalCompletionLabel} />
+          </Form.Checkbox>
+          {ancestorHasOptionalCompletion && (
+            <p className="x-small text-warning">
+              <FormattedMessage {...messages.optionalCompletionAncestorTip} />
+            </p>
+          )}
+          <p className="x-small font-weight-bold">
+            <FormattedMessage {...messages.optionalCompletionDescription} />
+          </p>
+        </div>
+      )}
     </>
   );
 };
@@ -162,6 +193,8 @@ const UnitTab = ({
 UnitTab.defaultProps = {
   isXBlockComponent: false,
   category: undefined,
+  enableCompletionTracking: false,
+  ancestorHasOptionalCompletion: false,
 };
 
 UnitTab.propTypes = {
@@ -170,6 +203,7 @@ UnitTab.propTypes = {
   values: PropTypes.shape({
     isVisibleToStaffOnly: PropTypes.bool.isRequired,
     discussionEnabled: PropTypes.bool,
+    optionalCompletion: PropTypes.bool,
     selectedPartitionIndex: PropTypes.oneOfType([
       PropTypes.string,
       PropTypes.number,
@@ -181,6 +215,8 @@ UnitTab.propTypes = {
   }).isRequired,
   setFieldValue: PropTypes.func.isRequired,
   showWarning: PropTypes.bool.isRequired,
+  enableCompletionTracking: PropTypes.bool,
+  ancestorHasOptionalCompletion: PropTypes.bool,
   userPartitionInfo: PropTypes.shape({
     selectablePartitions: PropTypes.arrayOf(PropTypes.shape({
       groups: PropTypes.arrayOf(PropTypes.shape({

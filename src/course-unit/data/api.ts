@@ -87,6 +87,7 @@ export async function handleCourseUnitVisibilityAndData(
   isVisible: boolean, // The visibility status for students.
   groupAccess: boolean,
   isDiscussionEnabled: boolean,
+  isOptionalCompletion: boolean = false,
 ): Promise<object> {
   const body = {
     publish: groupAccess ? null : type,
@@ -95,6 +96,8 @@ export async function handleCourseUnitVisibilityAndData(
         visible_to_staff_only: isVisible ? true : null,
         group_access: groupAccess || null,
         discussion_enabled: isDiscussionEnabled,
+        // Relies on the inheritance mechanism, so we unset instead of explicitly setting `false`.
+        optional_completion: isOptionalCompletion ? true : null,
       },
     } : {}),
   };

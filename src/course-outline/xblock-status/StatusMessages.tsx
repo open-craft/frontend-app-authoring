@@ -4,6 +4,7 @@ import { Icon } from '@openedx/paragon';
 import {
   Lock as LockIcon,
   Groups as GroupsIcon,
+  Lightbulb as LightbulbIcon,
 } from '@openedx/paragon/icons';
 
 import { UserPartitionInfoTypes, XBlockPrereqs } from '@src/data/types';
@@ -16,6 +17,8 @@ interface StatusMessagesProps {
   prereqs?: XBlockPrereqs[],
   userPartitionInfo?: UserPartitionInfoTypes,
   hasPartitionGroupComponents?: boolean,
+  optionalCompletion?: boolean,
+  ancestorHasOptionalCompletion?: boolean,
 }
 
 interface StatusMessagesText {
@@ -30,6 +33,8 @@ const StatusMessages = ({
   prereqs,
   userPartitionInfo,
   hasPartitionGroupComponents,
+  optionalCompletion,
+  ancestorHasOptionalCompletion,
 }: StatusMessagesProps) => {
   const intl = useIntl();
   const statusMessages: StatusMessagesText[] = [];
@@ -44,6 +49,13 @@ const StatusMessages = ({
     statusMessages.push({
       icon: LockIcon,
       text: intl.formatMessage(messages.prerequisiteLabel, { prereqDisplayName }),
+    });
+  }
+
+  if (optionalCompletion && !ancestorHasOptionalCompletion) {
+    statusMessages.push({
+      icon: LightbulbIcon,
+      text: intl.formatMessage(messages.optionalCompletionLabel),
     });
   }
 

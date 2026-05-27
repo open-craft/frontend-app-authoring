@@ -21,6 +21,8 @@ export const formatAccessManagedXBlockData = (
   showCorrectness: 'always',
   blockType: xblock.blockType,
   id: usageId,
+  optionalCompletion: xblock.optionalCompletion,
+  ancestorHasOptionalCompletion: xblock.ancestorHasOptionalCompletion,
 });
 
 /**

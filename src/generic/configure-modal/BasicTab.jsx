@@ -11,6 +11,8 @@ const BasicTab = ({
   courseGraders,
   isSubsection,
   isSelfPaced,
+  enableCompletionTracking,
+  ancestorHasOptionalCompletion,
 }) => {
   const intl = useIntl();
 
@@ -18,7 +20,10 @@ const BasicTab = ({
     releaseDate,
     graderType,
     dueDate,
+    optionalCompletion,
   } = values;
+
+  const onOptionalCompletionChange = (e) => setFieldValue('optionalCompletion', e.target.checked);
 
   const onChangeGraderType = (e) => setFieldValue('graderType', e.target.value);
 
@@ -51,6 +56,30 @@ const BasicTab = ({
             </Stack>
           </div>
         </>
+      )}
+      {enableCompletionTracking && (
+        <div className="edit-optional-completion">
+          <h5 className="mt-4 text-gray-700">
+            <FormattedMessage {...messages.optionalCompletionTitle} />
+          </h5>
+          <hr />
+          <Form.Checkbox
+            checked={!!optionalCompletion}
+            onChange={onOptionalCompletionChange}
+            disabled={!!ancestorHasOptionalCompletion}
+            data-testid="optional-completion-checkbox"
+          >
+            <FormattedMessage {...messages.optionalCompletionLabel} />
+          </Form.Checkbox>
+          {ancestorHasOptionalCompletion && (
+            <Form.Text className="text-warning">
+              <FormattedMessage {...messages.optionalCompletionAncestorTip} />
+            </Form.Text>
+          )}
+          <Form.Text>
+            <FormattedMessage {...messages.optionalCompletionDescription} />
+          </Form.Text>
+        </div>
       )}
       {
         isSubsection && (
@@ -99,16 +128,24 @@ const BasicTab = ({
   );
 };
 
+BasicTab.defaultProps = {
+  enableCompletionTracking: false,
+  ancestorHasOptionalCompletion: false,
+};
+
 BasicTab.propTypes = {
   isSubsection: PropTypes.bool.isRequired,
   values: PropTypes.shape({
     releaseDate: PropTypes.string.isRequired,
     graderType: PropTypes.string.isRequired,
     dueDate: PropTypes.string,
+    optionalCompletion: PropTypes.bool,
   }).isRequired,
   courseGraders: PropTypes.arrayOf(PropTypes.string).isRequired,
   setFieldValue: PropTypes.func.isRequired,
   isSelfPaced: PropTypes.bool.isRequired,
+  enableCompletionTracking: PropTypes.bool,
+  ancestorHasOptionalCompletion: PropTypes.bool,
 };
 
 export default BasicTab;

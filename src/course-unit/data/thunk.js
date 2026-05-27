@@ -105,6 +105,7 @@ export function editCourseUnitVisibilityAndData(
   isDiscussionEnabled,
   callback,
   blockId = itemId,
+  isOptionalCompletion = false,
 ) {
   return async (dispatch) => {
     dispatch(updateSavingStatus({ status: RequestStatus.PENDING }));
@@ -119,6 +120,7 @@ export function editCourseUnitVisibilityAndData(
         isVisible,
         groupAccess,
         isDiscussionEnabled,
+        isOptionalCompletion,
       ).then(async (result) => {
         if (result) {
           if (callback) {

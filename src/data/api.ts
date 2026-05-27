@@ -31,6 +31,7 @@ export async function getCourseDetail(courseId: string, username: string) {
  * TODO: clarify our strategy here: https://github.com/openedx/frontend-app-authoring/issues/2094
  */
 export const waffleFlagDefaults = {
+  enableCompletionTracking: false,
   enableCourseOptimizer: false,
   enableCourseOptimizerCheckPrevRunLinks: false,
   useNewHomePage: true,

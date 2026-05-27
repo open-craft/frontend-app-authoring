@@ -4,6 +4,8 @@ export const currentSectionMock = {
   start: '2025-08-10T10:00:00Z',
   visibilityState: true,
   format: 'Not Graded',
+  optionalCompletion: false,
+  ancestorHasOptionalCompletion: false,
   childInfo: {
     displayName: 'Subsection',
     children: [
@@ -83,6 +85,8 @@ export const currentSubsectionMock = {
   showCorrectness: false,
   format: 'Homework',
   courseGraders: ['Homework', 'Exam'],
+  optionalCompletion: false,
+  ancestorHasOptionalCompletion: false,
   childInfo: {
     displayName: 'Unit',
     children: [
@@ -108,6 +112,8 @@ export const currentUnitMock = {
   defaultTimeLimitMinutes: null,
   hideAfterDue: false,
   showCorrectness: false,
+  optionalCompletion: false,
+  ancestorHasOptionalCompletion: false,
   userPartitionInfo: {
     selectablePartitions: [
       {
@@ -158,6 +164,8 @@ export const currentXBlockMock = {
   defaultTimeLimitMinutes: null,
   hideAfterDue: false,
   showCorrectness: false,
+  optionalCompletion: false,
+  ancestorHasOptionalCompletion: false,
   userPartitionInfo: {
     selectablePartitions: [
       {

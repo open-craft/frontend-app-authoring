@@ -40,6 +40,8 @@ const XBlockStatus = ({
     courseGraders,
     hideAfterDue,
     showCorrectness,
+    optionalCompletion,
+    ancestorHasOptionalCompletion,
   } = blockData;
 
   const isInstructorPaced = !isSelfPaced;
@@ -83,6 +85,8 @@ const XBlockStatus = ({
         prereqs={prereqs}
         userPartitionInfo={userPartitionInfo}
         hasPartitionGroupComponents={hasPartitionGroupComponents}
+        optionalCompletion={optionalCompletion}
+        ancestorHasOptionalCompletion={ancestorHasOptionalCompletion}
       />
       <GradingPolicyAlert
         graded={graded}

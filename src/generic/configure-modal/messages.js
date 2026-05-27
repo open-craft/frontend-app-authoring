@@ -332,6 +332,22 @@ const messages = defineMessages({
     id: 'course-authoring.course-outline.configure-modal.advanced-tab.reviewRulesDescriptionLinkText',
     defaultMessage: 'general proctored exam rules',
   },
+  optionalCompletionTitle: {
+    id: 'course-authoring.course-outline.configure-modal.optional-completion.title',
+    defaultMessage: 'Completion',
+  },
+  optionalCompletionLabel: {
+    id: 'course-authoring.course-outline.configure-modal.optional-completion.label',
+    defaultMessage: 'Optional',
+  },
+  optionalCompletionDescription: {
+    id: 'course-authoring.course-outline.configure-modal.optional-completion.description',
+    defaultMessage: "Optional components won't count towards course or parent completion.",
+  },
+  optionalCompletionAncestorTip: {
+    id: 'course-authoring.course-outline.configure-modal.optional-completion.ancestor-tip',
+    defaultMessage: 'This component already has an optional parent.',
+  },
 });
 
 export default messages;
