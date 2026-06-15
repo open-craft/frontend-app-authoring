@@ -155,6 +155,24 @@ describe('<SectionCard />', () => {
     expect(onEditSectionSubmit).toHaveBeenCalled();
   });
 
+  it('shows the "Staff only" badge when the section is staff only', () => {
+    renderComponent({
+      section: {
+        ...section,
+        visibilityState: 'staff_only',
+      },
+    });
+
+    expect(screen.getByText('Staff only')).toBeInTheDocument();
+  });
+
+  it('shows the status badge for non staff only sections', () => {
+    renderComponent();
+
+    expect(screen.getByText('Live')).toBeInTheDocument();
+    expect(screen.queryByText('Staff only')).not.toBeInTheDocument();
+  });
+
   it('hides header based on isHeaderVisible flag', async () => {
     const { queryByTestId } = renderComponent({
       section: {

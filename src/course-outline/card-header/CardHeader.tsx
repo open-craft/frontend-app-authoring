@@ -193,9 +193,7 @@ const CardHeader = ({
           </>
         )}
         <div className="ml-auto d-flex">
-          {(isVertical || isSequential) && (
-            <CardStatus status={status} showDiscussionsEnabledBadge={showDiscussionsEnabledBadge || false} />
-          )}
+          <CardStatus status={status} showDiscussionsEnabledBadge={showDiscussionsEnabledBadge || false} />
           { getConfig().ENABLE_TAGGING_TAXONOMY_PAGES === 'true' && !!contentTagCount && (
             <TagCount count={contentTagCount} onClick={openManageTagsDrawer} />
           )}
