@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { useSelector } from 'react-redux';
 import TinyMceWidget, { prepareEditorRef } from '../editors/sharedComponents/TinyMceWidget';
+import { replaceStaticWithAsset } from '../editors/sharedComponents/TinyMceWidget/hooks';
 
 import { DEFAULT_EMPTY_WYSIWYG_VALUE } from '../constants';
 
@@ -15,21 +16,35 @@ export const WysiwygEditor = ({
 }) => {
   const { editorRef, refReady, setEditorRef } = prepareEditorRef();
   const { courseId } = useSelector((state) => state.courseDetail);
-  const isEquivalentCodeExtraSpaces = (first, second) => {
-    // Utils allows to compare code extra spaces
-    const removeWhitespace = (str) => str.replace(/\s/g, '');
-    return removeWhitespace(first) === removeWhitespace(second);
-  };
 
-  const isEquivalentCodeQuotes = (first, second) => {
-    // Utils allows to compare code with single quotes and double quotes
-    const normalizeQuotes = (section) => section.replace(/'/g, '"');
-    return normalizeQuotes(first) === normalizeQuotes(second);
+  // The content that comes back from the editor is never the string we handed it. Two
+  // rewrites happen before anyone has typed a character, and both used to be reported as
+  // edits, leaving the page permanently "modified" on load:
+  //  - TinyMCE reformats the markup as it loads (self-closing void elements, `style`
+  //    attributes terminated with a semicolon, collapsed whitespace);
+  //  - setupCustomBehavior rewrites `/static/...` asset paths to `/asset-v1:...` on the
+  //    `mceFocus` command, which TinyMCE issues while initialising.
+  // Putting both sides through the same two rewrites (and ignoring whitespace and quote
+  // style, as before) leaves only genuine edits. replaceStaticWithAsset is idempotent for
+  // already-rewritten URLs and returns false when it changes nothing.
+  const canonical = (value, editor) => {
+    const html = value || '';
+    const withAssets = replaceStaticWithAsset({
+      initialContent: html,
+      learningContextId: courseId,
+    }) || html;
+    // Falls back to the raw string when the serializer is unavailable, so an edit is never silently dropped.
+    const serialized = editor?.serializer && editor?.dom
+      ? editor.serializer.serialize(
+        editor.dom.create('div', {}, withAssets),
+        { getInner: true, no_events: true },
+      )
+      : withAssets;
+    return serialized.replace(/\s/g, '').replace(/'/g, '"');
   };
 
   // default initial string returned onEditorChange if empty input
-  const needToChange = (value) => !isEquivalentCodeQuotes(initialValue, value)
-    && !isEquivalentCodeExtraSpaces(initialValue, value)
+  const needToChange = (value, editor) => canonical(initialValue, editor) !== canonical(value, editor)
     && (initialValue !== DEFAULT_EMPTY_WYSIWYG_VALUE || value !== '');
 
   const handleUpdate = (value, editor) => {
@@ -37,7 +52,7 @@ export const WysiwygEditor = ({
     // and it inserts new content only at the end of the line.
     const bm = editor.selection.getBookmark();
     const existingContent = editor.getContent({ format: 'raw' });
-    if (needToChange(value)) { onChange(value); }
+    if (needToChange(value, editor)) { onChange(value); }
     editor.setContent(existingContent);
     editor.selection.moveToBookmark(bm);
   };
