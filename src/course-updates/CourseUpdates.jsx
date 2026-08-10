@@ -30,7 +30,7 @@ import {
   getLoadingStatuses,
   getSavingStatuses,
 } from './data/selectors';
-import { matchesAnyStatus } from './utils';
+import { matchesAnyStatus, withStudioAssetUrls } from './utils';
 import getPageHeadTitle from '../generic/utils';
 import AlertMessage from '../generic/alert-message';
 
@@ -187,7 +187,7 @@ const CourseUpdates = ({ courseId }) => {
                             ) : (
                               <CourseUpdate
                                 dateForUpdate={courseUpdate.date}
-                                contentForUpdate={courseUpdate.content}
+                                contentForUpdate={withStudioAssetUrls({ content: courseUpdate.content, courseId })}
                                 onEdit={() => handleOpenUpdateForm(REQUEST_TYPES.edit_update, courseUpdate)}
                                 onDelete={() => handleOpenDeleteForm(courseUpdate)}
                                 isDisabledButtons={isUpdateFormOpen}
@@ -216,7 +216,7 @@ const CourseUpdates = ({ courseId }) => {
                       )}
                       <div className="updates-handouts-container">
                         <CourseHandouts
-                          contentForHandouts={courseHandouts?.data || ''}
+                          contentForHandouts={withStudioAssetUrls({ content: courseHandouts?.data, courseId })}
                           onEdit={() => handleOpenUpdateForm(REQUEST_TYPES.edit_handouts)}
                           isDisabledButtons={isUpdateFormOpen || errors.loadingHandouts}
                         />

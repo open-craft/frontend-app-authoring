@@ -3,7 +3,7 @@ import {
 } from '@testing-library/react';
 import { IntlProvider } from '@edx/frontend-platform/i18n';
 import { AppProvider } from '@edx/frontend-platform/react';
-import { initializeMockApp } from '@edx/frontend-platform';
+import { getConfig, initializeMockApp } from '@edx/frontend-platform';
 import MockAdapter from 'axios-mock-adapter';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 
@@ -48,7 +48,7 @@ jest.mock('@tinymce/tinymce-react', () => {
 
 jest.mock('../editors/sharedComponents/TinyMceWidget', () => ({
   __esModule: true, // Required to mock a default export
-  default: () => <div>Widget</div>,
+  default: ({ editorContentHtml }) => <div data-testid="tinymce-widget" data-content={editorContentHtml}>Widget</div>,
   prepareEditorRef: jest.fn(() => ({
     refReady: true,
     setEditorRef: jest.fn().mockName('prepareEditorRef.setEditorRef'),
@@ -203,6 +203,46 @@ describe('<CourseUpdates />', () => {
         deleteButtons.forEach((button) => expect(button).toBeDisabled());
         expect(getByText('Edit handouts')).toBeInTheDocument();
       });
+    });
+
+    it('opens handouts in the editor without the urls Studio rewrote on read', async () => {
+      // Studio rewrites stored `/static/` urls when returning handouts.
+      axiosMock
+        .onGet(getCourseHandoutApiUrl(courseId))
+        .reply(200, {
+          ...courseHandoutsMock,
+          data: '<a href="/assets/courseware/v1/55f924af410dd775524d069ffe80dbdc/asset-v1:edX+E+2024+type@asset+block/sample.pdf">Test file</a>',
+        });
+      const { getByTestId, findAllByTestId } = render(<RootWrapper />);
+
+      const [editHandoutsButton] = await findAllByTestId('course-handouts-edit-button');
+      await waitFor(() => expect(editHandoutsButton).not.toBeDisabled());
+      fireEvent.click(editHandoutsButton);
+
+      // No course is loaded in this store, so the editor is not handed the expanded
+      // `/asset-v1:` urls; what matters is that the digested url never reaches it.
+      await waitFor(() => {
+        expect(getByTestId('tinymce-widget'))
+          .toHaveAttribute('data-content', '<a href="/static/sample.pdf">Test file</a>');
+      });
+    });
+
+    it('renders asset links in updates and handouts against Studio', async () => {
+      const handoutsUrl = '/assets/courseware/v1/55f924af410dd775524d069ffe80dbdc/asset-v1:edX+E+2024+type@asset+block/handout.pdf';
+      axiosMock.reset();
+      axiosMock
+        .onGet(getCourseUpdatesApiUrl(courseId))
+        .reply(200, [{ id: 1, date: 'July 11, 2023', content: '<a href="/static/update.pdf">Update file</a>' }]);
+      axiosMock
+        .onGet(getCourseHandoutApiUrl(courseId))
+        .reply(200, { ...courseHandoutsMock, data: `<a href="${handoutsUrl}">Handout file</a>` });
+      const { findByText } = render(<RootWrapper />);
+
+      // The asset key for `/static/` paths is built from this suite's courseId, "123".
+      expect(await findByText('Update file'))
+        .toHaveAttribute('href', `${getConfig().STUDIO_BASE_URL}/123+type@asset+block/update.pdf`);
+      expect(await findByText('Handout file'))
+        .toHaveAttribute('href', `${getConfig().STUDIO_BASE_URL}/asset-v1:edX+E+2024+type@asset+block/handout.pdf`);
     });
 
     it('Edit update form is visible after clicking "Edit" button', async () => {
