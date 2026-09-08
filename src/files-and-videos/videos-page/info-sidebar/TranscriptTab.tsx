@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import PropTypes from 'prop-types';
+import type { VideosState } from '../data/slice';
 import { useDispatch, useSelector } from 'react-redux';
 import { isEmpty } from 'lodash';
 import { Button, Stack } from '@openedx/paragon';
@@ -18,17 +18,30 @@ import {
 import { RequestStatus } from '../../../data/constants';
 import messages from './messages';
 
-const TranscriptTab = ({
-  video,
-}) => {
+type TranscriptVideo = { transcripts: string[]; id: string; displayName: string; };
+type TranscriptData = { language: string; newLanguage?: string; file?: File; };
+type TranscriptPageSettings = {
+  transcriptAvailableLanguages: Array<{ languageCode: string; languageText: string; }>;
+  videoTranscriptSettings: {
+    transcriptDeleteHandlerUrl: string;
+    transcriptUploadHandlerUrl: string;
+    transcriptDownloadHandlerUrl: string;
+  };
+};
+type TranscriptState = Omit<VideosState, 'pageSettings'> & { pageSettings: TranscriptPageSettings; };
+type TranscriptTabProps = { video: TranscriptVideo; };
+
+const TranscriptTab = ({ video }: TranscriptTabProps) => {
   const intl = useIntl();
   const dispatch = useDispatch();
-  const divRef = useRef(null);
-  const { transcriptStatus, errors } = useSelector(state => state.videos);
+  const divRef = useRef<HTMLDivElement>(null);
+  const { transcriptStatus, errors, pageSettings } = useSelector(
+    (state: { videos: TranscriptState; }) => state.videos,
+  );
   const {
     transcriptAvailableLanguages,
     videoTranscriptSettings,
-  } = useSelector(state => state.videos.pageSettings);
+  } = pageSettings;
   const {
     transcriptDeleteHandlerUrl,
     transcriptUploadHandlerUrl,
@@ -36,13 +49,12 @@ const TranscriptTab = ({
   } = videoTranscriptSettings;
   const { transcripts, id, displayName } = video;
   const languages = getLanguages(transcriptAvailableLanguages);
-  let sortedTranscripts = getSortedTranscripts(languages, transcripts);
-  const [previousSelection, setPreviousSelection] = useState(sortedTranscripts);
+  const sortedTranscripts = getSortedTranscripts(languages, transcripts);
+  const [previousSelection, setPreviousSelection] = useState<string[]>(sortedTranscripts);
 
   useEffect(() => {
     dispatch(resetErrors({ errorType: 'transcript' }));
-    sortedTranscripts = getSortedTranscripts(languages, transcripts);
-    setPreviousSelection(sortedTranscripts);
+    setPreviousSelection(getSortedTranscripts(languages, transcripts));
   }, [transcripts]);
 
   const handleAddEmptyTranscript = () => {
@@ -52,7 +64,7 @@ const TranscriptTab = ({
     }
   };
 
-  const handleTranscript = (data, actionType) => {
+  const handleTranscript = (data: TranscriptData, actionType: 'delete' | 'download' | 'upload') => {
     const {
       language,
       newLanguage,
@@ -138,14 +150,6 @@ const TranscriptTab = ({
       </div>
     </Stack>
   );
-};
-
-TranscriptTab.propTypes = {
-  video: PropTypes.shape({
-    transcripts: PropTypes.arrayOf(PropTypes.string).isRequired,
-    id: PropTypes.string.isRequired,
-    displayName: PropTypes.string.isRequired,
-  }).isRequired,
 };
 
 export default TranscriptTab;

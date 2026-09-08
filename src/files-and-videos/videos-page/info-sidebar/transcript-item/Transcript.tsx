@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
 import {
   Card,
   Button,
@@ -15,12 +14,20 @@ import TranscriptMenu from './TranscriptMenu';
 import messages from './messages';
 import { FileInput, useFileInput } from '../../../generic';
 
+type TranscriptData = { language: string; newLanguage?: string; file?: File; };
+type TranscriptProps = {
+  languages: Record<string, string>;
+  transcript: string;
+  previousSelection: string[];
+  handleTranscript: (data: TranscriptData, action: 'delete' | 'download' | 'upload') => void;
+};
+
 const Transcript = ({
   languages,
   transcript,
   previousSelection,
   handleTranscript,
-}) => {
+}: TranscriptProps) => {
   const intl = useIntl();
   const [isConfirmationOpen, openConfirmation, closeConfirmation] = useToggle();
   const [newLanguage, setNewLanguage] = useState(transcript);
@@ -43,7 +50,7 @@ const Transcript = ({
     setAddOpen: () => {},
   });
 
-  const updateLangauge = (selected) => {
+  const updateLangauge = (selected: string) => {
     setNewLanguage(selected);
     if (isEmpty(language)) {
       input.click();
@@ -118,13 +125,6 @@ const Transcript = ({
       <FileInput key="transcript-input" fileInput={input} supportedFileFormats={['.srt']} />
     </>
   );
-};
-
-Transcript.propTypes = {
-  languages: PropTypes.shape({}).isRequired,
-  transcript: PropTypes.string.isRequired,
-  previousSelection: PropTypes.arrayOf(PropTypes.string).isRequired,
-  handleTranscript: PropTypes.func.isRequired,
 };
 
 export default Transcript;

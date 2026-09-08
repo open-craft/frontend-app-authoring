@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import PropTypes from 'prop-types';
 
 import {
   Button,
@@ -12,17 +11,25 @@ import {
 import { Check, ExpandMore, ExpandLess } from '@openedx/paragon/icons';
 import { isEmpty } from 'lodash';
 
+type LanguageSelectProps = {
+  value: string;
+  options: Record<string, string>;
+  handleSelect: (value: string) => void;
+  placeholderText: string;
+  previousSelection: string[];
+};
+
 const LanguageSelect = ({
   value,
   previousSelection,
   options,
   handleSelect,
   placeholderText,
-}) => {
+}: LanguageSelectProps) => {
   const currentSelection = isEmpty(value) ? placeholderText : options[value];
 
   const [isOpen, , close, toggle] = useToggle();
-  const [target, setTarget] = useState(null);
+  const [target, setTarget] = useState<HTMLButtonElement | null>(null);
 
   return (
     <>
@@ -100,14 +107,6 @@ const LanguageSelect = ({
       </ModalPopup>
     </>
   );
-};
-
-LanguageSelect.propTypes = {
-  value: PropTypes.string.isRequired,
-  options: PropTypes.shape({}).isRequired,
-  handleSelect: PropTypes.func.isRequired,
-  placeholderText: PropTypes.string.isRequired,
-  previousSelection: PropTypes.arrayOf(PropTypes.string).isRequired,
 };
 
 export default LanguageSelect;

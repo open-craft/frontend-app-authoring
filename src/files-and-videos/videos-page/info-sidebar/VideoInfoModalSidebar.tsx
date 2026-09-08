@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
   Tabs,
@@ -10,11 +9,23 @@ import TranscriptTab from './TranscriptTab';
 import messages from './messages';
 import { TRANSCRIPT_FAILURE_STATUSES } from '../data/constants';
 
-const VideoInfoModalSidebar = ({
-  video,
-  activeTab,
-  setActiveTab,
-}) => {
+type Video = {
+  displayName: string;
+  wrapperType: string;
+  id: string;
+  dateAdded: string;
+  fileSize: number;
+  transcripts: string[];
+  transcriptionStatus: string;
+};
+
+type VideoInfoModalSidebarProps = {
+  video: Video;
+  activeTab: string;
+  setActiveTab: (tab: string | null) => void;
+};
+
+const VideoInfoModalSidebar = ({ video, activeTab, setActiveTab }: VideoInfoModalSidebarProps) => {
   const intl = useIntl();
 
   return (
@@ -42,24 +53,6 @@ const VideoInfoModalSidebar = ({
       </Tab>
     </Tabs>
   );
-};
-
-VideoInfoModalSidebar.propTypes = {
-  video: PropTypes.shape({
-    displayName: PropTypes.string.isRequired,
-    wrapperType: PropTypes.string.isRequired,
-    id: PropTypes.string.isRequired,
-    dateAdded: PropTypes.string.isRequired,
-    fileSize: PropTypes.number.isRequired,
-    transcripts: PropTypes.arrayOf(PropTypes.string),
-    transcriptionStatus: PropTypes.string.isRequired,
-  }),
-  activeTab: PropTypes.string.isRequired,
-  setActiveTab: PropTypes.func.isRequired,
-};
-
-VideoInfoModalSidebar.defaultProps = {
-  video: null,
 };
 
 export default VideoInfoModalSidebar;

@@ -32,7 +32,7 @@ import transcriptRowMessages from './transcript-item/messages';
 import VideosPageProvider from '../VideosPageProvider';
 import { deleteVideoTranscript } from '../data/thunks';
 
-ReactDOM.createPortal = jest.fn(node => node);
+ReactDOM.createPortal = jest.fn((node) => node as React.ReactPortal);
 
 const defaultProps = {
   id: 'mOckID0',
@@ -187,7 +187,7 @@ describe('TranscriptTab', () => {
         });
 
         const deleteButton = screen.getByText(transcriptRowMessages.deleteTranscript.defaultMessage).closest('button');
-        fireEvent.click(deleteButton);
+        fireEvent.click(deleteButton!);
       });
 
       it('should open delete confirmation modal and cancel delete', async () => {
@@ -310,7 +310,7 @@ describe('TranscriptTab', () => {
         const replaceButton = screen.getByText(
           transcriptRowMessages.replaceTranscript.defaultMessage,
         ).closest('button');
-        fireEvent.click(replaceButton);
+        fireEvent.click(replaceButton!);
       });
 
       it('should replace transcript', async () => {

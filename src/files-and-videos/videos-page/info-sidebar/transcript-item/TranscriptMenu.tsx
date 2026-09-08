@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import PropTypes from 'prop-types';
 import { FormattedMessage } from '@edx/frontend-platform/i18n';
 import {
   Button,
@@ -14,14 +13,23 @@ import { MoreHoriz } from '@openedx/paragon/icons';
 
 import messages from './messages';
 
+type TranscriptData = { language: string; };
+type TranscriptInput = { click: () => void; };
+type TranscriptActionMenuProps = {
+  language: string;
+  handleTranscript: (data: TranscriptData, action: 'download') => void;
+  launchDeleteConfirmation: () => void;
+  input: TranscriptInput;
+};
+
 export const TranscriptActionMenu = ({
   language,
   launchDeleteConfirmation,
   handleTranscript,
   input,
-}) => {
+}: TranscriptActionMenuProps) => {
   const [isOpen, , close, toggle] = useToggle();
-  const [target, setTarget] = useState(null);
+  const [target, setTarget] = useState<HTMLButtonElement | null>(null);
   return (
     <>
       <IconButton
@@ -69,15 +77,6 @@ export const TranscriptActionMenu = ({
       </ModalPopup>
     </>
   );
-};
-
-TranscriptActionMenu.propTypes = {
-  language: PropTypes.string.isRequired,
-  handleTranscript: PropTypes.func.isRequired,
-  launchDeleteConfirmation: PropTypes.func.isRequired,
-  input: PropTypes.shape({
-    click: PropTypes.func.isRequired,
-  }).isRequired,
 };
 
 export default TranscriptActionMenu;
