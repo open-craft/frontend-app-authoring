@@ -4,35 +4,159 @@ import { camelCaseObject, ensureConfig, getConfig } from '@edx/frontend-platform
 import { getAuthenticatedHttpClient, getHttpClient } from '@edx/frontend-platform/auth';
 import { isEmpty } from 'lodash';
 import type { AxiosProgressEvent, AxiosResponse } from 'axios';
+import type { RequestStatusType } from '../../../data/constants';
 
+export type VideoStatus =
+  | 'Uploading'
+  | 'In Progress'
+  | 'Ready'
+  | 'Uploaded'
+  | 'Failed'
+  | 'Cancelled'
+  | 'Failed Duplicate'
+  | 'YouTube Duplicate'
+  | 'Invalid Token'
+  | 'Imported'
+  | 'Unknown'
+  | 'Transcription in Progress'
+  | 'Transcript Ready'
+  | 'Partial Failure'
+  | 'Transcript Failed';
+export type VideoWrapperType = 'MOV' | 'MP4' | 'Unknown';
+export type VideoTranscriptStatus = 'transcribed' | 'notTranscribed';
+export type VideoActiveStatus = 'active' | 'inactive';
+
+/** The camel-cased video fields returned by the videos page APIs. */
 export interface RawVideo {
   edxVideoId: string;
   clientVideoId: string;
-  created: string | number | Date;
-  courseVideoImageUrl?: string | null;
-  transcripts?: string[];
-  [key: string]: unknown;
+  created: string;
+  courseVideoImageUrl: string | null;
+  transcripts: string[];
+  status: string;
+  duration: number | null;
+  downloadLink: string;
+  fileSize: number;
+  transcriptUrls: Record<string, string>;
+  transcriptionStatus: string;
+  errorDescription: string;
+  /** Only emitted by the legacy video-list endpoint. */
+  statusNontranslated?: VideoStatus;
+}
+
+interface RawVideoResponse {
+  edx_video_id: string;
+  client_video_id: string;
+  created: string;
+  course_video_image_url: string | null;
+  transcripts: string[];
+  status: string;
+  duration: number | null;
+  download_link: string;
+  file_size: number;
+  transcript_urls: Record<string, string>;
+  transcription_status: string;
+  error_description: string;
+  status_nontranslated?: VideoStatus;
+}
+
+export interface UsageLocation {
+  displayLocation: string;
+  url: string;
 }
 
 export interface Video extends Partial<RawVideo> {
   id: string;
   displayName: string;
-  wrapperType?: string;
+  wrapperType?: VideoWrapperType;
   dateAdded?: string;
-  usageLocations?: unknown[] | null;
+  usageLocations?: UsageLocation[] | null;
   thumbnail?: string | null;
-  transcriptStatus?: string;
-  activeStatus?: string;
+  transcriptStatus?: VideoTranscriptStatus;
+  activeStatus?: VideoActiveStatus;
+}
+
+export interface VideoImageSettings {
+  videoImageUploadEnabled: boolean;
+  maxSize: number;
+  minSize: number;
+  maxWidth: number;
+  maxHeight: number;
+  supportedFileFormats: Record<string, string>;
+}
+
+export interface VideoTranscriptSettings {
+  transcriptDownloadHandlerUrl: string;
+  transcriptUploadHandlerUrl: string;
+  transcriptDeleteHandlerUrl: string;
+  trancriptDownloadFileFormat: string;
+  transcriptPreferencesHandlerUrl?: string | null;
+  transcriptCredentialsHandlerUrl?: string | null;
+  transcriptionPlans?: TranscriptionPlans | null;
+}
+
+export interface TranscriptAvailableLanguage {
+  languageCode: string;
+  languageText: string;
 }
 
 export interface VideoPageSettings {
+  imageUploadUrl?: string;
+  videoHandlerUrl?: string;
+  encodingsDownloadUrl?: string;
+  defaultVideoImageUrl?: string;
   previousUploads?: RawVideo[];
-  transcriptCredentials?: Record<string, boolean>;
-  activeTranscriptPreferences?: TranscriptPreferences | null;
-  [key: string]: unknown;
+  concurrentUploadLimit?: number;
+  videoSupportedFileFormats?: string[];
+  videoUploadMaxFileSize?: string;
+  videoImageSettings?: VideoImageSettings;
+  isVideoTranscriptEnabled?: boolean;
+  isAiTranslationsEnabled?: boolean;
+  activeTranscriptPreferences?: TranscriptPreferencesState | null;
+  transcriptCredentials?: Record<string, boolean> | null;
+  transcriptAvailableLanguages?: TranscriptAvailableLanguage[];
+  videoTranscriptSettings?: VideoTranscriptSettings;
+  paginationContext?: Record<string, unknown> | null;
+}
+
+interface VideoPageResponse {
+  image_upload_url: string;
+  video_handler_url: string;
+  encodings_download_url: string;
+  default_video_image_url: string;
+  previous_uploads?: RawVideoResponse[];
+  concurrent_upload_limit: number;
+  video_supported_file_formats: string[];
+  video_upload_max_file_size: string;
+  video_image_settings: {
+    video_image_upload_enabled: boolean;
+    max_size: number;
+    min_size: number;
+    max_width: number;
+    max_height: number;
+    supported_file_formats: Record<string, string>;
+  };
+  is_video_transcript_enabled: boolean;
+  is_ai_translations_enabled: boolean;
+  active_transcript_preferences?: TranscriptPreferencesResponse | null;
+  transcript_credentials: Record<string, boolean> | null;
+  transcript_available_languages: Array<{ language_code: string; language_text: string; }>;
+  video_transcript_settings: VideoTranscriptSettingsResponse;
+  pagination_context?: Record<string, unknown> | null;
+}
+
+interface VideoTranscriptSettingsResponse {
+  transcript_download_handler_url: string;
+  transcript_upload_handler_url: string;
+  transcript_delete_handler_url: string;
+  trancript_download_file_format: string;
+  transcript_preferences_handler_url?: string | null;
+  transcript_credentials_handler_url?: string | null;
+  transcription_plans?: TranscriptionPlans | null;
 }
 
 export interface TranscriptionPlan {
+  display_name?: string;
   turnaround?: Record<string, string>;
   fidelity?: Record<string, { display_name: string; languages?: Record<string, string>; }>;
   languages?: Record<string, string>;
@@ -42,6 +166,7 @@ export interface TranscriptionPlan {
 export type TranscriptionPlans = Record<string, TranscriptionPlan>;
 
 export interface TranscriptPreferences {
+  courseId?: string;
   cielo24Fidelity?: string;
   cielo24Turnaround?: string;
   global?: boolean;
@@ -49,8 +174,21 @@ export interface TranscriptPreferences {
   provider?: string;
   threePlayTurnaround?: string;
   videoSourceLanguage?: string;
-  modified?: Date;
-  [key: string]: unknown;
+  modified?: string;
+}
+
+export type TranscriptPreferencesForm = Omit<TranscriptPreferences, 'modified'> & { modified?: string | Date; };
+export type TranscriptPreferencesState = Omit<TranscriptPreferences, 'modified'> & { modified?: string | Date; };
+
+interface TranscriptPreferencesResponse {
+  course_id: string;
+  cielo24_fidelity: string;
+  cielo24_turnaround: string;
+  provider: string;
+  preferred_languages: string[];
+  three_play_turnaround: string;
+  video_source_language: string;
+  modified: string;
 }
 
 export interface TranscriptCredentials {
@@ -59,35 +197,43 @@ export interface TranscriptCredentials {
   global?: boolean;
   provider?: string;
   username?: string;
-  [key: string]: unknown;
 }
 
 export interface UploadData {
-  name?: string;
-  status?: string;
-  progress?: string | number;
+  name: string;
+  status: RequestStatusType;
+  progress: string | number;
 }
 
 export interface UploadingIdsRef {
   current: {
     uploadData: Record<string, UploadData>;
-    uploadCount?: number;
+    uploadCount: number;
   };
-}
-
-export interface ApiResponse<T = unknown> {
-  status: number;
-  data?: T;
-  [key: string]: unknown;
 }
 
 export interface DownloadRow {
   original?: {
+    id?: string;
     displayName?: string;
     downloadLink?: string;
-    [key: string]: unknown;
   };
-  [key: string]: unknown;
+}
+
+export interface VideoListResponse {
+  videos: RawVideo[];
+}
+
+interface VideoListApiResponse {
+  videos: RawVideoResponse[];
+}
+
+interface VideoUsageResponse {
+  usage_locations: Array<{ display_location: string; url: string; }>;
+}
+
+export interface VideoUploadResponse {
+  files: Array<{ file_name: string; upload_url: string; edx_video_id: string; }>;
 }
 
 ensureConfig([
@@ -103,9 +249,9 @@ export const getCourseVideosApiUrl = (courseId: string): string => `${getApiBase
  * @param {string} courseId
  * @returns {Promise<Record<string, any>>}
  */
-export async function getVideos(courseId: string): Promise<VideoPageSettings & { previousUploads: RawVideo[]; }> {
+export async function getVideos(courseId: string): Promise<VideoPageSettings> {
   const { data } = await getAuthenticatedHttpClient()
-    .get(getVideosUrl(courseId));
+    .get<VideoPageResponse>(getVideosUrl(courseId));
   const { video_transcript_settings: videoTranscriptSettings } = data;
   const { transcription_plans: transcriptionPlans } = videoTranscriptSettings;
   return {
@@ -119,18 +265,23 @@ export async function getVideos(courseId: string): Promise<VideoPageSettings & {
 
 export async function getAllUsagePaths(
   { courseId, videoIds }: { courseId: string; videoIds: string[]; },
-): Promise<Array<{ id: string; usageLocations: unknown[]; activeStatus: string; }>> {
+): Promise<Array<{ id: string; usageLocations: UsageLocation[]; activeStatus: VideoActiveStatus; }>> {
   // Hack: pass 'videoId' into the 'config' object; it will be ignored by axios
   // but allows us to read it out later to easily get the videoId per result.
   const apiPromises = videoIds.map(id =>
     getAuthenticatedHttpClient()
-      .get(`${getVideosUrl(courseId)}/${id}/usage`, { videoId: id })
+      .get<VideoUsageResponse>(`${getVideosUrl(courseId)}/${id}/usage`, { videoId: id })
   );
-  const updatedUsageLocations: Array<{ id: string; usageLocations: unknown[]; activeStatus: string; }> = [];
+  const updatedUsageLocations: Array<
+    { id: string; usageLocations: UsageLocation[]; activeStatus: VideoActiveStatus; }
+  > = [];
   const results = await Promise.allSettled(apiPromises);
 
   results.forEach(result => {
-    const value = camelCaseObject((result as PromiseFulfilledResult<AxiosResponse>).value);
+    if (result.status !== 'fulfilled') {
+      return;
+    }
+    const value = camelCaseObject(result.value);
     if (value) {
       const { usageLocations } = value.data;
       const activeStatus = usageLocations?.length > 0 ? 'active' : 'inactive';
@@ -146,9 +297,9 @@ export async function getAllUsagePaths(
  * @param {string} courseId
  * @returns {Promise<[{}]>}
  */
-export async function fetchVideoList(courseId: string): Promise<{ videos: RawVideo[]; [key: string]: unknown; }> {
+export async function fetchVideoList(courseId: string): Promise<VideoListResponse> {
   const { data } = await getAuthenticatedHttpClient()
-    .get(getCourseVideosApiUrl(courseId));
+    .get<VideoListApiResponse>(getCourseVideosApiUrl(courseId));
   return camelCaseObject(data);
 }
 
@@ -237,9 +388,9 @@ export async function getDownload(selectedRows: DownloadRow[] | null | undefined
  */
 export async function getVideoUsagePaths(
   { courseId, videoId }: { courseId: string; videoId: string; },
-): Promise<{ usageLocations: unknown[]; }> {
+): Promise<{ usageLocations: UsageLocation[]; }> {
   const { data } = await getAuthenticatedHttpClient()
-    .get(`${getVideosUrl(courseId)}/${videoId}/usage`);
+    .get<VideoUsageResponse>(`${getVideosUrl(courseId)}/${videoId}/usage`);
   return camelCaseObject(data);
 }
 
@@ -274,7 +425,7 @@ export async function addVideo(
   courseId: string,
   file: File,
   controller?: AbortController,
-): Promise<ApiResponse<{ files: Array<{ uploadUrl: string; edxVideoId: string; }>; }>> {
+): Promise<AxiosResponse<VideoUploadResponse>> {
   const postJson = {
     files: [{ file_name: file.name, content_type: file.type }],
   };
@@ -290,7 +441,7 @@ export async function sendVideoUploadStatus(
   edxVideoId: string,
   message: string,
   status: string,
-): Promise<ApiResponse> {
+): Promise<AxiosResponse<void>> {
   return getAuthenticatedHttpClient()
     .post(getCourseVideosApiUrl(courseId), [{
       edxVideoId,
@@ -305,7 +456,7 @@ export async function uploadVideo(
   uploadingIdsRef: UploadingIdsRef,
   videoId: string,
   controller?: AbortController,
-): Promise<ApiResponse> {
+): Promise<AxiosResponse<void>> {
   const currentUpload = uploadingIdsRef.current.uploadData[videoId];
   return getHttpClient().put(uploadUrl, uploadFile, {
     headers: {
@@ -315,7 +466,7 @@ export async function uploadVideo(
     multipart: false,
     signal: controller?.signal,
     onUploadProgress: ({ loaded, total }: AxiosProgressEvent) => {
-      const progress = ((loaded / (total as number)) * 100).toFixed(2);
+      const progress = ((loaded / (total ?? uploadFile.size)) * 100).toFixed(2);
       uploadingIdsRef.current.uploadData[videoId] = {
         ...currentUpload,
         progress,
@@ -330,7 +481,7 @@ export async function deleteTranscriptPreferences(courseId: string): Promise<voi
 
 export async function setTranscriptPreferences(
   courseId: string,
-  preferences: TranscriptPreferences,
+  preferences: TranscriptPreferencesForm,
 ): Promise<TranscriptPreferences> {
   const {
     cielo24Fidelity,
