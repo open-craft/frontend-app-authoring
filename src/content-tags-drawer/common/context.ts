@@ -1,15 +1,10 @@
 import React from 'react';
 
-import type {
-  DrawerTag,
-  DrawerTaxonomy,
-  OtherTaxonomy,
-  StagedTagData,
-} from '../data/types';
+import type { DrawerTaxonomy, StagedTagData, Tag } from '../data/types';
 
 export interface ContentTagsDrawerContextData {
   stagedContentTags: Record<number, StagedTagData[]>;
-  globalStagedContentTags: Record<number, DrawerTag[]>;
+  globalStagedContentTags: Record<number, Tag[]>;
   globalStagedRemovedContentTags: Record<number, string[]>;
   addStagedContentTag: (taxonomyId: number, addedTag: StagedTagData) => void;
   removeStagedContentTag: (taxonomyId: number, tagValue: string) => void;
@@ -35,7 +30,7 @@ export interface ContentTagsDrawerContextData {
   showToastAfterSave: () => void;
   closeToast: () => void;
   setCollapsibleToInitalState: () => void;
-  otherTaxonomies: OtherTaxonomy[];
+  otherTaxonomies: DrawerTaxonomy[];
 }
 
 /* istanbul ignore next */

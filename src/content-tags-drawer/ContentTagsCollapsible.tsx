@@ -66,15 +66,7 @@ declare module 'react-select/base' {
   }
 }
 
-export type TagTree = {
-  [key: string]: {
-    children: TagTree;
-    canChangeObjecttag: boolean;
-    canDeleteObjecttag: boolean;
-    explicit: boolean;
-    isCopied: boolean;
-  };
-};
+export type TagTree = Record<string, TagTreeEntry>;
 
 /**
  * Custom Menu component for our Select box

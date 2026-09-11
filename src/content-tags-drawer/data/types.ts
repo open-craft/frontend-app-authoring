@@ -61,10 +61,6 @@ export interface XBlockData {
   hasPartitionGroupComponents: boolean;
 }
 
-export interface TagsInTaxonomy extends TaxonomyData {
-  contentTags: Tag[];
-}
-
 export interface CourseData {
   courseDisplayNameWithDefault: string;
 }
@@ -82,32 +78,11 @@ export interface StagedTagData {
 }
 
 /**
- * A tag as shown in the tags drawer. Tags fetched from the server carry more fields
- * (see `Tag`), but tags the user has staged in the drawer are only known by these.
+ * A taxonomy as shown in the tags drawer, along with the tags applied to the content.
+ * This is the minimal shape the drawer UI needs; taxonomies from the taxonomy list carry
+ * the full `TaxonomyData`, while "other" taxonomies (applied to the content but not in the
+ * list the user can see) only have this much.
  */
-export interface DrawerTag {
-  value: string;
-  lineage: string[];
-  canDeleteObjecttag: boolean;
-  /** Only known for tags fetched from the server; not set on tags staged in the drawer. */
-  canChangeObjecttag?: boolean;
-  /** Only known for tags fetched from the server; not set on tags staged in the drawer. */
-  isCopied?: boolean;
-}
-
-/** A taxonomy as shown in the tags drawer, along with the tags applied to the content. */
 export interface DrawerTaxonomy extends Pick<TaxonomyData, 'id' | 'name' | 'canTagObject'> {
-  contentTags: DrawerTag[];
+  contentTags: Tag[];
 }
-
-/**
- * A taxonomy that is applied to the content but is not in the taxonomy list the user
- * can see, so it is rebuilt from the tags applied to the content.
- */
-export interface OtherTaxonomy extends
-  DrawerTaxonomy,
-  Pick<
-    TaxonomyData,
-    'exportId' | 'enabled' | 'visibleToAuthors' | 'canChangeTaxonomy' | 'canDeleteTaxonomy'
-  >
-{}
