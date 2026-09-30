@@ -7,6 +7,7 @@ import { COMMA_SEPARATED_DATE_FORMAT } from '../constants';
 import { convertToDateFromString } from '../utils';
 import { getCourseHandouts, getCourseUpdates } from './data/selectors';
 import { REQUEST_TYPES } from './constants';
+import { setAssetToStaticUrl } from '../editors/sharedComponents/TinyMceWidget/hooks';
 import {
   createCourseUpdateQuery,
   deleteCourseUpdateQuery,
@@ -28,8 +29,11 @@ const useCourseUpdates = ({ courseId }) => {
   const courseUpdates = useSelector(getCourseUpdates);
   const courseHandouts = useSelector(getCourseHandouts);
 
+  // Studio returns the handouts with their `/static/` paths rewritten to course-specific
+  // `/assets/courseware/...` urls. Convert them back before editing, or saving without
+  // changes would store those.
   const courseUpdatesInitialValues = requestType === REQUEST_TYPES.edit_handouts
-    ? courseHandouts
+    ? { ...courseHandouts, data: setAssetToStaticUrl({ editorValue: courseHandouts?.data || '' }) }
     : currentUpdate;
 
   const handleOpenUpdateForm = (type, courseUpdate) => {

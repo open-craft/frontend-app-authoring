@@ -8,16 +8,17 @@ import { WysiwygEditor } from './WysiwygEditor';
 const courseId = 'course-v1:edX+E+2024';
 
 let mockOnEditorChange;
+let mockCourseId;
 
 jest.mock('react-redux', () => ({
-  useSelector: (selector) => selector({ courseDetail: { courseId: 'course-v1:edX+E+2024' } }),
+  useSelector: (selector) => selector({ courseDetail: { courseId: mockCourseId } }),
 }));
 
 jest.mock('../editors/sharedComponents/TinyMceWidget', () => ({
   __esModule: true,
   default: (props) => {
     mockOnEditorChange = props.onChange;
-    return <div data-testid="tinymce-widget" />;
+    return <div data-testid="tinymce-widget" data-content={props.editorContentHtml} />;
   },
   prepareEditorRef: () => ({
     editorRef: { current: null },
@@ -84,6 +85,7 @@ const withAssetPaths = (html) => replaceStaticWithAsset({
 describe('WysiwygEditor', () => {
   beforeEach(() => {
     mockOnEditorChange = undefined;
+    mockCourseId = courseId;
   });
 
   it('does not report a change when TinyMCE only reformats the initial value', () => {
@@ -118,14 +120,32 @@ describe('WysiwygEditor', () => {
     expect(onChange).toHaveBeenCalledWith(edited);
   });
 
-  it('reports a genuine edit made after the asset paths were rewritten', () => {
+  it('opens the editor with the asset urls already resolved', () => {
+    const stored = '<p><a href="/static/sample.pdf">Test file</a></p>';
+    const { getByTestId } = render(<WysiwygEditor initialValue={stored} onChange={jest.fn()} />);
+
+    // Otherwise assets would only render once the editor takes focus.
+    expect(getByTestId('tinymce-widget')).toHaveAttribute('data-content', withAssetPaths(stored));
+  });
+
+  it('opens the editor with the stored value when the course is not loaded yet', () => {
+    mockCourseId = undefined;
+    const stored = '<p><a href="/static/sample.pdf">Test file</a></p>';
+    const { getByTestId } = render(<WysiwygEditor initialValue={stored} onChange={jest.fn()} />);
+
+    expect(getByTestId('tinymce-widget')).toHaveAttribute('data-content', stored);
+  });
+
+  it('reports an edit made after the asset paths were rewritten with the `/static/` paths restored', () => {
+    const stored = '<p><a href="/static/sample.pdf">Test file</a></p>';
     const onChange = jest.fn();
-    render(<WysiwygEditor initialValue={storedOverview} onChange={onChange} />);
+    render(<WysiwygEditor initialValue={stored} onChange={onChange} />);
 
-    const edited = withAssetPaths(storedOverview).replace('Staff Member #1', 'Staff Member #2');
-    mockOnEditorChange(edited, buildEditor());
+    mockOnEditorChange(withAssetPaths(stored).replace('Test file', 'Test file 2'), buildEditor());
 
-    expect(onChange).toHaveBeenCalledWith(edited);
+    // The course-specific urls are for display only; storing them would break the links on
+    // course re-run or import.
+    expect(onChange).toHaveBeenCalledWith(stored.replace('Test file', 'Test file 2'));
   });
 
   it('still ignores whitespace-only and quote-style differences', () => {

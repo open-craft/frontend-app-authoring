@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { useSelector } from 'react-redux';
 import TinyMceWidget, { prepareEditorRef } from '../editors/sharedComponents/TinyMceWidget';
-import { replaceStaticWithAsset } from '../editors/sharedComponents/TinyMceWidget/hooks';
+import { replaceStaticWithAsset, setAssetToStaticUrl } from '../editors/sharedComponents/TinyMceWidget/hooks';
 
 import { DEFAULT_EMPTY_WYSIWYG_VALUE } from '../constants';
 
@@ -17,13 +17,21 @@ export const WysiwygEditor = ({
   const { editorRef, refReady, setEditorRef } = prepareEditorRef();
   const { courseId } = useSelector((state) => state.courseDetail);
 
+  // `/static/...` paths do not resolve inside the editor, so hand it the course-specific
+  // `/asset-v1:...` urls up front, as the component editors do. Otherwise assets only show
+  // up once the editor takes focus and setupCustomBehavior rewrites them.
+  const editorContent = (courseId && replaceStaticWithAsset({
+    initialContent: initialValue || '',
+    learningContextId: courseId,
+  })) || initialValue;
+
   // The content that comes back from the editor is never the string we handed it. Two
   // rewrites happen before anyone has typed a character, and both used to be reported as
   // edits, leaving the page permanently "modified" on load:
   //  - TinyMCE reformats the markup as it loads (self-closing void elements, `style`
   //    attributes terminated with a semicolon, collapsed whitespace);
-  //  - setupCustomBehavior rewrites `/static/...` asset paths to `/asset-v1:...` on the
-  //    `mceFocus` command, which TinyMCE issues while initialising.
+  //  - `/static/...` asset paths are rewritten to `/asset-v1:...`, above and again by
+  //    setupCustomBehavior on the `mceFocus` command.
   // Putting both sides through the same two rewrites (and ignoring whitespace and quote
   // style, as before) leaves only genuine edits. replaceStaticWithAsset is idempotent for
   // already-rewritten URLs and returns false when it changes nothing.
@@ -52,7 +60,10 @@ export const WysiwygEditor = ({
     // and it inserts new content only at the end of the line.
     const bm = editor.selection.getBookmark();
     const existingContent = editor.getContent({ format: 'raw' });
-    if (needToChange(value, editor)) { onChange(value); }
+    // The editor shows course-specific `/asset-v1:...` urls so assets resolve while editing,
+    // but those must not be stored: they break on course re-run or import. Convert them back
+    // to `/static/...`, as the component editors do on save.
+    if (needToChange(value, editor)) { onChange(setAssetToStaticUrl({ editorValue: value })); }
     editor.setContent(existingContent);
     editor.selection.moveToBookmark(bm);
   };
@@ -63,12 +74,12 @@ export const WysiwygEditor = ({
 
   return (
     <TinyMceWidget
-      textValue={initialValue}
+      textValue={editorContent}
       editorRef={editorRef}
       editorType={editorType}
-      initialValue={initialValue}
+      initialValue={editorContent}
       minHeight={minHeight}
-      editorContentHtml={initialValue}
+      editorContentHtml={editorContent}
       setEditorRef={setEditorRef}
       onChange={handleUpdate}
       initializeEditor={() => ({})}
