@@ -51,6 +51,51 @@ const messages = defineMessages({
     defaultMessage: 'Term',
     description: 'Label for term input field',
   },
+  deckCardCount: {
+    id: 'GameEditor.deckCardCount',
+    defaultMessage: '{cardCount, plural, =0 {No cards} one {1 card} other {# cards}}',
+    description: 'Number of cards in a deck, shown beside the deck name in the deck settings.',
+  },
+  deckListLabel: {
+    id: 'GameEditor.deckListLabel',
+    defaultMessage: 'Decks',
+    description: 'Accessible name for the list of decks in the deck settings panel.',
+  },
+  deckNameDuplicate: {
+    id: 'GameEditor.deckNameDuplicate',
+    defaultMessage: 'Deck names must be unique',
+    description: 'Error shown when two decks have the same name, ignoring case.',
+  },
+  deckNameErrorAlert: {
+    id: 'GameEditor.deckNameErrorAlert',
+    defaultMessage: 'Review the deck names in Settings. Every deck needs a name and no two decks can share one.',
+    description: 'Alert shown when a save is blocked because a deck name is missing or duplicated.',
+  },
+  deckNameErrorHeading: {
+    id: 'GameEditor.deckNameErrorHeading',
+    defaultMessage: 'Deck names need fixing',
+    description: 'Heading of the alert shown when a save is blocked by a deck name.',
+  },
+  deckNameInputLabel: {
+    id: 'GameEditor.deckNameInputLabel',
+    defaultMessage: 'Deck {number} name',
+    description: 'Accessible label for the name field of the deck at this position.',
+  },
+  deckNameRequired: {
+    id: 'GameEditor.deckNameRequired',
+    defaultMessage: 'Enter a deck name',
+    description: 'Error shown when a deck name is left empty.',
+  },
+  deckPickerLabel: {
+    id: 'GameEditor.deckPickerLabel',
+    defaultMessage: 'Deck',
+    description: 'Label beside the deck selector above the card list.',
+  },
+  deckPickerToggleLabel: {
+    id: 'GameEditor.deckPickerToggleLabel',
+    defaultMessage: '{deckName}, change deck',
+    description: 'Accessible name for the deck selector button, which shows the active deck name.',
+  },
   definitionLabel: {
     id: 'GameEditor.definitionLabel',
     defaultMessage: 'Definition',
@@ -70,6 +115,11 @@ const messages = defineMessages({
     id: 'GameEditor.imageWithoutTextError',
     defaultMessage: 'Text is required for flashcard images.',
     description: 'Error message when a flashcard has an image but no text',
+  },
+  selectDeckLabel: {
+    id: 'GameEditor.selectDeckLabel',
+    defaultMessage: 'Make {deckName} the active deck',
+    description: 'Accessible label for the radio button that selects which deck is being edited.',
   },
   settingsTitle: {
     id: 'GameEditor.settingsTitle',
@@ -91,6 +141,11 @@ const messages = defineMessages({
     defaultMessage: 'No text',
     description: 'Label shown when a card has no text content.',
   },
+  newDeckLabel: {
+    id: 'GameEditor.newDeckLabel',
+    defaultMessage: 'New deck',
+    description: 'Action that adds an empty deck to the game.',
+  },
   noImageLabel: {
     id: 'GameEditor.noImageLabel',
     defaultMessage: 'No image',
@@ -110,6 +165,31 @@ const messages = defineMessages({
     id: 'GameEditor.moveDownLabel',
     defaultMessage: 'Move down',
     description: 'Label for move down dropdown item.',
+  },
+  moveToDeckOption: {
+    id: 'GameEditor.moveToDeckOption',
+    defaultMessage: 'Move to {deckName}',
+    description: 'Card menu action that moves this card to another deck.',
+  },
+  deleteDeckConfirmBody: {
+    id: 'GameEditor.deleteDeckConfirmBody',
+    defaultMessage: '{deckName} has {cardCount, plural, one {1 card} other {# cards}}. Deleting the deck also deletes its cards.',
+    description: 'Body of the dialog that asks before deleting a deck that still has cards.',
+  },
+  deleteDeckConfirmButton: {
+    id: 'GameEditor.deleteDeckConfirmButton',
+    defaultMessage: 'Delete deck',
+    description: 'Button that confirms deleting a deck and its cards.',
+  },
+  deleteDeckConfirmTitle: {
+    id: 'GameEditor.deleteDeckConfirmTitle',
+    defaultMessage: 'Delete deck?',
+    description: 'Title of the dialog that asks before deleting a deck that still has cards.',
+  },
+  deleteDeckLabel: {
+    id: 'GameEditor.deleteDeckLabel',
+    defaultMessage: 'Delete {deckName}',
+    description: 'Accessible label for the button that deletes one deck.',
   },
   deleteLabel: {
     id: 'GameEditor.deleteLabel',

@@ -10,7 +10,7 @@ import * as editorHooks from '@src/editors/hooks';
 import { isLibraryKey } from '@src/generic/key-utils';
 import GameEditor from './components/GameEditor';
 import { useGameState } from './data/useGameState';
-import { getContent, validateCards } from './gameContent';
+import { validateCards } from './gameContent';
 import type { BlockEditorProps } from './types';
 
 /**
@@ -101,16 +101,14 @@ export const GamesEditorForBlock = ({
         if (!isValid) {
           throw Object.assign(new Error('Game cards failed validation.'), { validationErrors: errors });
         }
-        const content = getContent({
-          type: latest.type,
-          settings: latest.settings,
-          list: latest.list,
-        });
+        // The save handler rebuilds cards and decks from the state, so only the
+        // settings and the title are read here; `cards` is required by the
+        // payload type and ignored.
         return actions.save({
-          gameType: content.gameType,
-          isShuffled: content.isShuffled,
-          hasTimer: content.hasTimer,
-          cards: content.cards,
+          gameType: latest.type,
+          isShuffled: latest.settings.shuffle,
+          hasTimer: latest.settings.timer,
+          cards: latest.list,
           title: selectors.app.blockTitle(store.getState()),
         });
       })
@@ -153,6 +151,9 @@ export const GamesEditorForBlock = ({
       settings={state.settings}
       type={state.type}
       list={state.list}
+      decks={state.decks}
+      activeDeckId={state.activeDeckId}
+      supportsDecks={state.supportsDecks}
       isDirty={isDirty}
       error={state.error}
       loadFailed={state.loadFailed}

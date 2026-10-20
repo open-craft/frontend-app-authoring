@@ -143,4 +143,24 @@
   .card-dropdown {
     z-index: 10;
   }
+
+  .deck-picker,
+  .deck-picker-option,
+  .deck-row {
+    gap: .5rem;
+  }
+
+  .deck-picker-toggle {
+    gap: .5rem;
+  }
+
+  // Lets a long deck name truncate instead of widening the settings panel.
+  .deck-row-body {
+    min-width: 0;
+  }
+
+  // Lines the radio up with the first line of the name field.
+  .deck-row-select {
+    margin-top: .5rem;
+  }
 }

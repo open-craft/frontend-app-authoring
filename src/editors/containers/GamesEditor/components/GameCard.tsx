@@ -50,6 +50,9 @@ interface GameCardProps {
   onImagePicked: (imageType: ImageType, file: File) => void;
   onImageRemoved: (imageType: ImageType) => void;
   onOpenImageSettings: (imageType: ImageType) => void;
+  /** The other decks this card can move to; empty when there is only one. */
+  moveTargets: { id: string; name: string; }[];
+  onMoveToDeck: (deckId: string) => void;
 }
 
 /** One card of the game: a collapsible, draggable term and definition pair. */
@@ -68,6 +71,8 @@ const GameCard = ({
   onImagePicked,
   onImageRemoved,
   onOpenImageSettings,
+  moveTargets,
+  onMoveToDeck,
 }: GameCardProps) => {
   const intl = useIntl();
   const fileInputs = {
@@ -175,6 +180,16 @@ const GameCard = ({
               <Dropdown.Item onClick={onMoveDown}>
                 {intl.formatMessage(messages.moveDownLabel)}
               </Dropdown.Item>
+              {moveTargets.length > 0 && (
+                <>
+                  <Dropdown.Divider />
+                  {moveTargets.map((deck) => (
+                    <Dropdown.Item key={deck.id} onClick={() => onMoveToDeck(deck.id)}>
+                      {intl.formatMessage(messages.moveToDeckOption, { deckName: deck.name })}
+                    </Dropdown.Item>
+                  ))}
+                </>
+              )}
               <Dropdown.Divider />
               <Dropdown.Item onClick={onDelete}>
                 {intl.formatMessage(messages.deleteLabel)}

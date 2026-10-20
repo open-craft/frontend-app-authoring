@@ -32,12 +32,14 @@ import messages from '@src/editors/containers/GamesEditor/messages';
 import type {
   BlockEditorProps,
   Card,
+  Deck,
   GameSettings,
   GameType,
   ImageData,
   ImageType,
   RequestError,
 } from '@src/editors/containers/GamesEditor/types';
+import DeckPicker from './DeckPicker';
 import GameCard from './GameCard';
 import GameImageSettingsModal from './GameImageSettingsModal';
 import SettingsSidebar from './SettingsSidebar';
@@ -62,7 +64,13 @@ export interface GameEditorProps extends ViewActions {
   studioEndpointUrl: string;
   settings: GameSettings;
   type: GameType;
+  /** The active deck's cards: the list the card editor renders. */
   list: Card[];
+  /** Every deck, in stored order; the first is the block's primary deck. */
+  decks: Deck[];
+  activeDeckId: string;
+  /** True when the block stores decks and the game type can author them. */
+  supportsDecks: boolean;
   isDirty: () => boolean;
   error: RequestError | null;
   loadFailed: boolean;
@@ -90,6 +98,9 @@ const GameEditor = ({
   updateType,
 
   list,
+  decks,
+  activeDeckId,
+  supportsDecks,
   updateTerm,
   updateDefinition,
   updateTermImageAlt,
@@ -98,6 +109,11 @@ const GameEditor = ({
   setList,
   addCard,
   removeCard,
+  selectDeck,
+  addDeck,
+  renameDeck,
+  deleteDeck,
+  moveCardToDeck,
 
   uploadGameImage,
   deleteGameImage,
@@ -111,6 +127,9 @@ const GameEditor = ({
   const intl = useIntl();
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [isAlertVisible, setIsAlertVisible] = useState(true);
+  // Set when a Save click found deck names that block it, so a failure inside
+  // the collapsed deck panel is still seen outside it.
+  const [deckAlertVisible, setDeckAlertVisible] = useState(false);
   // True from the Save click until the save has settled. The form is disabled
   // meanwhile: the response closes the editor, so anything typed during the
   // wait would be lost without a word.
@@ -138,13 +157,48 @@ const GameEditor = ({
     });
   }, [list, updateTerm, updateDefinition]);
 
-  // Validates the cards as they are in the game state, which is what the
-  // author sees: there is no unsaved text outside it.
+  // Deck authoring exists only where the block stores decks and the game type
+  // authors them: matching renders one deck and offers no rename or move.
+  const deckAuthoring = supportsDecks && type === 'flashcards';
+
+  // Validates the content as it is in the game state, which is what the author
+  // sees: there is no unsaved text outside it. Deck names block a save wherever
+  // the block stores decks (validateCards), including Matching, where the deck
+  // panel is hidden until a save proves a name needs fixing.
   const validateAllCards = useCallback(() => {
-    const { errors, isValid } = validateCards({ list, type });
+    const { errors, deckErrors: nameErrors, isValid } = validateCards({ decks, list, type, supportsDecks });
     setValidationErrors(errors);
+    if (Object.keys(nameErrors).length > 0) { setDeckAlertVisible(true); }
     return isValid;
-  }, [list, type]);
+  }, [decks, list, type, supportsDecks]);
+
+  // One place decides what a save would carry, so the count beside each deck
+  // name is the count that will be saved (blank placeholders excluded).
+  const contents = useMemo(() => getContent({ type, settings, decks, list }), [type, settings, decks, list]);
+  const deckSummaries = useMemo(() =>
+    decks.map((deck, index) => ({
+      id: deck.id,
+      name: deck.name,
+      cardCount: contents.decks[index].cards.length,
+    })), [decks, contents]);
+  // Deck names are checked from the decks on screen, so a duplicate or an
+  // empty name is flagged while the author types. This is also what a save
+  // blocks on: validateCards is the one implementation of the rule.
+  const deckNameErrors = useMemo(
+    () => validateCards({ decks, list, type, supportsDecks }).deckErrors,
+    [decks, list, type, supportsDecks],
+  );
+  const hasDeckNameErrors = Object.keys(deckNameErrors).length > 0;
+  // Matching hides deck editing, except once a save proved a name needs fixing:
+  // then the fields stay reachable so the author can repair one without the
+  // panel vanishing mid-keystroke.
+  const showDeckSettings = supportsDecks && (deckAuthoring || hasDeckNameErrors || deckAlertVisible);
+  const deckOptions = useMemo(() => decks.map((deck) => ({ id: deck.id, name: deck.name })), [decks]);
+  // Every other deck is a move target for a card; with one deck there are none.
+  const moveTargets = useMemo(
+    () => deckOptions.filter((deck) => deck.id !== activeDeckId),
+    [deckOptions, activeDeckId],
+  );
 
   // Show alert when new validation errors appear
   useEffect(() => {
@@ -264,6 +318,16 @@ const GameEditor = ({
             <Icon src={InfoOutline} />
           </OverlayTrigger>
         </div>
+        {deckAuthoring && (
+          <div className="deck-picker-row d-flex align-items-center align-self-stretch mb-2">
+            <DeckPicker
+              decks={deckOptions}
+              activeDeckId={activeDeckId}
+              onSelectDeck={selectDeck}
+              onAddDeck={() => addDeck()}
+            />
+          </div>
+        )}
         <DraggableList
           itemList={list}
           setState={applyListUpdate}
@@ -292,6 +356,8 @@ const GameEditor = ({
               }}
               onImageRemoved={(imageType) => deleteGameImage({ cardId: card.id, imageType })}
               onOpenImageSettings={(imageType) => openImageSettings(card, index, imageType)}
+              moveTargets={deckAuthoring ? moveTargets : []}
+              onMoveToDeck={(deckId) => moveCardToDeck({ cardId: card.id, toDeckId: deckId })}
             />
           ))}
         </DraggableList>
@@ -311,13 +377,22 @@ const GameEditor = ({
         updateType={updateType}
         setShuffleStatus={setShuffleStatus}
         setTimerStatus={setTimerStatus}
+        showDeckSettings={showDeckSettings}
+        decks={deckSummaries}
+        activeDeckId={activeDeckId}
+        deckNameErrors={deckNameErrors}
+        onSelectDeck={selectDeck}
+        // The deck settings panel passes the id and value it holds, not the
+        // action's object argument.
+        onRenameDeck={(deckId, name) => renameDeck({ deckId, name })}
+        onDeleteDeck={(deckId) => deleteDeck({ deckId })}
       />
     </div>
   );
 
   return (
     <EditorContainer
-      getContent={() => getContent({ type, settings, list })}
+      getContent={() => contents}
       onClose={onClose}
       // For the container's cancel and discard flows; the save path honours
       // it itself.
@@ -333,6 +408,20 @@ const GameEditor = ({
     >
       <div className="xblock-games-editor">
         <div className="h-75 overflow-auto">
+          {deckAlertVisible && hasDeckNameErrors && (
+            <Alert
+              variant="danger"
+              className="mt-2"
+              icon={Info}
+              dismissible
+              onClose={() => setDeckAlertVisible(false)}
+            >
+              <Alert.Heading>
+                {intl.formatMessage(messages.deckNameErrorHeading)}
+              </Alert.Heading>
+              <p>{intl.formatMessage(messages.deckNameErrorAlert)}</p>
+            </Alert>
+          )}
           {Object.keys(validationErrors).length > 0 && isAlertVisible && (
             <Alert
               variant="danger"

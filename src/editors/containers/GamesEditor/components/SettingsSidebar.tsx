@@ -4,7 +4,8 @@ import { Check } from '@openedx/paragon/icons';
 
 import Button from '@src/editors/sharedComponents/Button';
 import messages from '@src/editors/containers/GamesEditor/messages';
-import type { GameSettings, GameType } from '@src/editors/containers/GamesEditor/types';
+import type { DeckNameError, GameSettings, GameType } from '@src/editors/containers/GamesEditor/types';
+import DeckSettings, { type DeckSettingSummary } from './DeckSettings';
 import SettingsCard from './SettingsCard';
 
 interface OnOffSettingProps {
@@ -54,6 +55,16 @@ interface SettingsSidebarProps {
   updateType: (type: GameType) => void;
   setShuffleStatus: (value: boolean) => void;
   setTimerStatus: (value: boolean) => void;
+  /** Whether the deck settings card is shown at all. */
+  showDeckSettings: boolean;
+  /** Every deck, in stored order, with the card count shown beside its name. */
+  decks: DeckSettingSummary[];
+  activeDeckId: string;
+  /** Deck ids whose name is invalid, in this panel's own terms. */
+  deckNameErrors: Record<string, DeckNameError | undefined>;
+  onSelectDeck: (deckId: string) => void;
+  onRenameDeck: (deckId: string, name: string) => void;
+  onDeleteDeck: (deckId: string) => void;
 }
 
 /** The game's settings: its type, whether cards are shuffled, and (for matching) the timer. */
@@ -63,6 +74,13 @@ const SettingsSidebar = ({
   updateType,
   setShuffleStatus,
   setTimerStatus,
+  showDeckSettings,
+  decks,
+  activeDeckId,
+  deckNameErrors,
+  onSelectDeck,
+  onRenameDeck,
+  onDeleteDeck,
 }: SettingsSidebarProps) => {
   const intl = useIntl();
   const typeOption = (value: GameType, label: string) => (
@@ -92,6 +110,22 @@ const SettingsSidebar = ({
         <div className="card-divider" />
         {typeOption('matching', intl.formatMessage(messages.matchingLabel))}
       </SettingsCard>
+      {showDeckSettings && (
+        <SettingsCard
+          className="sidebar-decks d-flex flex-column align-items-start align-self-stretch"
+          title={intl.formatMessage(messages.deckListLabel)}
+          summary={(decks.find((deck) => deck.id === activeDeckId) || decks[0])?.name ?? ''}
+        >
+          <DeckSettings
+            decks={decks}
+            activeDeckId={activeDeckId}
+            nameErrors={deckNameErrors}
+            onSelect={onSelectDeck}
+            onRename={onRenameDeck}
+            onDelete={onDeleteDeck}
+          />
+        </SettingsCard>
+      )}
       <OnOffSetting
         name="shuffle"
         title={intl.formatMessage(messages.shuffleLabel)}

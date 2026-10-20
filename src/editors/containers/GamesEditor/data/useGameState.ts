@@ -9,6 +9,7 @@ import type {
   RequestErrorCode,
   SaveArgs,
 } from '@src/editors/containers/GamesEditor/types';
+import { getContent } from '../gameContent';
 import { useGameSettings, useSaveGameSettings, useUploadGameImage } from './apiHooks';
 import { createStore } from './gameStore';
 import * as t from './gameTransitions';
@@ -51,30 +52,9 @@ export const useGameState = (block: BlockRef | null) => {
   const { data: loadedSettings, dataUpdatedAt } = settingsQuery;
   React.useEffect(() => {
     if (!loadedSettings) { return; }
-    const data = loadedSettings;
-    const cards = (data.cards || []).map((card) => ({
-      ...t.emptyCard(),
-      card_key: card.card_key,
-      term: card.term || '',
-      // Image URLs are kept as the block returns them (relative to its
-      // Studio); the view resolves them for display. See imageDisplayUrl.
-      term_image: card.term_image || '',
-      term_image_path: card.term_image_path || '',
-      term_image_alt: card.term_image_alt || '',
-      definition: card.definition || '',
-      definition_image: card.definition_image || '',
-      definition_image_path: card.definition_image_path || '',
-      definition_image_alt: card.definition_image_alt || '',
-    }));
-    store.set(t.loaded({
-      ...t.initialState,
-      type: data.game_type || 'flashcards',
-      settings: {
-        shuffle: data.is_shuffled !== undefined ? data.is_shuffled : true,
-        timer: data.has_timer !== undefined ? data.has_timer : true,
-      },
-      list: cards.length ? cards : [t.emptyCard()],
-    }));
+    // Every deck the block returned, or one Deck 1 built from its `cards`
+    // when the backend predates decks. Every deck starts editable.
+    store.set(t.stateFromSettings(loadedSettings));
   }, [dataUpdatedAt]);
 
   // A failed fetch, first or retried. Keyed on `errorUpdatedAt` so a second
@@ -142,6 +122,13 @@ export const useGameState = (block: BlockRef | null) => {
       setList: (value: Card[]) => store.update((s) => t.setList(s, value)),
       addCard: () => store.update((s) => t.addCard(s)),
       removeCard: ({ index }: { index: number; }) => store.update((s) => t.removeCard(s, index)),
+      selectDeck: (deckId: string) => store.update((s) => t.selectDeck(s, deckId)),
+      addDeck: (name?: string) => store.update((s) => t.addDeck(s, name)),
+      renameDeck: ({ deckId, name }: { deckId: string; name: string; }) =>
+        store.update((s) => t.renameDeck(s, deckId, name)),
+      deleteDeck: ({ deckId }: { deckId: string; }) => store.update((s) => t.deleteDeck(s, deckId)),
+      moveCardToDeck: ({ cardId, toDeckId }: { cardId: string; toDeckId: string; }) =>
+        store.update((s) => t.moveCard(s, { cardId }, toDeckId)),
 
       uploadGameImage: (
         { cardId, imageFile, imageType }: { cardId: string; imageFile: File; imageType: ImageType; },
@@ -172,15 +159,26 @@ export const useGameState = (block: BlockRef | null) => {
       // keys the shared saveBlock payload builder drops.
       // The handler reports failure as HTTP 200 with `success: false`, so a
       // resolved request is not yet a successful save.
-      save: (content: SaveArgs) =>
-        saveSettings(content).then((response) => {
+      save: (content: SaveArgs) => {
+        // The payload comes from the state, so a caller holding older cards or
+        // decks cannot overwrite what the editor shows. `cards` is the primary
+        // deck; `decks` goes only to a backend that declared the field.
+        const latest = store.get();
+        const { cards, decks } = getContent(latest);
+        // Content comes from the state alone: whatever the caller passed in is
+        // only used for the settings and the title.
+        const { gameType, isShuffled, hasTimer, title } = content;
+        const args: SaveArgs = { gameType, isShuffled, hasTimer, title, cards };
+        if (latest.supportsDecks) { args.decks = decks; }
+        return saveSettings(args).then((response) => {
           if (response.data?.success === false) {
             const error = requestError('saveFailed', response.data.error);
             store.update((s) => t.setError(s, error));
             throw error;
           }
           return response;
-        }),
+        });
+      },
 
       reload: () => {
         store.update(t.clearError);
