@@ -558,3 +558,131 @@ describe('GamesEditor deck authoring availability', () => {
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
   });
 });
+
+// The settings fetch decides what a save would write, so Save waits for it
+// rather than accepting a click that could only fail.
+describe('before the game settings arrive', () => {
+  it('keeps Save disabled until they load', async () => {
+    const { axiosMock } = initializeMocks();
+    let resolveLoad: (body: unknown) => void = () => {};
+    const load = new Promise<[number, unknown]>((resolve) => {
+      resolveLoad = (body) => resolve([200, body]);
+    });
+    axiosMock.onPost(handlerUrl('get_settings')).reply(() => load);
+    axiosMock.onPost(handlerUrl('save_settings')).reply(200, { success: true });
+    const onClose = renderEditor();
+
+    expect(saveButton()).toBeDisabled();
+
+    await act(async () => resolveLoad({ game_type: 'flashcards', cards: [] }));
+    await waitFor(() => expect(saveButton()).toBeEnabled());
+    expect(savePosts(axiosMock)).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+// Offline, a lost session or a 5xx never produces the block's `success: false`
+// body: the request itself fails. The author must see it, keep the work, and be
+// able to try again.
+describe('a save the network never delivered', () => {
+  let axiosMock: ReturnType<typeof initializeMocks>['axiosMock'];
+
+  beforeEach(() => {
+    ({ axiosMock } = initializeMocks());
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'flashcards',
+      is_shuffled: true,
+      has_timer: false,
+      cards: [{ term: 'Photosynthesis', definition: 'How plants eat', card_key: 'k1' }],
+    });
+    axiosMock.onPost(handlerUrl('save_settings')).networkError();
+  });
+
+  // The click, as the author makes it: edit a card, press Save.
+  const saveFailing = async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await user.type(await screen.findByDisplayValue('Photosynthesis'), ' now');
+    await user.click(saveButton());
+    return { user, onClose };
+  };
+
+  it('shows the failure and keeps the unsaved work', async () => {
+    const { user, onClose } = await saveFailing();
+
+    expect(await screen.findByText('The game could not be saved.')).toBeInTheDocument();
+    expect(screen.getByText('Network Error')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByDisplayValue('Photosynthesis now')).toBeInTheDocument();
+
+    // Save is offered again, and leaving still asks: nothing was persisted.
+    await waitFor(() => expect(saveButton()).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: 'Discard changes and return to learning context' }));
+    expect(await screen.findByText('Exit the editor?')).toBeInTheDocument();
+  });
+
+  it('saves when a later attempt lands', async () => {
+    const { user, onClose } = await saveFailing();
+    await waitFor(() => expect(saveButton()).toBeEnabled());
+
+    axiosMock.resetHandlers();
+    axiosMock.onPost(handlerUrl('save_settings')).reply(200, { success: true });
+    await user.click(saveButton());
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+});
+
+// Matching renders the primary deck and no deck rows, so a card error in another
+// deck has no row to open. The author must be told which deck to repair, and
+// where.
+describe('a card error hidden by Matching', () => {
+  let axiosMock: ReturnType<typeof initializeMocks>['axiosMock'];
+
+  beforeEach(() => {
+    ({ axiosMock } = initializeMocks());
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'matching',
+      is_shuffled: true,
+      has_timer: true,
+      cards: [{ term: 'One', definition: 'first', card_key: 'c1' }],
+      decks: [
+        { deck_key: 'dk-1', name: 'Deck 1', cards: [{ term: 'One', definition: 'first', card_key: 'c1' }] },
+        { deck_key: 'dk-2', name: 'Ecology', cards: [{ term: 'Two', definition: '', card_key: 'c2' }] },
+      ],
+    });
+    axiosMock.onPost(handlerUrl('save_settings')).reply(200, { success: true });
+  });
+
+  it('names the deck to repair in Flashcards, and saves once it is fixed', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByDisplayValue('One');
+
+    await user.click(saveButton());
+
+    // The blocked save names the deck Matching cannot show, and the way out.
+    expect(
+      await screen.findByText(
+        'Cards in Ecology need fixing before this game can be saved. Switch to Flashcards to repair them.',
+      ),
+    ).toBeInTheDocument();
+    expect(savePosts(axiosMock)).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Flashcards brings that deck's rows back, opened on the failed card.
+    await user.click(screen.getByText('Type'));
+    await user.click(screen.getByRole('button', { name: 'Flashcards' }));
+    const term = await screen.findByDisplayValue('Two');
+    expect(await screen.findByDisplayValue('Ecology')).toBeInTheDocument();
+    expect(screen.queryByText(/Switch to Flashcards/)).not.toBeInTheDocument();
+
+    await user.type(within(term.closest('.card') as HTMLElement).getByLabelText('Definition'), 'second');
+    await user.click(saveButton());
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const payload = JSON.parse(savePosts(axiosMock)[0].data);
+    expect(payload.decks.map((deck: { name: string; }) => deck.name)).toEqual(['Deck 1', 'Ecology']);
+    expect(payload.decks[1].cards[0].definition).toEqual('second');
+  });
+});

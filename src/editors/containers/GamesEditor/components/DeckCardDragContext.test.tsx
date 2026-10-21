@@ -133,17 +133,48 @@ describe('DeckCardDragContext', () => {
     expect(decks[0].cards.map((c) => c.id)).toEqual(['A', 'B', 'C']);
   });
 
-  it('previews a cross-deck move and commits it exactly once', () => {
+  it('previews a cross-deck move before the hovered row and commits it once', () => {
     const decks = [deck('d1', ['A']), deck('d2', ['X', 'Y'])];
     const onCardMove = renderDrag(decks);
 
     dragStart('A');
     dragOver('A', 'Y');
-    expect(preview()).toEqual('d1: | d2:X,Y,A');
+    expect(preview()).toEqual('d1: | d2:X,A,Y');
 
     dragEnd('A', 'Y');
     expect(onCardMove).toHaveBeenCalledTimes(1);
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 2 });
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
+  });
+
+  // From an earlier deck, the first row of a later one is position 1, not the
+  // position after it: index 0 of a non-empty later deck used to be unreachable.
+  it('previews and commits index 0 of a later deck that holds cards', () => {
+    const decks = [deck('d1', ['A']), deck('d2', ['X', 'Y'])];
+    const onCardMove = renderDrag(decks);
+
+    dragStart('A');
+    dragOver('A', 'X');
+    expect(preview()).toEqual('d1: | d2:A,X,Y');
+
+    dragEnd('A', 'X');
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
+  });
+
+  // The announcement is read after the preview has taken the card in, so the
+  // hovered row's own index is one past the gap: the position has to come from
+  // the drop itself, or it names a place the card will not land in.
+  it('announces the position the drop will take, in another deck', () => {
+    const decks = [deck('d1', ['A', 'B']), deck('d2', ['X', 'Y'])];
+    renderDrag(decks);
+
+    dragStart('A');
+    dragOver('A', 'X');
+    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'X' } }))
+      .toEqual('A moved over position 1 of d2.');
+
+    dragOver('A', 'Y');
+    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'Y' } }))
+      .toEqual('A moved over position 2 of d2.');
   });
 
   it('expands a collapsed deck header and appends the card to it', () => {
@@ -207,13 +238,13 @@ describe('DeckCardDragContext', () => {
 
     dragStart('A');
     dragOver('A', 'Y');
-    expect(preview()).toEqual('d1: | d2:X,Y,A');
+    expect(preview()).toEqual('d1: | d2:X,A,Y');
 
     dragOver('A', 'A');
     dragEnd('A', 'A');
 
     expect(onCardMove).toHaveBeenCalledTimes(1);
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 2 });
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
   });
 
   // A same-deck drag that ends over its own id has not moved, even though a
@@ -238,7 +269,7 @@ describe('DeckCardDragContext', () => {
 
     dragStart('A', keyboardEvent());
     dragOver('A', 'X', keyboardEvent());
-    expect(preview()).toEqual('d1: | d2:X,A');
+    expect(preview()).toEqual('d1: | d2:A,X');
 
     dragOver('A', 'deck:d1:empty', keyboardEvent());
     expect(preview()).toEqual('d1:A | d2:X');
@@ -269,7 +300,7 @@ describe('DeckCardDragContext', () => {
 
     dragStart('A');
     dragOver('A', 'X');
-    expect(preview()).toEqual('d1:B | d2:X,A');
+    expect(preview()).toEqual('d1:B | d2:A,X');
 
     dragCancel();
 
@@ -317,7 +348,7 @@ describe('DeckCardDragContext', () => {
 
     dragStart('A', keyboardEvent());
     dragOver('A', 'X', keyboardEvent());
-    expect(preview()).toEqual('d1:B | d2:X,A');
+    expect(preview()).toEqual('d1:B | d2:A,X');
 
     dragOver('A', 'deck:d1', keyboardEvent());
     expect(preview()).toEqual('d1:A,B | d2:X');

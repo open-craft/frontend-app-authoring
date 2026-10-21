@@ -165,7 +165,7 @@ describe('DeckCardDragContext keyboard dragging', () => {
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
   });
 
-  it('moves a card into another deck, focusing its new handle', async () => {
+  it('moves a card into another deck before the hovered row, focusing its new handle', async () => {
     const user = userEvent.setup();
     const onCommit = jest.fn();
     const decks = [
@@ -186,19 +186,55 @@ describe('DeckCardDragContext keyboard dragging', () => {
     await user.keyboard('{ArrowDown}');
     await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the end of Genetics'));
 
+    // The first row of the later deck: the card lands before it, at position 1.
     await user.keyboard('{ArrowDown}');
-    await waitFor(() => expect(liveRegion()).toHaveTextContent('position 1 of Genetics'));
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 1 of Genetics'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d1: | d2:c1,c2,c3'));
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({ cardId: 'c1', toDeckId: 'd2', toIndex: 0 });
+    expect(liveRegion()).toHaveTextContent('Dropped Mitochondrion at position 1 of Genetics.');
+    // The drop announcement names the card and decks, never their ids.
+    expect(liveRegion()).not.toHaveTextContent(/\bc1\b|\bd1\b|\bd2\b/);
+
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+    expect(row('c1').closest('section')).toHaveTextContent('Genetics');
+  });
+
+  // The header appends, so the second row is how a middle position is reached.
+  it('inserts into the middle of another deck with the arrow keys', async () => {
+    const user = userEvent.setup();
+    const onCommit = jest.fn();
+    const decks = [
+      deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
+      deck('d2', 'Genetics', [card('c2', 'Allele'), card('c3', 'Genome')]),
+    ];
+    useRects({
+      'deck:d1': [0, 40],
+      c1: [60, 100],
+      'deck:d2': [120, 160],
+      c2: [180, 220],
+      c3: [240, 280],
+    });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1', 'd2']} onCommit={onCommit} />);
+
+    await startDrag(user, 'c1');
+
+    // Header, then the first row, then the second.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the end of Genetics'));
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 1 of Genetics'));
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 2 of Genetics'));
 
     await user.keyboard(' ');
     await waitFor(() => expect(committed()).toEqual('d1: | d2:c2,c1,c3'));
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith({ cardId: 'c1', toDeckId: 'd2', toIndex: 1 });
     expect(liveRegion()).toHaveTextContent('Dropped Mitochondrion at position 2 of Genetics.');
-    // The drop announcement names the card and decks, never their ids.
-    expect(liveRegion()).not.toHaveTextContent(/\bc1\b|\bd1\b|\bd2\b/);
-
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
-    expect(row('c1').closest('section')).toHaveTextContent('Genetics');
   });
 
   it('opens a collapsed deck on hover and appends the card to it', async () => {
@@ -247,6 +283,42 @@ describe('DeckCardDragContext keyboard dragging', () => {
     await user.keyboard(' ');
     await waitFor(() => expect(committed()).toEqual('d1: | d2:c1'));
     expect(liveRegion()).toHaveTextContent('in the empty deck Ecology');
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+  });
+
+  // A deck drawn as [blank placeholder, card] has one slot in front of that
+  // card. The transition's index is measured before the placeholder is dropped,
+  // so hover and drop have to report the position the card ends up in, not the
+  // index they passed in.
+  it('drops and announces the same position in a deck with a placeholder', async () => {
+    const user = userEvent.setup();
+    const placeholder = emptyCard();
+    const decks = [
+      deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
+      { id: 'd2', name: 'Genetics', cards: [placeholder, card('c2', 'Allele')] },
+    ];
+    useRects({
+      'deck:d1': [0, 40],
+      c1: [60, 100],
+      'deck:d2': [120, 160],
+      [placeholder.id]: [180, 220],
+      c2: [240, 280],
+    });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1', 'd2']} />);
+
+    await startDrag(user, 'c1');
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the end of Genetics'));
+
+    // The placeholder is not a position of its own: both rows land at 1.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 1 of Genetics'));
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 1 of Genetics'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d1: | d2:c1,c2'));
+    expect(liveRegion()).toHaveTextContent('Dropped Mitochondrion at position 1 of Genetics.');
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
   });
 

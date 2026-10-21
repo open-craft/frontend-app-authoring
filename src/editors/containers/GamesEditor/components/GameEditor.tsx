@@ -205,6 +205,14 @@ const GameEditor = ({
     [decks, cardsWithErrors],
   );
 
+  // Matching renders one deck and no deck rows, so an error in another deck has
+  // no row to open: the author has to be told which deck to repair, and where.
+  const hiddenErrorDeckNames = useMemo(() => {
+    if (deckAuthoring) { return []; }
+    const decksWithErrors = new Set(cardErrorDeckIds);
+    return decks.filter((deck) => deck.id !== activeDeckId && decksWithErrors.has(deck.id)).map((deck) => deck.name);
+  }, [deckAuthoring, decks, activeDeckId, cardErrorDeckIds]);
+
   // Opens every card that has an error, in whichever deck it lives, so the
   // author can see the message.
   useEffect(() => {
@@ -452,6 +460,8 @@ const GameEditor = ({
       // *_image_path storage keys, losing the link from a card to its file.
       onSave={handleSave}
       isDirty={isDirty}
+      // A click before the settings arrive could only fail, so it is not offered.
+      saveDisabled={!blockFinished}
     >
       <div className="xblock-games-editor">
         <div className="h-75 overflow-auto">
@@ -481,6 +491,14 @@ const GameEditor = ({
                 {intl.formatMessage(messages.validationErrorHeading)}
               </Alert.Heading>
               <p>{intl.formatMessage(messages.validationErrorAlert)}</p>
+              {hiddenErrorDeckNames.length > 0 && (
+                <p className="mb-0">
+                  {intl.formatMessage(
+                    messages.validationErrorHiddenDecks,
+                    { deckNames: hiddenErrorDeckNames.join(', ') },
+                  )}
+                </p>
+              )}
             </Alert>
           )}
           {error && !loadFailed && (

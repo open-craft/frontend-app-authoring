@@ -81,6 +81,12 @@ interface Props extends EditorComponent {
    * Cancel and close are refused: the request cannot be taken back.
    */
   onSave?: (() => void | Promise<unknown>) | null;
+  /**
+   * Keeps Save disabled until the editor's own content is ready. For an editor
+   * whose fields arrive after this container is initialised (GamesEditor's
+   * settings fetch), a click before then could only fail.
+   */
+  saveDisabled?: boolean;
 }
 
 const EditorContainer: React.FC<Props> = ({
@@ -91,6 +97,7 @@ const EditorContainer: React.FC<Props> = ({
   validateEntry = null,
   returnFunction = null,
   onSave: onSaveOverride = null,
+  saveDisabled = false,
 }) => {
   const intl = useIntl();
   const dispatch = useDispatch();
@@ -113,7 +120,7 @@ const EditorContainer: React.FC<Props> = ({
   const [isFullscreen, , , toggleFullscreen] = useToggle(false);
   const handleCancel = hooks.handleCancel({ onClose, returnFunction });
   const { createFailed, createFailedError } = hooks.createFailed();
-  const disableSave = !isInitialized || overrideSaving;
+  const disableSave = !isInitialized || overrideSaving || saveDisabled;
   const saveFailed = hooks.saveFailed();
   const clearSaveFailed = hooks.clearSaveError({ dispatch });
   const clearCreateFailed = hooks.clearCreateError({ dispatch });

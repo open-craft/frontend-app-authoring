@@ -26,17 +26,32 @@ describe('resolveCardDrop', () => {
       .toEqual({ deckId: 'cell', index: 2 });
   });
 
-  it('appends after the hovered row of a later deck', () => {
+  // Rows of another deck never draw a gap: dnd-kit drops its transforms once
+  // the active item is in a different container, so a hovered row means "insert
+  // before it" whatever deck comes first. That is what makes index 0 of a later
+  // deck reachable; the deck header is what appends.
+  it('inserts before the hovered row of a later deck, index 0 included', () => {
     expect(resolveCardDrop(decks(), 'A', { kind: 'card', deckId: 'genetics', cardId: 'X' }))
-      .toEqual({ deckId: 'genetics', index: 1 });
-    // A over Y appends: deck2 stays in order and the card lands after it.
+      .toEqual({ deckId: 'genetics', index: 0 });
     expect(resolveCardDrop(decks(), 'A', { kind: 'card', deckId: 'genetics', cardId: 'Y' }))
-      .toEqual({ deckId: 'genetics', index: 2 });
+      .toEqual({ deckId: 'genetics', index: 1 });
   });
 
   it('inserts before the hovered row of an earlier deck', () => {
     expect(resolveCardDrop(decks(), 'X', { kind: 'card', deckId: 'cell', cardId: 'A' }))
       .toEqual({ deckId: 'cell', index: 0 });
+    expect(resolveCardDrop(decks(), 'X', { kind: 'card', deckId: 'cell', cardId: 'B' }))
+      .toEqual({ deckId: 'cell', index: 1 });
+  });
+
+  // Deck order must not decide before/after: the same row seen from a deck on
+  // either side of it resolves to the same index.
+  it('resolves the same row the same way from a deck on either side', () => {
+    const fromLater = [deckOf('genetics', ['X', 'Y']), deckOf('cell', ['A', 'B', 'C'])];
+    expect(resolveCardDrop(decks(), 'A', { kind: 'card', deckId: 'genetics', cardId: 'Y' }))
+      .toEqual({ deckId: 'genetics', index: 1 });
+    expect(resolveCardDrop(fromLater, 'A', { kind: 'card', deckId: 'genetics', cardId: 'Y' }))
+      .toEqual({ deckId: 'genetics', index: 1 });
   });
 
   // An empty deck is drawn as its one blank placeholder and has no rows to aim
@@ -107,10 +122,33 @@ describe('resolveCardDrop feeding moveCard', () => {
     expect(next.decks[0].cards.filter(isBlankCard)).toHaveLength(0);
   });
 
-  it('lands after the hovered row of a deck that starts with a blank card', () => {
+  // The deck header is how a position after the last row is reached; the
+  // entering card replaces the placeholder, so it lands before the drawn end.
+  it('appends to a deck that starts with a blank card through its header', () => {
     const state = stateOf(deckOf('cell', ['A']), deckWith('genetics', emptyCard(), card('X')));
-    expect(terms(drop(state, 'A', { kind: 'card', deckId: 'genetics', cardId: 'X' }), 'genetics'))
+    expect(terms(drop(state, 'A', { kind: 'deck', deckId: 'genetics' }), 'genetics'))
       .toEqual(['X', 'A']);
+  });
+
+  // The bug this fixes: from an earlier deck, the first row of a later one used
+  // to mean "after it", so index 0 of a non-empty later deck was unreachable.
+  it('moves a card to index 0 of a later deck that holds cards', () => {
+    const state = stateOf(deckOf('cell', ['A']), deckOf('genetics', ['X', 'Y']));
+    const next = drop(state, 'A', { kind: 'card', deckId: 'genetics', cardId: 'X' });
+
+    expect(terms(next, 'genetics')).toEqual(['A', 'X', 'Y']);
+    expect(terms(next, 'cell')).toEqual([]);
+  });
+
+  // Rows give 0..length-1 and the header gives length, so every insertion
+  // position of another deck is reachable.
+  it('reaches every position of another deck through its rows and its header', () => {
+    const state = () => stateOf(deckOf('cell', ['A']), deckOf('genetics', ['X', 'Y', 'Z']));
+    const landed = (target: CardDropOver) => (terms(drop(state(), 'A', target), 'genetics') ?? []).indexOf('A');
+
+    expect(['X', 'Y', 'Z'].map((id) => landed({ kind: 'card', deckId: 'genetics', cardId: id })))
+      .toEqual([0, 1, 2]);
+    expect(landed({ kind: 'deck', deckId: 'genetics' })).toEqual(3);
   });
 
   it('fills an empty deck', () => {

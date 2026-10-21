@@ -121,6 +121,11 @@ const messages = defineMessages({
     defaultMessage: 'Please check your entries and try again.',
     description: 'Alert message for validation errors in the game editor.',
   },
+  validationErrorHiddenDecks: {
+    id: 'GameEditor.validationErrorHiddenDecks',
+    defaultMessage: 'Cards in {deckNames} need fixing before this game can be saved. Switch to Flashcards to repair them.',
+    description: 'Alert line naming the decks whose cards are invalid when Matching hides the deck rows.',
+  },
   noTextLabel: {
     id: 'GameEditor.noTextLabel',
     defaultMessage: 'No text',

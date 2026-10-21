@@ -130,19 +130,24 @@ const deckLabelOf = (cardId: string, decks: Deck[], fallback: string): string =>
 };
 
 /**
- * The preview tree after a drop target. `moveCard` is pure and already owns
- * the blank-placeholder and clamping rules, so the preview reuses it on a
- * throwaway state instead of duplicating them; a no-op returns the same decks
- * array, which is how callers detect "nothing to render differently".
+ * What `moveCard` makes of a drop target: the decks after it, and where the
+ * card lands among them. `moveCard` is pure and already owns the clamping and
+ * blank-placeholder rules, so this reuses it on a throwaway state instead of
+ * duplicating them; a no-op returns the same decks array, which is how callers
+ * detect "nothing to render differently". `index` is the position to
+ * announce: `target.index` is measured before the target deck's placeholder
+ * is dropped, so it can be one past where the card actually ends up.
  */
-const previewMove = (decks: Deck[], cardId: string, target: CardDropTarget): Deck[] => {
+const moveResult = (decks: Deck[], cardId: string, target: CardDropTarget) => {
   const state = {
     ...initialState,
     decks,
     activeDeckId: decks[0]?.id ?? '',
     list: decks[0]?.cards ?? [],
   };
-  return moveCard(state, cardId, target).decks;
+  const moved = moveCard(state, cardId, target).decks;
+  const deck = moved.find((candidate) => candidate.id === target.deckId);
+  return { decks: moved, index: deck?.cards.findIndex((card) => card.id === cardId) ?? -1 };
 };
 
 interface DragPreview {
@@ -204,6 +209,11 @@ export const DeckCardDragProvider = ({
   // dnd-kit can report the card as its own `over`; without this the drop would
   // silently no-op.
   const lastMoveRef = React.useRef<CardMove | null>(null);
+  // The hovered target and the 1-based position it will put the card in. The
+  // live region is read after this handler has run, by which time the preview
+  // already holds the card, so the hovered row's own index is a position past
+  // the gap: the announcement has to come from the drop, not from the row.
+  const hoverRef = React.useRef<{ overId: string; position: number; } | null>(null);
 
   // Pointer events cover mouse, pen and touch; a small distance keeps a click
   // on the handle from starting a drag. A separate TouchSensor would compete
@@ -218,6 +228,7 @@ export const DeckCardDragProvider = ({
   const reset = React.useCallback(() => {
     previewRef.current = null;
     lastMoveRef.current = null;
+    hoverRef.current = null;
     activeCardIdRef.current = null;
     setPreviewDecks(null);
     setActiveCardId(null);
@@ -252,6 +263,7 @@ export const DeckCardDragProvider = ({
     dropAnnouncementRef.current = null;
     activeCardIdRef.current = cardId;
     lastMoveRef.current = null;
+    hoverRef.current = null;
     previewRef.current = decks;
     setPreviewDecks(decks);
     setActiveCardId(cardId);
@@ -275,6 +287,7 @@ export const DeckCardDragProvider = ({
         setPreviewDecks(decks);
       }
       lastMoveRef.current = null;
+      hoverRef.current = null;
       return;
     }
     // The drop target is resolved against the committed decks, which is the
@@ -284,6 +297,9 @@ export const DeckCardDragProvider = ({
     const committedMove = committedTarget ? resolveCardDrop(decks, cardId, committedTarget) : null;
     if (committedMove) {
       lastMoveRef.current = { cardId, toDeckId: committedMove.deckId, toIndex: committedMove.index };
+      hoverRef.current = { overId, position: moveResult(decks, cardId, committedMove).index + 1 };
+    } else {
+      hoverRef.current = null;
     }
     const preview = previewRef.current;
     if (!preview) { return; }
@@ -295,7 +311,7 @@ export const DeckCardDragProvider = ({
     // preview there would double the displacement.
     const sourceDeck = preview.find((entry) => entry.cards.some((card) => card.id === cardId));
     if (sourceDeck?.id === move.deckId) { return; }
-    const next = previewMove(preview, cardId, move);
+    const next = moveResult(preview, cardId, move).decks;
     if (next === preview) { return; }
     previewRef.current = next;
     setPreviewDecks(next);
@@ -331,7 +347,8 @@ export const DeckCardDragProvider = ({
     }
     // The live region reads this after this handler returns, so name the drop
     // while the preview is still here.
-    dropAnnouncementRef.current = dropMessage(cardNameOf(cardId), move, previewRef.current ?? decks);
+    const landing = move ? moveResult(decks, cardId, { deckId: move.toDeckId, index: move.toIndex }).index : -1;
+    dropAnnouncementRef.current = dropMessage(cardNameOf(cardId), move, landing, previewRef.current ?? decks);
     // A null/outside over cancels: nothing to commit.
     reset();
     if (move) { onCardMove(move); }
@@ -370,9 +387,11 @@ export const DeckCardDragProvider = ({
     const label = overId ? labelTarget(overId, decksNow, previewRef.current ?? decksNow) : null;
     if (!label) { return intl.formatMessage(messages.dragOverNothing, { cardName }); }
     if (label.kind === 'position') {
+      const hovered = hoverRef.current;
       return intl.formatMessage(messages.dragOverPosition, {
         cardName,
-        position: label.position,
+        // Where the drop will put it; the row's own index is only a fallback.
+        position: hovered?.overId === overId ? hovered.position : label.position,
         deckName: label.deckName,
       });
     }
@@ -382,7 +401,12 @@ export const DeckCardDragProvider = ({
     return intl.formatMessage(messages.dragOverEmptyDeck, { cardName, deckName: label.deckName });
   }, [cardNameOf, intl]);
 
-  const dropMessage = React.useCallback((cardName: string, move: CardMove | null, preview: Deck[]) => {
+  const dropMessage = React.useCallback((
+    cardName: string,
+    move: CardMove | null,
+    landing: number,
+    preview: Deck[],
+  ) => {
     if (!move) { return intl.formatMessage(messages.dragDroppedNowhere, { cardName }); }
     const deck = decksRef.current.find((entry) => entry.id === move.toDeckId);
     const deckName = deck?.name || intl.formatMessage(messages.dragUnknownDeck);
@@ -390,12 +414,13 @@ export const DeckCardDragProvider = ({
       return intl.formatMessage(messages.dragDroppedInEmptyDeck, { cardName, deckName });
     }
     const cards = preview.find((entry) => entry.id === move.toDeckId)?.cards ?? deck.cards;
-    if (move.toIndex + 1 >= cards.length) {
+    // `landing` is where the card now sits, so the last real position is the end.
+    if (landing + 1 >= cards.length) {
       return intl.formatMessage(messages.dragDroppedAtEnd, { cardName, deckName });
     }
     return intl.formatMessage(messages.dragDroppedAtPosition, {
       cardName,
-      position: move.toIndex + 1,
+      position: landing + 1,
       deckName,
     });
   }, [intl]);

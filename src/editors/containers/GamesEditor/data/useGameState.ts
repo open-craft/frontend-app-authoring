@@ -180,14 +180,21 @@ export const useGameState = (block: BlockRef | null) => {
           cards,
         };
         if (latest.supportsDecks) { args.decks = decks; }
-        return saveSettings(args).then((response) => {
-          if (response.data?.success === false) {
-            const error = requestError('saveFailed', response.data.error);
-            store.update((s) => t.setError(s, error));
-            throw error;
-          }
-          return response;
-        });
+        return saveSettings(args)
+          .then((response) => {
+            if (response.data?.success === false) {
+              throw requestError('saveFailed', response.data.error);
+            }
+            return response;
+          })
+          // Whichever way it failed - the block's success:false body or a
+          // request that never landed (offline, session lost, 5xx) - the editor
+          // shows it, and the caller still sees the rejection.
+          .catch((error: RequestError) => {
+            const failure = error.code === 'saveFailed' ? error : requestError('saveFailed', error.message);
+            store.update((s) => t.setError(s, failure));
+            throw failure;
+          });
       },
 
       reload: () => {
