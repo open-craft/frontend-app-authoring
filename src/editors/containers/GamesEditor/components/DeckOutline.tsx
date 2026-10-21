@@ -186,7 +186,7 @@ const DeckOutline = ({
     <>
       <section
         aria-label={intl.formatMessage(messages.deckListLabel)}
-        className="deck-outline"
+        className="deck-outline d-flex flex-column w-100"
         // Programmatically focusable: the drag layer puts focus here when a
         // keyboard drag ends and the moved card's handle is gone.
         data-deck-outline="true"
@@ -275,7 +275,7 @@ const DeckOutline = ({
             </div>
           );
         })}
-        <Button variant="outline-primary" className="deck-outline-add" onClick={onAdd}>
+        <Button variant="outline-primary" className="align-self-start" onClick={onAdd}>
           <Icon src={Add} className="mr-2" />
           {intl.formatMessage(messages.newDeckLabel)}
         </Button>

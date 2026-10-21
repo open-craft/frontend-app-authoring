@@ -144,13 +144,9 @@
     z-index: 10;
   }
 
-  // The outline fills the terms column and stacks its rows loosely; each
-  // row's border and radius come from Paragon utility classes.
+  // Layout comes from utility classes on the section; this only spaces the rows.
   .deck-outline {
-    display: flex;
-    flex-direction: column;
     gap: .5rem;
-    width: 100%;
   }
 
   .deck-outline-header {
@@ -160,16 +156,6 @@
   // Lets a long deck name truncate instead of widening the row.
   .deck-outline-name {
     min-width: 0;
-  }
-
-  .deck-outline-cards {
-    display: flex;
-    flex-direction: column;
-  }
-
-  // The Add control sits below the rows at its own width, not the column's.
-  .deck-outline-add {
-    align-self: flex-start;
   }
 
   // A card or deck the pointer is over while dragging.

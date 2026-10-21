@@ -367,7 +367,7 @@ const GameEditor = ({
   // The cards of one deck, as its outline row shows them. The drag layer
   // supplies the preview decks, so a card moved here by a drag-over appears.
   const renderDeck = (deckId: string) => (
-    <div className="deck-outline-cards">
+    <div className="d-flex flex-column">
       <DeckCardList
         deckId={deckId}
         renderCard={(deck, card, index) => renderCard(deck.id, deck.cards, card, index)}
