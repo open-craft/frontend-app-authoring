@@ -42,6 +42,19 @@ const saveButton = () => screen.getByRole('button', { name: 'Save changes and re
 const savePosts = (axiosMock: ReturnType<typeof initializeMocks>['axiosMock']) =>
   axiosMock.history.post.filter((request) => request.url === handlerUrl('save_settings'));
 
+type User = ReturnType<typeof userEvent.setup>;
+
+// The handle, the card menu and the expand chevron all live in the card's own
+// chrome, in the deck list and the flat list alike.
+const cardRoot = (cardName: string) =>
+  screen.getByRole('button', { name: `Reorder ${cardName}` }).closest('.card') as HTMLElement;
+
+/** Opens a card through its chevron, the way an author does. */
+const openCard = async (user: User, cardName: string) => {
+  await screen.findByRole('button', { name: `Reorder ${cardName}` });
+  await user.click(within(cardRoot(cardName)).getByRole('button', { name: 'Expand card' }));
+};
+
 describe('GamesEditor in the editor modal', () => {
   let axiosMock: ReturnType<typeof initializeMocks>['axiosMock'];
 
@@ -59,6 +72,8 @@ describe('GamesEditor in the editor modal', () => {
   it('saves an edit with the Save button, through the block handler, and closes', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
+    // Cards arrive collapsed: the author opens the one they mean to edit.
+    await openCard(user, 'Photosynthesis');
     const term = await screen.findByDisplayValue('Photosynthesis');
     await user.type(term, ' now');
     await user.click(saveButton());
@@ -77,6 +92,7 @@ describe('GamesEditor in the editor modal', () => {
   it('asks before discarding unsaved changes, and discards without saving', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
+    await openCard(user, 'Photosynthesis');
     await user.type(await screen.findByDisplayValue('Photosynthesis'), '!');
     await user.click(screen.getByRole('button', { name: 'Discard changes and return to learning context' }));
 
@@ -89,6 +105,7 @@ describe('GamesEditor in the editor modal', () => {
   it('keeps the editor open, and sends nothing, while a card is incomplete', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
+    await openCard(user, 'Photosynthesis');
     await user.clear(await screen.findByDisplayValue('How plants eat'));
     await user.click(saveButton());
 
@@ -121,6 +138,15 @@ describe('GamesEditor decks', () => {
 
   const savedPayload = () => JSON.parse(savePosts(axiosMock)[0].data);
   const deckToggle = (name: string) => screen.getByRole('button', { name });
+  /** Opens a deck row through its toggle: every row starts collapsed. */
+  const openDeck = async (user: User, deckName: string) => {
+    await user.click(await screen.findByRole('button', { name: `Expand ${deckName}` }));
+  };
+  /** The two clicks an author makes to reach a card's fields. */
+  const openDeckAndCard = async (user: User, deckName: string, cardName: string) => {
+    await openDeck(user, deckName);
+    await openCard(user, cardName);
+  };
 
   // jsdom has no layout: give every droppable currently on screen a distinct,
   // strictly ascending rect in DOM order (Deck 1's header, its card row, then
@@ -130,7 +156,7 @@ describe('GamesEditor decks', () => {
   afterEach(() => {
     // A failed assertion can leave a keyboard drag mid-flight; Escape ends it so
     // its document key listener cannot leak into the next test.
-    if (document.querySelector('.deck-drag-overlay')) {
+    if (document.querySelector('[data-dnd-dragging="true"]')) {
       fireEvent.keyDown(document, { code: 'Escape' });
     }
     restoreRects?.();
@@ -155,21 +181,30 @@ describe('GamesEditor decks', () => {
       });
     });
 
-  // Every deck is a visible row of its own, and the rows open independently:
-  // the active deck starts open and another can be opened beside it.
-  it('lists a row per deck and opens their cards independently', async () => {
+  // Every deck is a visible row of its own, all of them collapsed at first,
+  // and they open independently. The cards inside come collapsed too.
+  it('lists a row per deck, all collapsed, and opens rows independently', async () => {
     const user = userEvent.setup();
     renderEditor();
-    expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('Two')).not.toBeInTheDocument();
 
+    expect(await screen.findByRole('button', { name: 'Expand Deck 1' })).toHaveAttribute('aria-expanded', 'false');
+    expect(deckToggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Reorder One' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reorder Two' })).not.toBeInTheDocument();
+
+    await user.click(deckToggle('Expand Deck 1'));
     await user.click(deckToggle('Expand Deck 2'));
 
-    expect(await screen.findByDisplayValue('Two')).toBeInTheDocument();
-    // Deck 1 stayed open; this is not an accordion.
-    expect(screen.getByDisplayValue('One')).toBeInTheDocument();
+    // Both rows stay open; Deck 1 was not closed by opening Deck 2.
     expect(deckToggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
     expect(deckToggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
+
+    // Opening a row shows its cards, still collapsed: one at a time, on demand.
+    expect(screen.queryByDisplayValue('One')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Two')).not.toBeInTheDocument();
+    await openCard(user, 'One');
+    expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Two')).not.toBeInTheDocument();
     // Each open deck's Add control names its deck, so they are distinguishable.
     expect(screen.getByRole('button', { name: 'Add card to Deck 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add card to Deck 2' })).toBeInTheDocument();
@@ -181,7 +216,7 @@ describe('GamesEditor decks', () => {
   it('adds a deck, focuses its name, renames it, and saves every deck with cards mirroring the first', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByRole('button', { name: 'Expand Deck 1' });
 
     await user.click(screen.getByRole('button', { name: 'New deck' }));
     const nameInput = await screen.findByDisplayValue('Deck 3');
@@ -221,9 +256,10 @@ describe('GamesEditor decks', () => {
       }],
     });
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await openDeck(user, 'Deck 1');
 
-    // Move the first card below the second through the visible card menu.
+    // The menu sits on the collapsed card, so no field has to be opened first.
+    // Move the first card below the second through it.
     await user.click(screen.getAllByRole('button', { name: 'Card actions' })[0]);
     await user.click(await screen.findByText('Move down'));
     await user.click(saveButton());
@@ -250,23 +286,32 @@ describe('GamesEditor decks', () => {
         cards: [{ term: '', definition: 'only a definition', card_key: 'c1' }],
       }],
     });
+    const user = userEvent.setup();
     renderEditor();
+    await openDeck(user, 'Deck 1');
 
     expect(await screen.findByRole('button', { name: 'Reorder card with no text' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Reorder No text/ })).not.toBeInTheDocument();
   });
 
-  // The whole keyboard path through the real editor: the provider's keyboard
-  // sensor drives GameEditor's moveCard, and the save carries the new deck.
+  // The whole keyboard path through the real editor: the card is opened first,
+  // the drag collapses it for real - no copy follows the pointer - the hovered
+  // deck opens itself, and the save carries the new deck.
   it('moves a card into another deck with the keyboard and saves both decks', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await openDeckAndCard(user, 'Deck 1', 'One');
+    expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
 
     stubRenderedRects();
     screen.getByRole('button', { name: 'Reorder One' }).focus();
     await user.keyboard(' ');
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Picked up One in Deck 1'));
+
+    // The real card collapses as the drag starts: what moves is the compact
+    // card, not the form that was open a moment ago.
+    await waitFor(() => expect(screen.queryByDisplayValue('One')).not.toBeInTheDocument());
+    expect(within(cardRoot('One')).getByRole('button', { name: 'Expand card' })).toBeInTheDocument();
 
     await settleSensor();
 
@@ -274,14 +319,17 @@ describe('GamesEditor decks', () => {
     // and previews the card at the end of its cards.
     await user.keyboard('{ArrowDown}');
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('moved over the end of Deck 2'));
-    expect(screen.getByDisplayValue('Two')).toBeInTheDocument();
+    expect(deckToggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
 
     await user.keyboard(' ');
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('at the end of Deck 2'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder One' })).toHaveFocus());
 
-    expect(within(rowOf('Deck 2')).getByDisplayValue('One')).toBeInTheDocument();
-    expect(within(rowOf('Deck 1')).queryByDisplayValue('One')).not.toBeInTheDocument();
+    // Dropped, the card is still the collapsed one, now in Deck 2.
+    expect(within(rowOf('Deck 2')).getByText('One')).toBeInTheDocument();
+    expect(within(rowOf('Deck 1')).queryByText('One')).not.toBeInTheDocument();
+    expect(within(cardRoot('One')).getByRole('button', { name: 'Expand card' })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('One')).not.toBeInTheDocument();
 
     await user.click(saveButton());
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
@@ -303,7 +351,7 @@ describe('GamesEditor decks', () => {
   it('cancels a keyboard drag without dirtying the editor', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await openDeckAndCard(user, 'Deck 1', 'One');
 
     stubRenderedRects();
     screen.getByRole('button', { name: 'Reorder One' }).focus();
@@ -322,8 +370,9 @@ describe('GamesEditor decks', () => {
     expect(status).not.toHaveTextContent(/[0-9a-f]{8}-[0-9a-f]{4}/);
     await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder One' })).toHaveFocus());
 
-    expect(within(rowOf('Deck 1')).getByDisplayValue('One')).toBeInTheDocument();
-    expect(within(rowOf('Deck 2')).queryByDisplayValue('One')).not.toBeInTheDocument();
+    // Cancelled, the card is back in Deck 1, still collapsed by the drag.
+    expect(within(rowOf('Deck 1')).getByText('One')).toBeInTheDocument();
+    expect(within(rowOf('Deck 2')).queryByText('One')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Discard changes and return to learning context' }));
     expect(screen.queryByText('Exit the editor?')).not.toBeInTheDocument();
@@ -336,15 +385,17 @@ describe('GamesEditor decks', () => {
   it('opens the rows with invalid names and blocks the save', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByDisplayValue('Deck 1');
 
     const secondName = screen.getByDisplayValue('Deck 2');
     await user.clear(secondName);
     await user.type(secondName, 'deck 1');
 
-    // Both rows opened, so neither deck's message is hidden.
-    expect(await screen.findByDisplayValue('Two')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('One')).toBeInTheDocument();
+    // Both rows opened, so neither deck's message is hidden. What is inside a
+    // row is untouched: opening a deck is not opening its cards.
+    expect(await screen.findByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder Two' })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('One')).not.toBeInTheDocument();
     // Both sides of the clash are flagged, each beside its own name field.
     expect(await screen.findAllByText('Deck names must be unique')).toHaveLength(2);
 
@@ -361,7 +412,7 @@ describe('GamesEditor decks', () => {
   it('hides deck authoring in Matching, blocks its save, and repairs the names in Flashcards', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByDisplayValue('Deck 1');
 
     // Two decks share a name after editing in Flashcards.
     const secondName = screen.getByDisplayValue('Deck 2');
@@ -374,7 +425,7 @@ describe('GamesEditor decks', () => {
 
     // Matching keeps the primary deck's cards but none of the deck controls:
     // no deck list, name field, add or delete.
-    expect(screen.getByDisplayValue('One')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Decks' })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('deck 1')).not.toBeInTheDocument();
@@ -410,14 +461,14 @@ describe('GamesEditor decks', () => {
   it('flags an empty and a duplicate name while the author types', async () => {
     const user = userEvent.setup();
     renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByDisplayValue('Deck 1');
 
     const secondName = screen.getByDisplayValue('Deck 2');
     await user.clear(secondName);
     expect(await screen.findByText('Enter a deck name')).toBeInTheDocument();
     expect(secondName).toHaveFocus();
-    // The row opened itself so the message is visible.
-    expect(screen.getByDisplayValue('Two')).toBeInTheDocument();
+    // The row opened itself so the message is visible: its body is rendered.
+    expect(await screen.findByRole('button', { name: 'Reorder Two' })).toBeInTheDocument();
 
     await user.type(secondName, 'deck 1');
     // Both decks are flagged: the clash is not the second deck's fault alone.
@@ -429,7 +480,7 @@ describe('GamesEditor decks', () => {
   it('keeps the caret in the deck being renamed through a transient duplicate', async () => {
     const user = userEvent.setup();
     renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByDisplayValue('Deck 1');
 
     const secondName = screen.getByDisplayValue('Deck 2');
     await user.clear(secondName);
@@ -442,23 +493,26 @@ describe('GamesEditor decks', () => {
     expect(screen.queryByText('Deck names must be unique')).not.toBeInTheDocument();
   });
 
-  // A card error inside a collapsed deck must not be invisible: the row opens
-  // with the card, so the blocked save has a visible cause.
-  it('opens a collapsed deck whose card failed validation', async () => {
+  // A card error inside a collapsed deck and a collapsed card must not be
+  // invisible: the save opens both, so it has a visible cause.
+  it('opens a collapsed deck and card that failed validation', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await openDeckAndCard(user, 'Deck 2', 'Two');
+    // The term is left alone: the card's drag handle is named after it.
+    await user.clear(await screen.findByDisplayValue('second'));
 
-    await user.click(deckToggle('Expand Deck 2'));
-    await user.clear(await screen.findByDisplayValue('Two'));
+    // Close both again: the author is looking at a collapsed outline when they
+    // press Save.
+    await user.click(within(cardRoot('Two')).getByRole('button', { name: 'Collapse card' }));
     await user.click(deckToggle('Collapse Deck 2'));
     expect(deckToggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
 
     await user.click(saveButton());
 
-    expect(await screen.findByText('Enter a term')).toBeInTheDocument();
+    expect(await screen.findByText('Enter a definition')).toBeInTheDocument();
     expect(deckToggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByDisplayValue('second')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Two')).toBeInTheDocument();
     expect(savePosts(axiosMock)).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -467,7 +521,7 @@ describe('GamesEditor decks', () => {
   it('deletes an empty deck without asking', async () => {
     const user = userEvent.setup();
     renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByDisplayValue('Deck 1');
 
     await user.click(screen.getByRole('button', { name: 'New deck' }));
     expect(await screen.findByDisplayValue('Deck 3')).toBeInTheDocument();
@@ -481,16 +535,19 @@ describe('GamesEditor decks', () => {
   it('deletes a deck with cards after confirmation, and cannot delete the last one', async () => {
     const user = userEvent.setup();
     renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByDisplayValue('Deck 1');
 
     await user.click(deckToggle('Expand Deck 2'));
-    expect(await screen.findByDisplayValue('Two')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Reorder Two' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete Deck 2' }));
     expect(await screen.findByText('Delete deck?')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Delete deck' }));
 
-    expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
+    // The deck that takes over opens and takes the caret; its card stays as
+    // the author left it.
+    await waitFor(() => expect(deckToggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true'));
+    await waitFor(() => expect(screen.getByDisplayValue('Deck 1')).toHaveFocus());
     expect(screen.queryByDisplayValue('Deck 2')).not.toBeInTheDocument();
     // The last deck cannot be deleted.
     expect(screen.getByRole('button', { name: 'Delete Deck 1' })).toBeDisabled();
@@ -515,7 +572,7 @@ describe('GamesEditor deck authoring availability', () => {
     mockSettings({ game_type: 'flashcards', is_shuffled: true, has_timer: false, cards: [card] });
     renderEditor();
 
-    expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
 
@@ -553,7 +610,7 @@ describe('GamesEditor deck authoring availability', () => {
     });
     renderEditor();
 
-    expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
   });
@@ -602,6 +659,7 @@ describe('a save the network never delivered', () => {
   const saveFailing = async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
+    await openCard(user, 'Photosynthesis');
     await user.type(await screen.findByDisplayValue('Photosynthesis'), ' now');
     await user.click(saveButton());
     return { user, onClose };
@@ -657,7 +715,7 @@ describe('a card error hidden by Matching', () => {
   it('names the deck to repair in Flashcards, and saves once it is fixed', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
+    await screen.findByRole('button', { name: 'Reorder One' });
 
     await user.click(saveButton());
 

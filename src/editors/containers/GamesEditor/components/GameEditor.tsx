@@ -45,7 +45,6 @@ import type {
 import DeckOutline from './DeckOutline';
 import { DeckCardDragProvider, DeckCardList } from './DeckCardDragContext';
 import GameCard from './GameCard';
-import CardPreview from './CardPreview';
 import GameImageSettingsModal from './GameImageSettingsModal';
 import SettingsSidebar from './SettingsSidebar';
 
@@ -270,6 +269,14 @@ const GameEditor = ({
     moveCard(move);
   }, [moveCard]);
 
+  // The card that follows the pointer is the real one, so a drag collapses an
+  // open card first. Checking `editorOpen` here is what keeps a drag of an
+  // already collapsed card from writing to the store for nothing.
+  const handleCardDragStart = useCallback((cardId: string) => {
+    const card = decks.flatMap((deck) => deck.cards).find((candidate) => candidate.id === cardId);
+    if (card?.editorOpen) { toggleOpen({ cardId, isOpen: false }); }
+  }, [decks, toggleOpen]);
+
   const openImageSettings = useCallback((card: Card, imageType: ImageType) => {
     setImageSettings({
       imageData: {
@@ -405,11 +412,7 @@ const GameEditor = ({
             <DeckCardDragProvider
               decks={decks}
               onCardMove={handleCardMove}
-              renderOverlayCard={(card) => (
-                <div className="deck-drag-overlay d-flex align-items-center px-4 py-3 border border-light-700 rounded bg-white shadow-sm">
-                  <CardPreview card={card} type={type} studioEndpointUrl={studioEndpointUrl} />
-                </div>
-              )}
+              onCardDragStart={handleCardDragStart}
             >
               <DeckOutline
                 decks={deckSummaries}
@@ -431,6 +434,11 @@ const GameEditor = ({
                 itemList={list}
                 setState={(next) => replaceDeckCards(activeDeckId, list, next)}
                 updateOrder={() => () => undefined}
+                // The flat list has no preview tree, so the same collapse goes
+                // straight to the state. Null means no drag, not a card.
+                setActiveId={(cardId) => {
+                  if (cardId) { handleCardDragStart(cardId); }
+                }}
               >
                 {list.map((card, index) => renderCard(activeDeckId, list, card, index))}
               </DraggableList>

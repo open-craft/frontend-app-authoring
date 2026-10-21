@@ -207,8 +207,9 @@ export const removeCard = (state: GameState, target: number | CardTarget): GameS
 
 /**
  * Switches the deck being edited. Navigation, not a change to the game, so it
- * does not mark the state dirty. An empty deck gets a blank placeholder so it
- * can be edited; placeholders are filtered out of a save.
+ * does not mark the state dirty. A deck emptied while editing gets an open blank
+ * placeholder so it can be typed into; a deck loaded empty already holds its
+ * collapsed one. Placeholders are filtered out of a save.
  */
 export const selectDeck = (state: GameState, deckId: string): GameState => {
   const deck = state.decks.find((candidate) => candidate.id === deckId);
@@ -328,6 +329,9 @@ export const moveCard = (state: GameState, cardId: string, target: CardDropTarge
 /** One card from a `get_settings` card object, with editor defaults filled in. */
 const cardFromSettings = (card: Partial<Card>): Card => ({
   ...emptyCard(),
+  // A loaded card starts collapsed: the outline is a list to scan, not a form
+  // to fill in. Adding, selecting or opening a card still shows its fields.
+  editorOpen: false,
   card_key: card.card_key,
   term: card.term || '',
   // Image URLs are kept as the block returns them (relative to its Studio);
@@ -344,7 +348,11 @@ const cardFromSettings = (card: Partial<Card>): Card => ({
 /** A loaded deck's cards, with a blank placeholder when the deck is empty. */
 const editableCards = (cards: unknown): Card[] => {
   const loaded = (Array.isArray(cards) ? cards : []).map(cardFromSettings);
-  return loaded.length ? loaded : [emptyCard()];
+  // The placeholder standing in for a loaded empty deck is collapsed like every
+  // other loaded card, and stays collapsed when the deck is opened. Only the
+  // explicit paths - a new deck, an added card, a deck emptied while editing -
+  // use emptyCard() and so start open.
+  return loaded.length ? loaded : [{ ...emptyCard(), editorOpen: false }];
 };
 
 const deckFromSettings = (deck: SettingsDeck | null | undefined, index: number): Deck => {

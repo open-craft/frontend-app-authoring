@@ -163,14 +163,4 @@
     outline: 2px dashed var(--pgn-color-primary-500);
     outline-offset: -2px;
   }
-
-  // The dragged row stays in place, dimmed; the drag overlay follows the pointer.
-  .deck-card-dragging {
-    opacity: .4;
-  }
-
-  .deck-drag-overlay {
-    width: 24rem;
-    pointer-events: none;
-  }
 }

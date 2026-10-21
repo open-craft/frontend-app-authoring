@@ -36,11 +36,6 @@ jest.mock('@dnd-kit/core', () => {
       mockAnnouncements = accessibility?.announcements;
       return ReactModule.createElement('div', null, children);
     },
-    // The real overlay renders only while a card is active; here it has to
-    // render so its wrapper can be inspected.
-    DragOverlay: (
-      { children, className }: any,
-    ) => (children ? ReactModule.createElement('div', { className, 'data-testid': 'drag-overlay' }, children) : null),
     useDroppable: ({ id }: { id: string; }) => ({
       isOver: id === mockHoveredDroppableId,
       setNodeRef: () => undefined,
@@ -61,6 +56,14 @@ const Preview = () => {
 };
 
 const preview = () => screen.getByTestId('preview').textContent;
+
+/** The dragged card's own open state, wherever the preview put it. */
+const OpenState = () => {
+  const { previewDecks } = useDeckDragPreview();
+  const dragged = previewDecks.flatMap((entry) => entry.cards).find((entry) => entry.id === 'A');
+  return <div data-testid="open-state">{dragged ? String(dragged.editorOpen) : 'none'}</div>;
+};
+const openState = () => screen.getByTestId('open-state').textContent;
 
 // dnd-kit's activator event decides whether focus follows the card: a pointer
 // event means mouse/touch, a keyboard event means Space or Enter.
@@ -90,9 +93,16 @@ const settle = () =>
     });
   });
 
-const renderDrag = (decks: Deck[], onCardMove = jest.fn<void, [CardMove]>(), extra?: React.ReactNode) => {
+const renderDrag = (
+  decks: Deck[],
+  onCardMove = jest.fn<void, [CardMove]>(),
+  extra?: React.ReactNode,
+  // The provider requires the caller to own the collapse; most tests only care
+  // about the local preview, so the default asks for nothing.
+  onCardDragStart: (cardId: string) => void = () => undefined,
+) => {
   render(
-    <DeckCardDragProvider decks={decks} onCardMove={onCardMove} renderOverlayCard={() => null}>
+    <DeckCardDragProvider decks={decks} onCardMove={onCardMove} onCardDragStart={onCardDragStart}>
       <Preview />
       {decks.map((entry) => (
         <DeckDropTarget
@@ -269,14 +279,18 @@ describe('DeckCardDragContext', () => {
   // no-op as its header: the committed view comes back and nothing commits.
   it('restores the preview when a keyboard drag returns to the source empty zone', () => {
     const decks = [deck('d1', ['A']), deck('d2', ['X'])];
-    const onCardMove = renderDrag(decks);
+    const onCardMove = renderDrag(decks, undefined, <OpenState />);
 
     dragStart('A', keyboardEvent());
     dragOver('A', 'X', keyboardEvent());
     expect(preview()).toEqual('d1: | d2:A,X');
+    expect(openState()).toEqual('false');
 
     dragOver('A', 'deck:d1:empty', keyboardEvent());
     expect(preview()).toEqual('d1:A | d2:X');
+    // Restoring the tree the drag started from keeps the card collapsed: what
+    // is dragged is the real, compact card, not the form it came from.
+    expect(openState()).toEqual('false');
     // The announcement must not claim a move to the deck the card is still in.
     expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'deck:d1:empty' } }))
       .toBeUndefined();
@@ -400,25 +414,44 @@ describe('DeckCardDragContext', () => {
     expect(handle).not.toHaveFocus();
   });
 
-  // The overlay is portalled to <body>, out of the editor wrapper, so the
-  // overlay's own wrapper carries the scope class its preview sizes come from.
-  it('renders the drag overlay inside the editor scope class', () => {
-    render(
-      <DeckCardDragProvider
-        decks={[deck('d1', ['A'])]}
-        onCardMove={jest.fn<void, [CardMove]>()}
-        renderOverlayCard={(dragged) => <span>overlay {dragged.term}</span>}
-      >
-        <Preview />
-      </DeckCardDragProvider>,
-    );
-    expect(screen.queryByTestId('drag-overlay')).not.toBeInTheDocument();
+  // The card that moves is the real one, so an open card is collapsed into the
+  // preview at drag start and the caller is told to collapse it in its state:
+  // the row that travels is compact, and the drop leaves it collapsed.
+  it('collapses an open card into the preview and asks the editor to persist it', () => {
+    const onCardDragStart = jest.fn<void, [string]>();
+    renderDrag([deck('d1', ['A']), deck('d2', ['X', 'Y'])], undefined, <OpenState />, onCardDragStart);
+    expect(openState()).toEqual('true');
 
     dragStart('A');
 
-    const overlay = screen.getByTestId('drag-overlay');
-    expect(overlay).toHaveClass('xblock-games-editor');
-    expect(overlay).toHaveTextContent('overlay A');
+    expect(openState()).toEqual('false');
+    expect(onCardDragStart).toHaveBeenCalledTimes(1);
+    expect(onCardDragStart).toHaveBeenCalledWith('A');
+
+    // The collapse follows the card into another deck, and hovering does not
+    // ask the editor again.
+    dragOver('A', 'Y');
+    expect(preview()).toEqual('d1: | d2:X,A,Y');
+    expect(openState()).toEqual('false');
+
+    dragEnd('A', 'Y');
+    expect(onCardDragStart).toHaveBeenCalledTimes(1);
+  });
+
+  // An already collapsed card is not the editor's to collapse again: a drag of
+  // it must not write anything, and a cancel must leave it collapsed.
+  it('leaves a collapsed card alone and stays collapsed when the drag is cancelled', () => {
+    const onCardDragStart = jest.fn<void, [string]>();
+    const decks: Deck[] = [{ id: 'd1', name: 'd1', cards: [{ ...card('A'), editorOpen: false }] }];
+    renderDrag(decks, undefined, <OpenState />, onCardDragStart);
+
+    dragStart('A');
+    expect(openState()).toEqual('false');
+    expect(onCardDragStart).not.toHaveBeenCalled();
+
+    dragCancel();
+    expect(openState()).toEqual('false');
+    expect(onCardDragStart).not.toHaveBeenCalled();
   });
 
   it('refuses to drag the blank placeholder card', () => {

@@ -1,9 +1,7 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
   DndContext,
-  DragOverlay,
   KeyboardSensor,
   MeasuringStrategy,
   PointerSensor,
@@ -33,12 +31,18 @@ import type {
 
 /**
  * Drag authoring for the deck outline, pointer and keyboard alike: every
- * dnd-kit call in the editor lives here, and callers render chrome only.
+ * dnd-kit call in the editor lives here, and callers render rows only. The card
+ * that moves is the real one: no separate preview follows the pointer.
  *
- * The committed decks never change during a drag. A local, immutable
- * `previewDecks` tree is what the outline renders, and the one commit goes
- * through the editor's `moveCard` transition on drop. A cancelled drag simply
- * drops the preview, so the committed view returns with nothing written.
+ * A drag starts by collapsing the dragged card, in the local tree and through
+ * the caller in the state it owns, so the drop leaves it collapsed.
+ *
+ * The authored decks do not change until the drop: no card content and no deck
+ * order is written while dragging, and the one commit goes through the editor's
+ * `moveCard` transition. The collapse is the only state a drag writes before
+ * that, and it is UI-only. A local, immutable `previewDecks` tree is what the
+ * outline renders meanwhile; a cancelled drag drops it, so the committed view
+ * returns with the move unwritten.
  */
 
 /** One committed move. The only thing this module reports. */
@@ -153,14 +157,13 @@ const moveResult = (decks: Deck[], cardId: string, target: CardDropTarget) => {
 interface DragPreview {
   /** The decks to render: the preview while dragging, the committed ones after. */
   previewDecks: Deck[];
+  /** The card being dragged, so its row can be marked. */
   activeCardId: string | null;
-  activeCard: Card | null;
 }
 
 const DeckDragContext = React.createContext<DragPreview>({
   previewDecks: [],
   activeCardId: null,
-  activeCard: null,
 });
 
 /** The decks to render and the card being dragged, for rows inside the provider. */
@@ -171,8 +174,12 @@ interface DeckCardDragProviderProps {
   decks: Deck[];
   /** Called once, on a valid drop. The caller applies `moveCard`. */
   onCardMove: (move: CardMove) => void;
-  /** What follows the pointer: chrome only, never a sortable row. */
-  renderOverlayCard: (card: Card) => React.ReactNode;
+  /**
+   * Called when a drag starts on an open card. Required: the caller collapses
+   * that card in the state it owns, which is what keeps it collapsed after the
+   * drop. Called at most once per drag.
+   */
+  onCardDragStart: (cardId: string) => void;
   children: React.ReactNode;
 }
 
@@ -183,7 +190,7 @@ interface DeckCardDragProviderProps {
 export const DeckCardDragProvider = ({
   decks,
   onCardMove,
-  renderOverlayCard,
+  onCardDragStart,
   children,
 }: DeckCardDragProviderProps) => {
   const intl = useIntl();
@@ -192,6 +199,9 @@ export const DeckCardDragProvider = ({
   // The latest preview, read by handlers: several drag-over events can arrive
   // before React commits the state, and each must build on the last.
   const previewRef = React.useRef<Deck[] | null>(null);
+  // The tree the drag started from: the committed decks with the dragged card
+  // collapsed. Restoring it is what a no-move drag looks like on screen.
+  const dragStartDecksRef = React.useRef<Deck[] | null>(null);
   // The latest committed decks, for the announcement callbacks. Reading the prop
   // directly would rebuild the announcements - and re-register the live-region
   // listener - on every keystroke in the editor.
@@ -227,6 +237,7 @@ export const DeckCardDragProvider = ({
 
   const reset = React.useCallback(() => {
     previewRef.current = null;
+    dragStartDecksRef.current = null;
     lastMoveRef.current = null;
     hoverRef.current = null;
     activeCardIdRef.current = null;
@@ -259,14 +270,26 @@ export const DeckCardDragProvider = ({
 
   const handleDragStart = ({ active }: DragStartEvent) => {
     const cardId = String(active.id);
-    if (!findCard(decks, cardId)) { return; }
+    const card = findCard(decks, cardId);
+    if (!card) { return; }
     dropAnnouncementRef.current = null;
     activeCardIdRef.current = cardId;
     lastMoveRef.current = null;
     hoverRef.current = null;
-    previewRef.current = decks;
-    setPreviewDecks(decks);
+    // An open card would drag as a tall form; collapsed, it is the compact card
+    // the author picked up. The caller persists the same collapse, so the drop
+    // leaves it closed.
+    const startDecks = card.editorOpen
+      ? decks.map((deck) => ({
+        ...deck,
+        cards: deck.cards.map((entry) => (entry.id === cardId ? { ...entry, editorOpen: false } : entry)),
+      }))
+      : decks;
+    dragStartDecksRef.current = startDecks;
+    previewRef.current = startDecks;
+    setPreviewDecks(startDecks);
     setActiveCardId(cardId);
+    if (card.editorOpen) { onCardDragStart(cardId); }
   };
 
   const handleDragOver = ({ active, over, activatorEvent }: DragOverEvent) => {
@@ -280,11 +303,12 @@ export const DeckCardDragProvider = ({
     // which is the resolver's own header behaviour.
     if (isKeyboardEvent(activatorEvent) && isSourceDeckTarget(overId, sourceDeckId)) {
       // A cross-deck preview may still be on screen when the arrow comes back:
-      // show the committed tree and drop the stale target, so the screen agrees
-      // with the no-op the drop will be.
-      if (previewRef.current && previewRef.current !== decks) {
-        previewRef.current = decks;
-        setPreviewDecks(decks);
+      // show the tree the drag started from and drop the stale target, so the
+      // screen agrees with the no-op the drop will be.
+      const startDecks = dragStartDecksRef.current ?? decks;
+      if (previewRef.current && previewRef.current !== startDecks) {
+        previewRef.current = startDecks;
+        setPreviewDecks(startDecks);
       }
       lastMoveRef.current = null;
       hoverRef.current = null;
@@ -453,9 +477,8 @@ export const DeckCardDragProvider = ({
     draggable: intl.formatMessage(messages.dragScreenReaderInstructions),
   }), [intl]);
 
-  const activeCard = activeCardId ? findCard(decks, activeCardId) : null;
   const value = React.useMemo<DragPreview>(
-    () => ({ previewDecks: previewDecks ?? decks, activeCardId, activeCard }),
+    () => ({ previewDecks: previewDecks ?? decks, activeCardId }),
     [previewDecks, decks, activeCardId],
   );
 
@@ -479,20 +502,6 @@ export const DeckCardDragProvider = ({
         onDragCancel={handleDragCancel}
       >
         {children}
-        {
-          // Inside DndContext's React subtree so the overlay reads its context,
-          // portalled out of the editor's scrolling box and above its modal
-          // (Paragon uses --pgn-elevation-modal-zindex, 1050; dnd-kit's own
-          // overlay defaults to 999 and would disappear behind it). The portal
-          // also leaves the editor's wrapper, so the overlay carries that
-          // wrapper's class and keeps its scoped preview styles.
-        }
-        {createPortal(
-          <DragOverlay zIndex={2000} dropAnimation={null} className="xblock-games-editor">
-            {activeCard ? renderOverlayCard(activeCard) : null}
-          </DragOverlay>,
-          document.body,
-        )}
       </DndContext>
     </DeckDragContext.Provider>
   );
@@ -566,7 +575,8 @@ export const DeckDropTarget = ({
 /**
  * The card rows of one deck: a `SortableContext` whose items come from the
  * preview tree, so a card moved here by a drag-over renders in this body.
- * The dragged row stays in place, dimmed, while the overlay follows the pointer.
+ * The dragged row is the real card, collapsed and moved by `useSortable`; it
+ * carries `data-dnd-dragging`, the one marker a drag in flight leaves behind.
  */
 export const DeckCardList = ({
   deckId,
@@ -590,7 +600,8 @@ export const DeckCardList = ({
           <div
             key={card.id}
             data-dnd-id={card.id}
-            className={activeCardId === card.id ? 'deck-card-dragging' : undefined}
+            // The only marker a drag in flight leaves behind, for tests and cleanup.
+            data-dnd-dragging={activeCardId === card.id ? 'true' : undefined}
           >
             {renderCard(deck, card, index)}
           </div>

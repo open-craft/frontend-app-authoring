@@ -13,15 +13,12 @@ export const stubRects = (rects: Record<string, StubbedRect>, width = 800): () =
   const original = HTMLElement.prototype.getBoundingClientRect;
 
   HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect(this: HTMLElement) {
-    // A droppable sits inside its data-dnd-id wrapper. The drag overlay is
-    // portalled outside every wrapper and dnd-kit measures its single child, so
-    // it is measured through the row it renders - or, when the overlay's chrome
-    // carries no data attribute (the editor's real preview row), through the
-    // focused card's row, which is where a keyboard drag keeps focus.
-    const draggedRow = () => document.activeElement?.closest<HTMLElement>('[data-dnd-id]') ?? null;
-    const inOverlay = this.style?.position === 'fixed' || this.parentElement?.style?.position === 'fixed';
+    // A droppable sits inside its data-dnd-id wrapper, which is where the
+    // rect comes from; anything else dnd-kit measures during a drag falls back
+    // to the focused card's row, which is where a keyboard drag keeps focus.
     const owner = this.closest<HTMLElement>('[data-dnd-id]')
-      ?? (inOverlay ? (this.querySelector<HTMLElement>('[data-dnd-id]') ?? draggedRow()) : null);
+      ?? document.activeElement?.closest<HTMLElement>('[data-dnd-id]')
+      ?? null;
     const [top, bottom] = (owner?.dataset.dndId && rects[owner.dataset.dndId]) || [0, 0];
     return {
       top,

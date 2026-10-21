@@ -57,22 +57,30 @@ describe('DeckOutline', () => {
     initializeMocks();
   });
 
-  it('opens the active deck by default and expands another row independently', async () => {
+  // Every deck starts collapsed, the active one included: the outline is a list
+  // to scan. Rows are independent, not an accordion.
+  it('starts with every deck collapsed and opens rows independently', async () => {
     const user = userEvent.setup();
     const { onSelect } = renderOutline();
 
-    expect(toggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle('Expand Deck 1')).toHaveAttribute('aria-expanded', 'false');
     expect(toggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByText('Cards of deck-1')).toBeInTheDocument();
+    expect(toggle('Expand Ecology')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Cards of deck-1')).not.toBeInTheDocument();
 
     await user.click(toggle('Expand Deck 2'));
 
-    // Both rows stay open: they are independent, not an accordion.
-    expect(toggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
+    // The active deck stays collapsed; opening one row does not close another.
+    expect(toggle('Expand Deck 1')).toHaveAttribute('aria-expanded', 'false');
     expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Cards of deck-1')).toBeInTheDocument();
+    expect(screen.queryByText('Cards of deck-1')).not.toBeInTheDocument();
     expect(screen.getByText('Cards of deck-2')).toBeInTheDocument();
     expect(onSelect).toHaveBeenCalledWith('deck-2');
+
+    await user.click(toggle('Expand Deck 1'));
+
+    expect(toggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('opens a newly added deck and focuses its name', async () => {
@@ -205,7 +213,7 @@ describe('DeckOutline', () => {
     };
     render(<Harness />);
 
-    // The neighbour is collapsed while the active deck is open.
+    // Both rows start collapsed; deleting the active deck opens its replacement.
     expect(toggle('Expand Deck 1')).toHaveAttribute('aria-expanded', 'false');
     await user.click(screen.getByRole('button', { name: 'Delete Deck 2' }));
     await user.click(screen.getByRole('button', { name: 'Delete deck' }));

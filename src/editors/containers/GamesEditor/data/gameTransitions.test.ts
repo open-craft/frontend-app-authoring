@@ -58,6 +58,17 @@ describe('game state transitions', () => {
     expect(removeCard(initialState, -1)).toBe(initialState);
   });
 
+  // Collapsed by default is for loaded content only: a card the author adds is
+  // a form to fill in, so it starts open.
+  it('starts a loaded card collapsed and an added one open', () => {
+    const state = stateFromSettings({ cards: [{ term: 't', definition: 'd', card_key: 'k' }] });
+    expect(state.decks[0].cards[0].editorOpen).toBe(false);
+    expect(emptyCard().editorOpen).toBe(true);
+
+    const added = addCard(state);
+    expect(added.list[added.list.length - 1]).toMatchObject({ term: '', editorOpen: true });
+  });
+
   it('gives every new card the image-path fields the block persists', () => {
     expect(emptyCard()).toHaveProperty('term_image_path', '');
     expect(emptyCard()).toHaveProperty('definition_image_path', '');
@@ -156,6 +167,7 @@ describe('decks', () => {
     expect(state.decks[0]).toMatchObject({ name: 'Deck 1' });
     expect(state.decks[0].deck_key).toBeUndefined();
     expect(state.decks[0].cards[0]).toMatchObject({ term: 't', definition: 'd', card_key: 'k' });
+    expect(state.decks[0].cards[0].editorOpen).toBe(false);
     expect(state.activeDeckId).toEqual(state.decks[0].id);
     expect(state.list).toEqual(state.decks[0].cards);
     expect(state.isLoaded).toBe(true);
@@ -179,6 +191,9 @@ describe('decks', () => {
     // An empty deck is still editable: it gets a blank placeholder.
     expect(state.decks[1].cards).toHaveLength(1);
     expect(state.decks[1].cards[0].term).toEqual('');
+    // Loaded cards, and the placeholder of a loaded empty deck, start collapsed.
+    expect(state.decks[0].cards[0].editorOpen).toBe(false);
+    expect(state.decks[1].cards[0].editorOpen).toBe(false);
   });
 
   // Switching decks is navigation, not a change to the game content.
@@ -203,6 +218,8 @@ describe('decks', () => {
 
     expect(selectActiveCards(next)).toHaveLength(1);
     expect(selectActiveCards(next)[0].term).toEqual('');
+    // The placeholder a selected empty deck gets is the open one to type into.
+    expect(selectActiveCards(next)[0].editorOpen).toBe(true);
     expect(next.isDirty).toBe(false);
   });
 

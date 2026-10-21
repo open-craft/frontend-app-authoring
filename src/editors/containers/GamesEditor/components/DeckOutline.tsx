@@ -75,11 +75,10 @@ const DeckOutline = ({
   renderDeck,
 }: DeckOutlineProps) => {
   const intl = useIntl();
-  // Local: the rows the author has open. Several may be open at once.
-  const [openDeckIds, setOpenDeckIds] = React.useState<ReadonlySet<string>>(() => {
-    const initiallyOpen = decks.some((deck) => deck.id === activeDeckId) ? activeDeckId : decks[0]?.id;
-    return new Set(initiallyOpen ? [initiallyOpen] : []);
-  });
+  // Local: the rows the author has open. Several may be open at once, and none
+  // starts open: the outline is a list to scan, and opening a row is the
+  // author's move - or an explicit one, such as adding a deck.
+  const [openDeckIds, setOpenDeckIds] = React.useState<ReadonlySet<string>>(() => new Set<string>());
   // Local: only this list cares which deletion is waiting for confirmation.
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null);
   const pendingDelete = decks.find((deck) => deck.id === pendingDeleteId);

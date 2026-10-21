@@ -59,7 +59,8 @@ const Harness = ({
       <DeckCardDragProvider
         decks={decks}
         onCardMove={onCardMove}
-        renderOverlayCard={(item) => <div data-dnd-id={item.id}>{item.term}</div>}
+        // These tests are about the drag layer, not the state it reports to.
+        onCardDragStart={() => undefined}
       >
         {decks.map((entry) => (
           <section key={entry.id}>
