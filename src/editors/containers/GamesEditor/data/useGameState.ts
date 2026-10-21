@@ -109,27 +109,32 @@ export const useGameState = (block: BlockRef | null) => {
       setShuffleStatus: (value: boolean) => store.update((s) => t.updateSetting(s, 'shuffle', value)),
       setTimerStatus: (value: boolean) => store.update((s) => t.updateSetting(s, 'timer', value)),
       updateType: (value: GameType) => store.update((s) => t.updateType(s, value)),
-      updateTerm: ({ index, term }: { index: number; term: string; }) =>
-        store.update((s) => t.updateCardField(s, { index }, 'term', term)),
-      updateDefinition: ({ index, definition }: { index: number; definition: string; }) =>
-        store.update((s) => t.updateCardField(s, { index }, 'definition', definition)),
-      updateTermImageAlt: ({ index, termImageAlt }: { index: number; termImageAlt: string; }) =>
-        store.update((s) => t.updateCardField(s, { index }, 'term_image_alt', termImageAlt)),
-      updateDefinitionImageAlt: ({ index, definitionImageAlt }: { index: number; definitionImageAlt: string; }) =>
-        store.update((s) => t.updateCardField(s, { index }, 'definition_image_alt', definitionImageAlt)),
-      toggleOpen: ({ index, isOpen }: { index: number; isOpen: boolean; }) =>
-        store.update((s) => t.setCardOpen(s, index, !!isOpen)),
-      setList: (value: Card[]) => store.update((s) => t.setList(s, value)),
-      addCard: () => store.update((s) => t.addCard(s)),
-      removeCard: ({ index }: { index: number; }) => store.update((s) => t.removeCard(s, index)),
+      // Every card action takes a position in the active deck or the card's
+      // own id, so several deck bodies can render and edit at once without
+      // selecting a deck as a render side effect.
+      updateTerm: (value: t.CardTarget & { term: string; }) =>
+        store.update((s) => t.updateCardField(s, value, 'term', value.term)),
+      updateDefinition: (value: t.CardTarget & { definition: string; }) =>
+        store.update((s) => t.updateCardField(s, value, 'definition', value.definition)),
+      updateTermImageAlt: (value: t.CardTarget & { termImageAlt: string; }) =>
+        store.update((s) => t.updateCardField(s, value, 'term_image_alt', value.termImageAlt)),
+      updateDefinitionImageAlt: (value: t.CardTarget & { definitionImageAlt: string; }) =>
+        store.update((s) => t.updateCardField(s, value, 'definition_image_alt', value.definitionImageAlt)),
+      toggleOpen: (value: t.CardTarget & { isOpen: boolean; }) =>
+        store.update((s) => t.setCardOpen(s, value, !!value.isOpen)),
+      setList: (value: Card[] | { deckId: string; cards: Card[]; }) =>
+        store.update((s) => (Array.isArray(value) ? t.setList(s, value) : t.setList(s, value.cards, value.deckId))),
+      addCard: (deckId?: string) => store.update((s) => t.addCard(s, undefined, deckId)),
+      removeCard: (target: t.CardTarget) => store.update((s) => t.removeCard(s, target)),
       selectDeck: (deckId: string) => store.update((s) => t.selectDeck(s, deckId)),
       addDeck: (name?: string) => store.update((s) => t.addDeck(s, name)),
       renameDeck: ({ deckId, name }: { deckId: string; name: string; }) =>
         store.update((s) => t.renameDeck(s, deckId, name)),
       deleteDeck: ({ deckId }: { deckId: string; }) => store.update((s) => t.deleteDeck(s, deckId)),
-      moveCardToDeck: ({ cardId, toDeckId }: { cardId: string; toDeckId: string; }) =>
-        store.update((s) => t.moveCard(s, { cardId }, toDeckId)),
-
+      // A drag reports the card, its target deck and the position in it; the
+      // transition owns clamping, the blank-placeholder rule and the no-op.
+      moveCard: ({ cardId, toDeckId, toIndex }: { cardId: string; toDeckId: string; toIndex: number; }) =>
+        store.update((s) => t.moveCard(s, cardId, { deckId: toDeckId, index: toIndex })),
       uploadGameImage: (
         { cardId, imageFile, imageType }: { cardId: string; imageFile: File; imageType: ImageType; },
       ) => {

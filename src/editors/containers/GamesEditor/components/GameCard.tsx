@@ -36,6 +36,8 @@ const acceptedImages = 'image/png, image/jpeg, image/gif, image/webp';
 interface GameCardProps {
   card: Card;
   index: number;
+  /** False for the editor's blank placeholder, which has no content to move. */
+  draggable?: boolean;
   type: GameType;
   /** The block's Studio, which its relative image URLs are shown from. */
   studioEndpointUrl: string;
@@ -50,15 +52,13 @@ interface GameCardProps {
   onImagePicked: (imageType: ImageType, file: File) => void;
   onImageRemoved: (imageType: ImageType) => void;
   onOpenImageSettings: (imageType: ImageType) => void;
-  /** The other decks this card can move to; empty when there is only one. */
-  moveTargets: { id: string; name: string; }[];
-  onMoveToDeck: (deckId: string) => void;
 }
 
 /** One card of the game: a collapsible, draggable term and definition pair. */
 const GameCard = ({
   card,
   index,
+  draggable = true,
   type,
   studioEndpointUrl,
   errors,
@@ -71,10 +71,15 @@ const GameCard = ({
   onImagePicked,
   onImageRemoved,
   onOpenImageSettings,
-  moveTargets,
-  onMoveToDeck,
 }: GameCardProps) => {
   const intl = useIntl();
+  // The handle names the card so a screen reader can tell the rows apart; a
+  // card with no text falls back to the same "No text" the preview shows.
+  // A card with no term has no name to reuse: give its handle its own label
+  // rather than composing "Reorder No text".
+  const dragHandleLabel = card.term.trim()
+    ? intl.formatMessage(messages.dragCardHandleLabel, { cardName: card.term })
+    : intl.formatMessage(messages.dragCardHandleLabelNoText);
   const fileInputs = {
     term: useRef<HTMLInputElement>(null),
     definition: useRef<HTMLInputElement>(null),
@@ -102,7 +107,7 @@ const GameCard = ({
     return (
       <CardField
         field={name}
-        index={index}
+        cardId={card.id}
         value={card[name]}
         error={errors[name]}
         onChange={(value) => onChange(name, value)}
@@ -111,7 +116,7 @@ const GameCard = ({
           <CardImage
             url={imageDisplayUrl(imageUrl, studioEndpointUrl)}
             altText={imageAlt(card[`${name}_image_alt`], card[name])}
-            index={index}
+            cardId={card.id}
             imageType={name}
             isSaving={isSaving}
             onOpenSettings={() => onOpenImageSettings(name)}
@@ -127,8 +132,10 @@ const GameCard = ({
     <SortableItem
       id={card.id}
       actions={null}
+      dragHandleLabel={dragHandleLabel}
       actionStyle={actionStyle}
       componentStyle={componentStyle}
+      disabled={!draggable}
     >
       <Collapsible.Advanced
         // Paragon's .card supplies the themed background.
@@ -138,7 +145,7 @@ const GameCard = ({
       >
         <input
           type="file"
-          id={`term_image_upload|${index}`}
+          id={`term_image_upload|${card.id}`}
           ref={fileInputs.term}
           hidden
           onChange={handlePick('term')}
@@ -146,7 +153,7 @@ const GameCard = ({
         />
         <input
           type="file"
-          id={`definition_image_upload|${index}`}
+          id={`definition_image_upload|${card.id}`}
           ref={fileInputs.definition}
           hidden
           onChange={handlePick('definition')}
@@ -180,16 +187,6 @@ const GameCard = ({
               <Dropdown.Item onClick={onMoveDown}>
                 {intl.formatMessage(messages.moveDownLabel)}
               </Dropdown.Item>
-              {moveTargets.length > 0 && (
-                <>
-                  <Dropdown.Divider />
-                  {moveTargets.map((deck) => (
-                    <Dropdown.Item key={deck.id} onClick={() => onMoveToDeck(deck.id)}>
-                      {intl.formatMessage(messages.moveToDeckOption, { deckName: deck.name })}
-                    </Dropdown.Item>
-                  ))}
-                </>
-              )}
               <Dropdown.Divider />
               <Dropdown.Item onClick={onDelete}>
                 {intl.formatMessage(messages.deleteLabel)}

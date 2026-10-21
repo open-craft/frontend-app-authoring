@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type {
   Card,
+  CardDropTarget,
   Deck,
   GameSettings,
   GameState,
@@ -59,10 +60,9 @@ export const initialState: GameState = {
 export type CardField = Exclude<keyof Card, 'id'>;
 
 /**
- * Which card an edit targets. Synchronous edits name a position. Async work
- * (an image upload) names the card's id, because its position may have
- * changed by the time the request settles and the author may have switched
- * decks since.
+ * Which card an edit targets. A synchronous edit may name a position in the
+ * active deck, or a card's id when its position is unknown to the caller: an
+ * image upload that settles late, or a deck body that is not the active one.
  */
 export type CardTarget = { index: number; cardId?: undefined; } | { cardId: string; index?: undefined; };
 
@@ -145,44 +145,60 @@ export const updateCardField = (
   return { ...mapCard(state, at, (card) => ({ ...card, [field]: value })), isDirty: true };
 };
 
+/** A numeric target is a position in the active deck; the older call shape. */
+const asTarget = (target: number | CardTarget): CardTarget => (
+  typeof target === 'number' ? { index: target } : target
+);
+
 // UI only: whether a card is expanded. Not saved, so not a change to the game.
-export const setCardOpen = (state: GameState, index: number, isOpen: boolean): GameState => {
-  const at = locate(state, { index });
+export const setCardOpen = (state: GameState, target: number | CardTarget, isOpen: boolean): GameState => {
+  const at = locate(state, asTarget(target));
   if (!at) { return state; }
   return mapCard(state, at, (card) => ({ ...card, editorOpen: isOpen }));
 };
 
-/** Replaces the active deck's cards, e.g. after a drag reorder. */
-export const setList = (state: GameState, list: Card[]): GameState => ({
-  ...withDecks(
-    state,
-    state.decks.map((deck, index) => (index === activeDeckIndex(state) ? { ...deck, cards: list } : deck)),
-  ),
-  isDirty: true,
-});
+/**
+ * Replaces one deck's cards, e.g. after a drag reorder. Defaults to the active
+ * deck, which is what a single-deck editor passes.
+ */
+export const setList = (state: GameState, list: Card[], deckId?: string): GameState => {
+  const target = deckId ?? selectActiveDeck(state).id;
+  if (!state.decks.some((deck) => deck.id === target)) { return state; }
+  return {
+    ...withDecks(
+      state,
+      state.decks.map((deck) => (deck.id === target ? { ...deck, cards: list } : deck)),
+    ),
+    isDirty: true,
+  };
+};
 
-export const addCard = (state: GameState, card: Card = emptyCard()): GameState => {
-  const active = selectActiveDeck(state);
+/** Appends a card to the active deck, or to the given deck id. */
+export const addCard = (state: GameState, card: Card = emptyCard(), deckId?: string): GameState => {
+  const target = deckId ?? selectActiveDeck(state).id;
+  if (!state.decks.some((deck) => deck.id === target)) { return state; }
   return {
     ...withDecks(
       state,
       state.decks.map((deck) => (
-        deck.id === active.id ? { ...deck, cards: [...deck.cards, card] } : deck
+        deck.id === target ? { ...deck, cards: [...deck.cards, card] } : deck
       )),
     ),
     isDirty: true,
   };
 };
 
-export const removeCard = (state: GameState, index: number): GameState => {
-  const cards = selectActiveCards(state);
-  if (index < 0 || index >= cards.length) { return state; }
-  const active = selectActiveDeck(state);
+/** Removes a card by position in the active deck, or by id from any deck. */
+export const removeCard = (state: GameState, target: number | CardTarget): GameState => {
+  const at = locate(state, asTarget(target));
+  if (!at) { return state; }
   return {
     ...withDecks(
       state,
-      state.decks.map((deck) => (
-        deck.id === active.id ? { ...deck, cards: deck.cards.filter((_, cardIndex) => cardIndex !== index) } : deck
+      state.decks.map((deck, deckIndex) => (
+        deckIndex === at.deck
+          ? { ...deck, cards: deck.cards.filter((_, cardIndex) => cardIndex !== at.card) }
+          : deck
       )),
     ),
     isDirty: true,
@@ -237,9 +253,11 @@ export const deleteDeck = (state: GameState, deckId: string): GameState => {
 
 /**
  * A card the author has not filled in yet: only an editing placeholder. A blank
- * card the block already keyed is authored content and is never dropped.
+ * card the block already keyed is authored content and is never dropped. The
+ * one rule: the transitions drop and refuse these, and the drag resolver refuses
+ * to start a drag from one.
  */
-const isBlankCard = (card: Card) => (
+export const isBlankCard = (card: Card) => (
   !card.card_key
   && !card.term.trim() && !card.definition.trim() && !card.term_image && !card.definition_image
 );
@@ -252,24 +270,54 @@ const dropOnePlaceholder = (cards: Card[]): Card[] => {
 };
 
 /**
- * Moves a card to another deck, at the end. The card object itself moves, so
- * its id, `card_key` and images go with it. The target's blank placeholder is
- * dropped so the moved card is the one to edit.
+ * Moves a card to `target.index` in `target.deckId`, in one path for both a
+ * reorder and a move to another deck. The index counts positions in the target
+ * deck after the card has left its source deck but before that deck's blank
+ * placeholder is dropped, which is the deck as a caller draws it (see
+ * resolveCardDrop). It is clamped, so a caller appending to a deck may pass
+ * that deck's current length.
+ *
+ * The card object itself moves, so its id (uploads target it), `card_key`
+ * (the block's identity), images and `editorOpen` go with it, and deck order is
+ * untouched. A real card entering another deck replaces that deck's blank
+ * placeholder, which is editor scaffolding rather than content.
  */
-export const moveCard = (state: GameState, target: CardTarget, toDeckId: string): GameState => {
-  const at = locate(state, target);
-  const fromDeck = at && state.decks[at.deck];
-  const toDeck = state.decks.find((deck) => deck.id === toDeckId);
-  if (!at || !fromDeck || !toDeck || fromDeck.id === toDeck.id) { return state; }
-  const card = fromDeck.cards[at.card];
+export const moveCard = (state: GameState, cardId: string, target: CardDropTarget): GameState => {
+  // Not a position: clamping NaN would silently put the card first, and dirty
+  // the state for a move nobody asked for.
+  if (Number.isNaN(target.index)) { return state; }
+  const fromDeckIndex = state.decks.findIndex((deck) => deck.cards.some((card) => card.id === cardId));
+  const toDeckIndex = state.decks.findIndex((deck) => deck.id === target.deckId);
+  if (fromDeckIndex < 0 || toDeckIndex < 0) { return state; }
+  const fromCards = state.decks[fromDeckIndex].cards;
+  const fromIndex = fromCards.findIndex((card) => card.id === cardId);
+  const card = fromCards[fromIndex];
+  // A keyless blank card is the editor's editing placeholder, not content: it
+  // has nothing to move, and dragging it would invent a card in the target.
+  if (isBlankCard(card)) { return state; }
+  const sameDeck = fromDeckIndex === toDeckIndex;
+  const remaining = fromCards.filter((_, index) => index !== fromIndex);
+  // The target deck as the caller counts positions in it. Within one deck that
+  // is just the cards minus this one.
+  const enteredCards = sameDeck ? remaining : state.decks[toDeckIndex].cards;
+  // Only a card entering another deck meets its placeholder; within one deck
+  // nothing enters, so its own blank card stays where it is.
+  const scaffold = sameDeck ? -1 : enteredCards.findIndex(isBlankCard);
+  const targetCards = scaffold < 0 ? enteredCards : dropOnePlaceholder(enteredCards);
+  // Dropping a placeholder above the requested gap shifts that gap up by one.
+  const gap = scaffold >= 0 && scaffold < target.index ? target.index - 1 : target.index;
+  const index = Math.max(0, Math.min(gap, targetCards.length));
+  // The one same-position check, after clamping and the placeholder shift: an
+  // index that lands back on the card is no move, and must not dirty the state.
+  if (sameDeck && index === fromIndex) { return state; }
+  const cards = [...targetCards.slice(0, index), card, ...targetCards.slice(index)];
   return {
     ...withDecks(
       state,
-      state.decks.map((deck) => {
-        if (deck.id === fromDeck.id) { return { ...deck, cards: deck.cards.filter((_, index) => index !== at.card) }; }
-        if (deck.id === toDeck.id) {
-          return { ...deck, cards: [...dropOnePlaceholder(deck.cards), card] };
-        }
+      state.decks.map((deck, deckIndex) => {
+        if (sameDeck) { return deckIndex === fromDeckIndex ? { ...deck, cards } : deck; }
+        if (deckIndex === fromDeckIndex) { return { ...deck, cards: remaining }; }
+        if (deckIndex === toDeckIndex) { return { ...deck, cards }; }
         return deck;
       }),
     ),

@@ -22,6 +22,7 @@ import GamesEditor from '.';
 import * as editorViewHooks from './gameContent';
 import * as api from './data/api';
 import { emptyCard, useGameState } from './data/useGameState';
+import type { ImageType } from './types';
 import { verticalSortableListCollisionDetection } from '@src/generic/DraggableList/verticalSortableList';
 
 const blockId = 'block-v1:org+course+run+type@games+block@abc';
@@ -808,11 +809,18 @@ const latestContainerProps = () => MockedEditorContainer.mock.calls.filter(([pro
 const loadedSettings = {
   data: { game_type: 'flashcards', cards: [{ term: 'Photosynthesis', definition: 'How plants eat' }] },
 };
-const pickFile = (inputId: string) => {
-  const input = document.getElementById(inputId);
-  if (!input) { throw new Error(`No file input #${inputId}`); }
-  fireEvent.change(input, { target: { files: [new File(['x'], 'x.png', { type: 'image/png' })] } });
+// Card ids are runtime UUIDs, so a card's hidden file input is found by the
+// field prefix of its id. These tests render a single card, so it is unique.
+const fileInput = (imageType: ImageType) => {
+  const selector = `input[type="file"][id^="${imageType}_image_upload|"]`;
+  const inputs = document.querySelectorAll<HTMLInputElement>(selector);
+  if (inputs.length !== 1) { throw new Error(`Expected one ${imageType} file input, found ${inputs.length}`); }
+  return inputs[0];
 };
+const pickFile = (imageType: ImageType) =>
+  fireEvent.change(fileInput(imageType), {
+    target: { files: [new File(['x'], 'x.png', { type: 'image/png' })] },
+  });
 
 describe('image requests after the settings have loaded', () => {
   beforeEach(() => {
@@ -830,7 +838,7 @@ describe('image requests after the settings have loaded', () => {
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     await waitFor(async () => {
@@ -845,7 +853,7 @@ describe('image requests after the settings have loaded', () => {
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     expect(await screen.findByText(/last image change could not be saved/)).toBeInTheDocument();
     expect(screen.getByText('too large')).toBeInTheDocument();
 
@@ -861,10 +869,10 @@ describe('image requests after the settings have loaded', () => {
     mockedApi.uploadImage.mockResolvedValue({ data: { success: false, error: 'too large' } });
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
-    const input = document.getElementById('term_image_upload|0') as HTMLInputElement;
+    const input = fileInput('term');
     const setValue = jest.spyOn(input, 'value', 'set');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
     expect(setValue).toHaveBeenCalledWith('');
   });
@@ -930,7 +938,7 @@ describe('saving while an image request is in flight', () => {
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     const saving = latestContainerProps().onSave();
@@ -961,7 +969,7 @@ describe('saving while an image request is in flight', () => {
     renderEditor({ onClose });
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     const saving = latestContainerProps().onSave();
@@ -1040,7 +1048,7 @@ describe('handler failures with no detail message', () => {
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     expect(await screen.findByText('The last image change could not be saved.')).toBeInTheDocument();
     expect(screen.queryByText('Upload failed')).not.toBeInTheDocument();
   });
@@ -1092,7 +1100,7 @@ describe('validation after a pending upload', () => {
     renderEditor({ onClose });
     await waitFor(() => expect(latestContainerProps().validateEntry()).toBe(true));
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
     expect(latestContainerProps().validateEntry()).toBe(true);
 
@@ -1323,7 +1331,7 @@ describe('text typed while a save waits on an upload', () => {
     renderEditor();
     const term = await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     const saving = latestContainerProps().onSave();
@@ -1406,7 +1414,7 @@ describe('a save still waiting when the editor goes away', () => {
     const { unmount } = renderEditor({ onClose });
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     const saving = latestContainerProps().onSave();
@@ -1511,7 +1519,7 @@ describe('a title changed while a save waits on an upload', () => {
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
 
-    pickFile('term_image_upload|0');
+    pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     const saving = latestContainerProps().onSave();
@@ -1717,7 +1725,7 @@ describe('card list controls', () => {
       jest.requireActual('@src/generic/DraggableList/verticalSortableList').verticalSortableListCollisionDetection;
     collision.mockReturnValue([{ id: secondId }]);
     try {
-      const handle = screen.getAllByRole('button', { name: 'Drag to reorder' })[0];
+      const handle = screen.getAllByRole('button', { name: /^Reorder / })[0];
       fireEvent.keyDown(handle, { code: 'Space' });
       await act(() =>
         new Promise((resolve) => {
@@ -1773,7 +1781,7 @@ describe('image controls on a card', () => {
       await screen.findByDisplayValue('Photosynthesis');
       await user.click(screen.getAllByRole('button', { name: 'Add image' })[1]);
       expect(click).toHaveBeenCalledTimes(1);
-      expect(click.mock.contexts[0]).toBe(document.getElementById('definition_image_upload|0'));
+      expect(click.mock.contexts[0]).toBe(fileInput('definition'));
     } finally {
       click.mockRestore();
     }
@@ -1786,7 +1794,7 @@ describe('image controls on a card', () => {
     });
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
-    pickFile('definition_image_upload|0');
+    pickFile('definition');
     await waitFor(() =>
       expect(latestContainerProps().getContent().cards[0].definition_image_path).toBe('games/abc/new.png')
     );
@@ -1815,7 +1823,7 @@ describe('image controls on a card', () => {
     });
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
-    pickFile('definition_image_upload|0');
+    pickFile('definition');
     await waitFor(() => expect(latestContainerProps().getContent().cards[0].definition_image).toBe('/media/new.png'));
     expect(latestContainerProps().getContent().cards[0].definition_image_alt).toBe('');
   });

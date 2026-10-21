@@ -9,7 +9,8 @@ import PictureIcon from './PictureIcon';
 interface CardImageProps {
   url: string;
   altText: string;
-  index: number;
+  /** The card's id: every deck may render a card at the same position. */
+  cardId: string;
   imageType: ImageType;
   /** Locks the settings trigger while a save is out. */
   isSaving: boolean;
@@ -21,7 +22,7 @@ interface CardImageProps {
 export const CardImage = ({
   url,
   altText,
-  index,
+  cardId,
   imageType,
   isSaving,
   onOpenSettings,
@@ -37,7 +38,7 @@ export const CardImage = ({
       <OverlayTrigger
         placement="bottom"
         overlay={
-          <Tooltip id={`image-settings-tooltip-${imageType}-${index}`}>
+          <Tooltip id={`image-settings-tooltip-${imageType}-${cardId}`}>
             {intl.formatMessage(messages.imageSettingsTooltip)}
           </Tooltip>
         }

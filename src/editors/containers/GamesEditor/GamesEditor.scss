@@ -144,23 +144,47 @@
     z-index: 10;
   }
 
-  .deck-picker,
-  .deck-picker-option,
-  .deck-row {
+  // The outline fills the terms column and stacks its rows loosely; each
+  // row's border and radius come from Paragon utility classes.
+  .deck-outline {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    width: 100%;
+  }
+
+  .deck-outline-header {
     gap: .5rem;
   }
 
-  .deck-picker-toggle {
-    gap: .5rem;
-  }
-
-  // Lets a long deck name truncate instead of widening the settings panel.
-  .deck-row-body {
+  // Lets a long deck name truncate instead of widening the row.
+  .deck-outline-name {
     min-width: 0;
   }
 
-  // Lines the radio up with the first line of the name field.
-  .deck-row-select {
-    margin-top: .5rem;
+  .deck-outline-cards {
+    display: flex;
+    flex-direction: column;
+  }
+
+  // The Add control sits below the rows at its own width, not the column's.
+  .deck-outline-add {
+    align-self: flex-start;
+  }
+
+  // A card or deck the pointer is over while dragging.
+  .deck-outline-drop-active {
+    outline: 2px dashed var(--pgn-color-primary-500);
+    outline-offset: -2px;
+  }
+
+  // The dragged row stays in place, dimmed; the drag overlay follows the pointer.
+  .deck-card-dragging {
+    opacity: .4;
+  }
+
+  .deck-drag-overlay {
+    width: 24rem;
+    pointer-events: none;
   }
 }

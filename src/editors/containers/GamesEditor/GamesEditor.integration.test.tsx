@@ -1,10 +1,11 @@
 import userEvent from '@testing-library/user-event';
 import { getConfig } from '@edx/frontend-platform';
-import { initializeMocks, screen, waitFor } from '@src/testUtils';
+import { act, fireEvent, initializeMocks, screen, waitFor, within } from '@src/testUtils';
 import { editorRender } from '@src/editors/editorTestRender';
 import type { PartialEditorState } from '@src/editors/data/redux';
 
 import GamesEditor from '.';
+import { stubRects, type StubbedRect } from './testUtils/stubRects';
 
 // The editor through the real EditorContainer and the real API layer, with
 // only HTTP mocked, the way a course author meets it inside the editor modal.
@@ -119,29 +120,74 @@ describe('GamesEditor decks', () => {
   });
 
   const savedPayload = () => JSON.parse(savePosts(axiosMock)[0].data);
+  const deckToggle = (name: string) => screen.getByRole('button', { name });
 
-  it('lists the decks and switches the cards when another deck is selected', async () => {
+  // jsdom has no layout: give every droppable currently on screen a distinct,
+  // strictly ascending rect in DOM order (Deck 1's header, its card row, then
+  // Deck 2's collapsed header) so the stock keyboard coordinate getter can step
+  // down into the next deck. Restored after each test.
+  let restoreRects: (() => void) | undefined;
+  afterEach(() => {
+    // A failed assertion can leave a keyboard drag mid-flight; Escape ends it so
+    // its document key listener cannot leak into the next test.
+    if (document.querySelector('.deck-drag-overlay')) {
+      fireEvent.keyDown(document, { code: 'Escape' });
+    }
+    restoreRects?.();
+    restoreRects = undefined;
+  });
+  const stubRenderedRects = () => {
+    const ids = Array.from(document.querySelectorAll<HTMLElement>('[data-dnd-id]'))
+      .map((element) => element.dataset.dndId)
+      .filter((id): id is string => id != null);
+    const rects = Object.fromEntries(
+      ids.map((id, index) => [id, [index * 60, index * 60 + 40] as StubbedRect]),
+    );
+    restoreRects = stubRects(rects);
+  };
+  const rowOf = (deckName: string) => screen.getByDisplayValue(deckName).closest('.deck-outline-row') as HTMLElement;
+  // dnd-kit attaches its document key listener on a timer; let it settle before
+  // the first arrow, which jsdom would otherwise drop.
+  const settleSensor = () =>
+    act(async () => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    });
+
+  // Every deck is a visible row of its own, and the rows open independently:
+  // the active deck starts open and another can be opened beside it.
+  it('lists a row per deck and opens their cards independently', async () => {
     const user = userEvent.setup();
     renderEditor();
     expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Two')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Deck 1, change deck' }));
-    await user.click(await screen.findByText('Deck 2'));
+    await user.click(deckToggle('Expand Deck 2'));
 
     expect(await screen.findByDisplayValue('Two')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('One')).not.toBeInTheDocument();
+    // Deck 1 stayed open; this is not an accordion.
+    expect(screen.getByDisplayValue('One')).toBeInTheDocument();
+    expect(deckToggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
+    expect(deckToggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
+    // Each open deck's Add control names its deck, so they are distinguishable.
+    expect(screen.getByRole('button', { name: 'Add card to Deck 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add card to Deck 2' })).toBeInTheDocument();
+    // Each drag handle names its card, so a screen reader can tell them apart.
+    expect(screen.getByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder Two' })).toBeInTheDocument();
   });
 
-  it('adds a deck, renames it, and saves every deck with cards mirroring the first', async () => {
+  it('adds a deck, focuses its name, renames it, and saves every deck with cards mirroring the first', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
     await screen.findByDisplayValue('One');
 
-    // The deck settings panel starts collapsed, like the other settings cards.
-    await user.click(screen.getByText('Decks'));
-    await user.click(screen.getByRole('button', { name: 'Deck 1, change deck' }));
-    await user.click(await screen.findByText('New deck'));
+    await user.click(screen.getByRole('button', { name: 'New deck' }));
     const nameInput = await screen.findByDisplayValue('Deck 3');
+    // A new deck opens and its name is ready to type over.
+    expect(deckToggle('Collapse Deck 3')).toHaveAttribute('aria-expanded', 'true');
+    await waitFor(() => expect(nameInput).toHaveFocus());
     await user.clear(nameInput);
     await user.type(nameInput, 'Extras');
 
@@ -156,56 +202,168 @@ describe('GamesEditor decks', () => {
     expect(payload.cards).toEqual([expect.objectContaining({ term: 'One', card_key: 'c1' })]);
   });
 
-  it('moves a card to another deck from the card menu', async () => {
+  // The save carries the order the author left the deck in, and the block's
+  // legacy `cards` field stays an exact copy of the primary deck.
+  it('saves the reordered cards of a deck, with cards mirroring Deck 1', async () => {
     const user = userEvent.setup();
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'flashcards',
+      is_shuffled: true,
+      has_timer: false,
+      cards: [{ term: 'One', definition: 'first', card_key: 'c1' }],
+      decks: [{
+        deck_key: 'dk-1',
+        name: 'Deck 1',
+        cards: [
+          { term: 'One', definition: 'first', card_key: 'c1' },
+          { term: 'Two', definition: 'second', card_key: 'c2' },
+        ],
+      }],
+    });
     const onClose = renderEditor();
     await screen.findByDisplayValue('One');
 
-    await user.click(screen.getByRole('button', { name: 'Card actions' }));
-    await user.click(await screen.findByText('Move to Deck 2'));
-
-    expect(screen.queryByDisplayValue('One')).not.toBeInTheDocument();
-
+    // Move the first card below the second through the visible card menu.
+    await user.click(screen.getAllByRole('button', { name: 'Card actions' })[0]);
+    await user.click(await screen.findByText('Move down'));
     await user.click(saveButton());
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     const payload = savedPayload();
-    expect(payload.decks[0].cards).toEqual([]);
-    // The moved card keeps its block key and joins the other deck's cards.
-    expect(payload.decks[1].cards).toEqual([
-      expect.objectContaining({ term: 'Two', card_key: 'c2' }),
-      expect.objectContaining({ term: 'One', card_key: 'c1' }),
-    ]);
+    expect(payload.decks).toHaveLength(1);
+    expect(payload.decks[0].cards.map((card: { term: string; }) => card.term)).toEqual(['Two', 'One']);
+    expect(payload.decks[0].cards.map((card: { order: number; }) => card.order)).toEqual([1, 2]);
+    expect(payload.cards).toEqual(payload.decks[0].cards);
   });
 
-  it('blocks the save and shows the error when two decks share a name', async () => {
+  // A card with no term still gets a readable handle name instead of the
+  // composed "Reorder No text".
+  it('names the drag handle of a card that has no term', async () => {
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'flashcards',
+      is_shuffled: true,
+      has_timer: false,
+      cards: [{ term: '', definition: 'only a definition', card_key: 'c1' }],
+      decks: [{
+        deck_key: 'dk-1',
+        name: 'Deck 1',
+        cards: [{ term: '', definition: 'only a definition', card_key: 'c1' }],
+      }],
+    });
+    renderEditor();
+
+    expect(await screen.findByRole('button', { name: 'Reorder card with no text' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Reorder No text/ })).not.toBeInTheDocument();
+  });
+
+  // The whole keyboard path through the real editor: the provider's keyboard
+  // sensor drives GameEditor's moveCard, and the save carries the new deck.
+  it('moves a card into another deck with the keyboard and saves both decks', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
     await screen.findByDisplayValue('One');
 
-    await user.click(screen.getByText('Decks'));
+    stubRenderedRects();
+    screen.getByRole('button', { name: 'Reorder One' }).focus();
+    await user.keyboard(' ');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Picked up One in Deck 1'));
+
+    await settleSensor();
+
+    // One step down reaches the collapsed Deck 2 header, which opens on hover
+    // and previews the card at the end of its cards.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('moved over the end of Deck 2'));
+    expect(screen.getByDisplayValue('Two')).toBeInTheDocument();
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('at the end of Deck 2'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder One' })).toHaveFocus());
+
+    expect(within(rowOf('Deck 2')).getByDisplayValue('One')).toBeInTheDocument();
+    expect(within(rowOf('Deck 1')).queryByDisplayValue('One')).not.toBeInTheDocument();
+
+    await user.click(saveButton());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+
+    const payload = savedPayload();
+    expect(payload.decks.map((deck: { name: string; }) => deck.name)).toEqual(['Deck 1', 'Deck 2']);
+    expect(payload.decks[0]).toEqual(expect.objectContaining({ deck_key: 'dk-1', cards: [] }));
+    expect(payload.decks[1]).toEqual(expect.objectContaining({ deck_key: 'dk-2' }));
+    expect(payload.decks[1].cards).toEqual([
+      expect.objectContaining({ term: 'Two', card_key: 'c2', order: 1 }),
+      expect.objectContaining({ term: 'One', card_key: 'c1', order: 2 }),
+    ]);
+    // The legacy mirror is the primary deck, which the drag emptied.
+    expect(payload.cards).toEqual([]);
+  });
+
+  // Escape after the preview: nothing reached the store, so closing the editor
+  // is not "discarding changes" and no request goes out.
+  it('cancels a keyboard drag without dirtying the editor', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByDisplayValue('One');
+
+    stubRenderedRects();
+    screen.getByRole('button', { name: 'Reorder One' }).focus();
+    await user.keyboard(' ');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Picked up One in Deck 1'));
+    await settleSensor();
+
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('moved over the end of Deck 2'));
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Drag cancelled.'));
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('One stayed in Deck 1');
+    // Human labels only: card and deck ids are uuids, never announced.
+    expect(status).not.toHaveTextContent(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder One' })).toHaveFocus());
+
+    expect(within(rowOf('Deck 1')).getByDisplayValue('One')).toBeInTheDocument();
+    expect(within(rowOf('Deck 2')).queryByDisplayValue('One')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Discard changes and return to learning context' }));
+    expect(screen.queryByText('Exit the editor?')).not.toBeInTheDocument();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(savePosts(axiosMock)).toHaveLength(0);
+  });
+
+  // A deck whose name is broken opens itself, so the message is never hidden
+  // behind a collapsed row.
+  it('opens the rows with invalid names and blocks the save', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByDisplayValue('One');
+
     const secondName = screen.getByDisplayValue('Deck 2');
     await user.clear(secondName);
     await user.type(secondName, 'deck 1');
 
-    await user.click(saveButton());
-
+    // Both rows opened, so neither deck's message is hidden.
+    expect(await screen.findByDisplayValue('Two')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('One')).toBeInTheDocument();
     // Both sides of the clash are flagged, each beside its own name field.
     expect(await screen.findAllByText('Deck names must be unique')).toHaveLength(2);
+
+    await user.click(saveButton());
+
+    expect(await screen.findByText('Deck names need fixing')).toBeInTheDocument();
+    expect(screen.getByText('Every deck needs a name and no two decks can share one.')).toBeInTheDocument();
     expect(savePosts(axiosMock)).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  // A save blocked by deck names must say so outside the collapsed panel, even
-  // when Matching has hidden the deck UI. The panel returns so the name can be
-  // repaired, and no request goes out until it is.
-  it('blocks a Matching save on deck names, explains it, and saves once repaired', async () => {
+  // Deck controls belong to Flashcards. Matching renders one flat list, so a
+  // name broken there is hidden, blocked at save, and repaired after switching back.
+  it('hides deck authoring in Matching, blocks its save, and repairs the names in Flashcards', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
     await screen.findByDisplayValue('One');
 
     // Two decks share a name after editing in Flashcards.
-    await user.click(screen.getByText('Decks'));
     const secondName = screen.getByDisplayValue('Deck 2');
     await user.clear(secondName);
     await user.type(secondName, 'deck 1');
@@ -214,74 +372,118 @@ describe('GamesEditor decks', () => {
     await user.click(screen.getByText('Type'));
     await user.click(screen.getByRole('button', { name: 'Matching' }));
 
-    // Matching offers no deck picker, but the panel stays while a name needs
-    // fixing, so the author is not left with feedback they cannot act on.
-    expect(screen.queryByRole('button', { name: /change deck/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Decks')).toBeInTheDocument();
+    // Matching keeps the primary deck's cards but none of the deck controls:
+    // no deck list, name field, add or delete.
+    expect(screen.getByDisplayValue('One')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Decks' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('deck 1')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Delete Deck/ })).not.toBeInTheDocument();
 
     await user.click(saveButton());
 
-    // The failure is visible without opening anything, and nothing was sent.
+    // The page-level alert says what is wrong without pointing at hidden fields,
+    // and nothing is sent.
     expect(await screen.findByText('Deck names need fixing')).toBeInTheDocument();
-    expect(screen.getByText(/Review the deck names in Settings/)).toBeInTheDocument();
+    expect(screen.getByText('Every deck needs a name and no two decks can share one.')).toBeInTheDocument();
     expect(savePosts(axiosMock)).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
 
-    // The open panel still holds the name to repair.
-    const duplicate = await screen.findByDisplayValue('deck 1');
+    // Flashcards brings the invalid rows back, opened and focused to be repaired.
+    await user.click(screen.getByRole('button', { name: 'Flashcards' }));
+    expect(await screen.findByDisplayValue('deck 1')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByDisplayValue('Deck 1')).toHaveFocus());
+
+    const duplicate = screen.getByDisplayValue('deck 1');
     await user.clear(duplicate);
     await user.type(duplicate, 'Deck 2');
     await waitFor(() => expect(screen.queryByText('Deck names need fixing')).not.toBeInTheDocument());
 
     await user.click(saveButton());
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(savedPayload().game_type).toEqual('matching');
+    expect(savedPayload().game_type).toEqual('flashcards');
+    expect(savedPayload().decks.map((deck: { name: string; }) => deck.name)).toEqual(['Deck 1', 'Deck 2']);
   });
 
-  // The same failure in Flashcards, with the deck panel collapsed: the alert
-  // must appear on its own rather than the Save button doing nothing.
-  it('explains blocked deck names when the deck panel is collapsed', async () => {
-    const user = userEvent.setup();
-    const onClose = renderEditor();
-    await screen.findByDisplayValue('One');
-
-    await user.click(screen.getByText('Decks'));
-    const secondName = screen.getByDisplayValue('Deck 2');
-    await user.clear(secondName);
-    await user.type(secondName, 'deck 1');
-    await user.click(screen.getByText('Decks'));
-    expect(screen.queryByDisplayValue('deck 1')).not.toBeInTheDocument();
-
-    await user.click(saveButton());
-
-    expect(await screen.findByText('Deck names need fixing')).toBeInTheDocument();
-    expect(savePosts(axiosMock)).toHaveLength(0);
-    expect(onClose).not.toHaveBeenCalled();
-  });
-
-  // The panel flags a bad name as it is typed, before the author tries to save.
+  // The rows flag a bad name as it is typed, before the author tries to save.
   it('flags an empty and a duplicate name while the author types', async () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByDisplayValue('One');
-    await user.click(screen.getByText('Decks'));
 
     const secondName = screen.getByDisplayValue('Deck 2');
     await user.clear(secondName);
     expect(await screen.findByText('Enter a deck name')).toBeInTheDocument();
+    expect(secondName).toHaveFocus();
+    // The row opened itself so the message is visible.
+    expect(screen.getByDisplayValue('Two')).toBeInTheDocument();
 
     await user.type(secondName, 'deck 1');
     // Both decks are flagged: the clash is not the second deck's fault alone.
     expect(await screen.findAllByText('Deck names must be unique')).toHaveLength(2);
   });
 
-  it('deletes the active deck after confirmation and edits the neighbour', async () => {
+  // A name that is briefly a duplicate on the way to a unique one must not move
+  // the caret: 'deck 10' passes through 'deck 1' for one keystroke.
+  it('keeps the caret in the deck being renamed through a transient duplicate', async () => {
     const user = userEvent.setup();
     renderEditor();
     await screen.findByDisplayValue('One');
 
-    await user.click(screen.getByText('Decks'));
-    await user.click(screen.getByRole('radio', { name: 'Make Deck 2 the active deck' }));
+    const secondName = screen.getByDisplayValue('Deck 2');
+    await user.clear(secondName);
+    await user.type(secondName, 'deck 10');
+
+    // Every keystroke stayed in the second deck's field, and the first is intact.
+    expect(secondName).toHaveValue('deck 10');
+    expect(screen.getByDisplayValue('Deck 1')).toHaveValue('Deck 1');
+    expect(secondName).toHaveFocus();
+    expect(screen.queryByText('Deck names must be unique')).not.toBeInTheDocument();
+  });
+
+  // A card error inside a collapsed deck must not be invisible: the row opens
+  // with the card, so the blocked save has a visible cause.
+  it('opens a collapsed deck whose card failed validation', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByDisplayValue('One');
+
+    await user.click(deckToggle('Expand Deck 2'));
+    await user.clear(await screen.findByDisplayValue('Two'));
+    await user.click(deckToggle('Collapse Deck 2'));
+    expect(deckToggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(saveButton());
+
+    expect(await screen.findByText('Enter a term')).toBeInTheDocument();
+    expect(deckToggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByDisplayValue('second')).toBeInTheDocument();
+    expect(savePosts(axiosMock)).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // An empty deck holds nothing to lose, so it goes without a prompt.
+  it('deletes an empty deck without asking', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByDisplayValue('One');
+
+    await user.click(screen.getByRole('button', { name: 'New deck' }));
+    expect(await screen.findByDisplayValue('Deck 3')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Delete Deck 3' }));
+
+    expect(screen.queryByText('Delete deck?')).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Deck 3')).not.toBeInTheDocument();
+  });
+
+  it('deletes a deck with cards after confirmation, and cannot delete the last one', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByDisplayValue('One');
+
+    await user.click(deckToggle('Expand Deck 2'));
     expect(await screen.findByDisplayValue('Two')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete Deck 2' }));
@@ -314,11 +516,14 @@ describe('GamesEditor deck authoring availability', () => {
     renderEditor();
 
     expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /change deck/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('Decks')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
 
-    // With a single deck there is nowhere to move a card to.
+    // The card menu keeps its own actions; moving between decks is a drag now.
     await userEvent.setup().click(screen.getByRole('button', { name: 'Card actions' }));
+    expect(screen.getByText('Move up')).toBeInTheDocument();
+    expect(screen.getByText('Move down')).toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
     expect(screen.queryByText(/^Move to /)).not.toBeInTheDocument();
   });
 
@@ -332,8 +537,8 @@ describe('GamesEditor deck authoring availability', () => {
     });
     renderEditor();
 
-    expect(await screen.findByRole('button', { name: 'Deck 1, change deck' })).toBeInTheDocument();
-    expect(screen.getByText('Decks')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Deck 1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New deck' })).toBeInTheDocument();
   });
 
   // Matching renders the block's primary deck only, so deck authoring would
@@ -349,7 +554,7 @@ describe('GamesEditor deck authoring availability', () => {
     renderEditor();
 
     expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /change deck/ })).not.toBeInTheDocument();
-    expect(screen.queryByText('Decks')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
   });
 });

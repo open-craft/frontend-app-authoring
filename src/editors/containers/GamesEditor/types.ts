@@ -34,6 +34,17 @@ export interface GameSettings {
 }
 
 /**
+ * Where a card is dropped: a deck, and a position in it counted after the card
+ * has left its source deck but before the target's blank placeholder is
+ * dropped (see `moveCard`). A drag resolver reports this; the state transition
+ * is the only thing that acts on it.
+ */
+export interface CardDropTarget {
+  deckId: string;
+  index: number;
+}
+
+/**
  * Why a deck name is invalid: it is blank, or another deck already has it,
  * ignoring case. One vocabulary for the data layer and the UI.
  */

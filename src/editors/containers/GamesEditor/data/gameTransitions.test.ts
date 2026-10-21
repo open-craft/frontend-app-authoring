@@ -6,6 +6,7 @@ import {
   deleteDeck,
   emptyCard,
   initialState,
+  isBlankCard,
   loaded,
   moveCard,
   removeCard,
@@ -23,6 +24,7 @@ import {
   updateSetting,
   updateType,
 } from './gameTransitions';
+import type { Card, Deck, GameState } from '@src/editors/containers/GamesEditor/types';
 
 describe('game state transitions', () => {
   it('marks state dirty on a card edit', () => {
@@ -255,7 +257,7 @@ describe('decks', () => {
     const state = stateWithTwoDecks();
     const [card] = state.decks[0].cards;
 
-    const next = moveCard(state, { cardId: card.id }, state.decks[1].id);
+    const next = moveCard(state, card.id, { deckId: state.decks[1].id, index: 0 });
 
     expect(next.decks[0].cards).toEqual([]);
     expect(next.decks[1].cards).toEqual([card]);
@@ -263,9 +265,9 @@ describe('decks', () => {
     expect(next.isDirty).toBe(true);
   });
 
-  it('ignores a move to the deck the card is already in', () => {
+  it('ignores a drop on the position the card already has', () => {
     const state = stateWithTwoDecks();
-    expect(moveCard(state, { cardId: state.decks[0].cards[0].id }, state.decks[0].id)).toBe(state);
+    expect(moveCard(state, state.decks[0].cards[0].id, { deckId: state.decks[0].id, index: 0 })).toBe(state);
   });
 
   // The built-in editor edits and reorders the active deck's list; the other
@@ -365,7 +367,7 @@ describe('backend deck capability and hardening', () => {
       list: decks[0].cards,
     };
 
-    const next = moveCard(state, { cardId: decks[0].cards[0].id }, decks[1].id);
+    const next = moveCard(state, decks[0].cards[0].id, { deckId: decks[1].id, index: 1 });
 
     expect(next.decks[1].cards.map((card) => card.card_key)).toEqual(['kb', 'c1']);
   });
@@ -398,5 +400,291 @@ describe('backend deck capability and hardening', () => {
     expect(junkDeck.decks).toHaveLength(1);
     expect(junkDeck.decks[0].name).toEqual('Deck 1');
     expect(junkDeck.decks[0].cards).toHaveLength(1);
+  });
+});
+
+describe('moving a card to a position', () => {
+  // The card's id is its name here, so every assertion reads as the cards it
+  // names, and the order it asserts is the order a save would write.
+  const card = (id: string): Card => ({ ...emptyCard(), id, term: id, card_key: `key-${id}` });
+  const deckOf = (id: string, ids: string[]): Deck => ({ id, name: id, cards: ids.map(card) });
+  const stateOf = (...decks: Deck[]): GameState => ({
+    ...initialState,
+    decks,
+    activeDeckId: decks[0].id,
+    list: decks[0].cards,
+  });
+  const order = (state: GameState, deckId: string) =>
+    state.decks.find((deck) => deck.id === deckId)?.cards.map((entry) => entry.id);
+
+  // The worked examples from the plan. Asserting the final order, not the index
+  // the caller passed, is what catches a missing downward adjustment.
+  it('moves a card down inside its own deck', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B', 'C']));
+    expect(order(moveCard(state, 'A', { deckId: 'd1', index: 1 }), 'd1')).toEqual(['B', 'A', 'C']);
+    expect(order(moveCard(state, 'A', { deckId: 'd1', index: 2 }), 'd1')).toEqual(['B', 'C', 'A']);
+    expect(order(moveCard(state, 'B', { deckId: 'd1', index: 2 }), 'd1')).toEqual(['A', 'C', 'B']);
+  });
+
+  it('moves a card up inside its own deck', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B', 'C']));
+    expect(order(moveCard(state, 'C', { deckId: 'd1', index: 0 }), 'd1')).toEqual(['C', 'A', 'B']);
+    expect(order(moveCard(state, 'C', { deckId: 'd1', index: 1 }), 'd1')).toEqual(['A', 'C', 'B']);
+  });
+
+  it('moves the first card last and the last card first', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B', 'C']));
+    expect(order(moveCard(state, 'A', { deckId: 'd1', index: 2 }), 'd1')).toEqual(['B', 'C', 'A']);
+    expect(order(moveCard(state, 'C', { deckId: 'd1', index: 0 }), 'd1')).toEqual(['C', 'A', 'B']);
+  });
+
+  it('inserts at every position of another deck', () => {
+    const state = stateOf(deckOf('d1', ['A']), deckOf('d2', ['X', 'Y']));
+    expect(order(moveCard(state, 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A', 'X', 'Y']);
+    expect(order(moveCard(state, 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['X', 'A', 'Y']);
+    // index === targetLength appends, and so does anything past it.
+    expect(order(moveCard(state, 'A', { deckId: 'd2', index: 2 }), 'd2')).toEqual(['X', 'Y', 'A']);
+    expect(order(moveCard(state, 'A', { deckId: 'd2', index: 9 }), 'd2')).toEqual(['X', 'Y', 'A']);
+    expect(order(moveCard(state, 'A', { deckId: 'd2', index: 2 }), 'd1')).toEqual([]);
+  });
+
+  it('returns the same state for a drop on the position the card already has', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B', 'C']));
+    expect(moveCard(state, 'A', { deckId: 'd1', index: 0 })).toBe(state);
+    expect(moveCard(state, 'C', { deckId: 'd1', index: 2 })).toBe(state);
+    expect(state.isDirty).toBe(false);
+  });
+
+  it('returns the same state for an unknown card or deck', () => {
+    const state = stateOf(deckOf('d1', ['A']), deckOf('d2', ['X']));
+    expect(moveCard(state, 'nope', { deckId: 'd2', index: 0 })).toBe(state);
+    expect(moveCard(state, 'A', { deckId: 'nope', index: 0 })).toBe(state);
+    expect(state.isDirty).toBe(false);
+  });
+
+  // A keyless blank card is the editor's placeholder, not content: moving it
+  // would invent a card in the target deck.
+  it('rejects moving an unkeyed blank placeholder', () => {
+    const d1 = { ...deckOf('d1', []), cards: [emptyCard()] };
+    const state = stateOf(d1, deckOf('d2', ['X']));
+    expect(moveCard(state, d1.cards[0].id, { deckId: 'd2', index: 1 })).toBe(state);
+  });
+
+  it('drops one blank placeholder when a real card enters the deck', () => {
+    const twoBlank = { ...deckOf('d2', []), cards: [emptyCard(), emptyCard()] };
+    const state = stateOf(deckOf('d1', ['A']), twoBlank);
+    const next = moveCard(state, 'A', { deckId: 'd2', index: 0 });
+    expect(next.decks[1].cards.map((entry) => entry.term)).toEqual(['A', '']);
+    expect(next.decks[1].cards.filter((entry) => !entry.card_key)).toHaveLength(1);
+
+    const oneBlank = stateOf(deckOf('d1', ['A']), { ...deckOf('d2', []), cards: [emptyCard()] });
+    expect(moveCard(oneBlank, 'A', { deckId: 'd2', index: 0 }).decks[1].cards.map((entry) => entry.term)).toEqual([
+      'A',
+    ]);
+  });
+
+  // A blank card is scaffolding, and the deck a card leaves keeps its own: only
+  // the deck the card enters gives one up, to the card that replaces it.
+  it('keeps the source deck\'s own blank placeholder when a real card moves out', () => {
+    const sourceBlank = emptyCard();
+    const targetBlank = emptyCard();
+    const state = stateOf(
+      { ...deckOf('d1', []), cards: [sourceBlank, card('A')] },
+      { ...deckOf('d2', []), cards: [targetBlank, card('X')] },
+    );
+
+    const next = moveCard(state, 'A', { deckId: 'd2', index: 2 });
+
+    expect(next.decks[0].cards.map((entry) => entry.term)).toEqual(['']);
+    expect(next.decks[0].cards).toHaveLength(1);
+    expect(next.decks[0].cards[0]).toBe(sourceBlank);
+    // The target's blank is the one that goes: the card replaces it.
+    expect(next.decks[1].cards.filter(isBlankCard)).toHaveLength(0);
+    expect(next.decks[1].cards.map((entry) => entry.term)).toEqual(['X', 'A']);
+  });
+
+  // The card object travels whole: id (uploads target it), card_key (the
+  // block's identity), both images with their storage key and alt, and its open
+  // state.
+  it('keeps every field the moved card carries', () => {
+    const moving = {
+      ...emptyCard(),
+      id: 'M',
+      card_key: 'key-m',
+      term: 'mitochondrion',
+      definition: 'produces ATP',
+      term_image: '/media/t.png',
+      term_image_path: 't.png',
+      term_image_alt: 'a picture of one',
+      definition_image: '/media/d.png',
+      definition_image_path: 'd.png',
+      definition_image_alt: 'a diagram',
+      editorOpen: false,
+    };
+    const state = stateOf({ ...deckOf('d1', []), cards: [moving] }, deckOf('d2', ['X']));
+    const next = moveCard(state, 'M', { deckId: 'd2', index: 0 });
+    // The same object, not a copy: uploads and ids keep pointing at it.
+    expect(next.decks[1].cards[0]).toBe(moving);
+    expect(next.decks[1].cards[0]).toEqual(moving);
+    expect(next.decks[0].cards).toEqual([]);
+    expect(next.decks.flatMap((deck) => deck.cards).filter((entry) => entry.id === 'M')).toHaveLength(1);
+    // Deck order is never touched; only card lists change.
+    expect(next.decks.map((deck) => deck.id)).toEqual(['d1', 'd2']);
+  });
+
+  it('marks a real move dirty and keeps activeDeckId and list in step', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B']), deckOf('d2', ['X']));
+    const next = moveCard(state, 'A', { deckId: 'd2', index: 1 });
+    expect(next.isDirty).toBe(true);
+    expect(next.activeDeckId).toEqual('d1');
+    expect(next.list).toBe(next.decks[0].cards);
+  });
+
+  // The deck a card enters is drawn with its blank placeholder still in it, so
+  // the caller's index counts that card: 1 is "before X", and the transition
+  // shifts the gap up when it drops the blank.
+  it('counts the blank placeholder a card entering a deck replaces', () => {
+    const withBlank = () => stateOf(deckOf('d1', ['A']), { ...deckOf('d2', ['X']), cards: [emptyCard(), card('X')] });
+
+    expect(order(moveCard(withBlank(), 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A', 'X']);
+    expect(order(moveCard(withBlank(), 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['A', 'X']);
+    expect(order(moveCard(withBlank(), 'A', { deckId: 'd2', index: 2 }), 'd2')).toEqual(['X', 'A']);
+
+    // An empty deck is drawn as its one blank, so both frames put the card first.
+    const emptyDeck = () => stateOf(deckOf('d1', ['A']), { ...deckOf('d2', []), cards: [emptyCard()] });
+    expect(order(moveCard(emptyDeck(), 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A']);
+    expect(order(moveCard(emptyDeck(), 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['A']);
+  });
+
+  // A move can land in the deck being edited, which is the case where a stale
+  // compatibility list would show the wrong cards.
+  it('keeps the active deck current when the move lands in it', () => {
+    const decks = [deckOf('d1', ['A']), deckOf('d2', ['X', 'Y'])];
+    const state: GameState = { ...initialState, decks, activeDeckId: 'd2', list: decks[1].cards };
+
+    const next = moveCard(state, 'A', { deckId: 'd2', index: 1 });
+
+    expect(next.activeDeckId).toEqual('d2');
+    expect(next.list).toBe(next.decks[1].cards);
+    expect(next.decks[1].cards.map((entry) => entry.term)).toEqual(['X', 'A', 'Y']);
+  });
+
+  // An out-of-range index can clamp back onto the card itself; that is still no
+  // move, so the state must not become dirty.
+  it('returns the same state for an index that clamps onto the card itself', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B', 'C']));
+
+    expect(moveCard(state, 'C', { deckId: 'd1', index: 9 })).toBe(state);
+    expect(moveCard(state, 'A', { deckId: 'd1', index: -1 })).toBe(state);
+    // The clamp is plain Math, so the infinities are just out-of-range indices.
+    expect(order(moveCard(state, 'A', { deckId: 'd1', index: Infinity }), 'd1')).toEqual(['B', 'C', 'A']);
+    expect(order(moveCard(state, 'C', { deckId: 'd1', index: -Infinity }), 'd1')).toEqual(['C', 'A', 'B']);
+  });
+
+  // NaN is not a position at all: clamping it would put the card first and
+  // dirty a state for a move nobody asked for.
+  it('returns the same state for an index that is not a number', () => {
+    const state = stateOf(deckOf('d1', ['A', 'B']), deckOf('d2', ['X']));
+
+    expect(moveCard(state, 'A', { deckId: 'd2', index: Number.NaN })).toBe(state);
+    expect(moveCard(state, 'A', { deckId: 'd1', index: Number.NaN })).toBe(state);
+    expect(state.isDirty).toBe(false);
+  });
+
+  it('leaves the state it was given untouched', () => {
+    const state = stateOf(deckOf('d1', ['A']), deckOf('d2', ['X']));
+    const sourceCards = state.decks[0].cards;
+    const targetCards = state.decks[1].cards;
+
+    moveCard(state, 'A', { deckId: 'd2', index: 0 });
+
+    expect(state.decks[0].cards).toBe(sourceCards);
+    expect(state.decks[0].cards.map((entry) => entry.term)).toEqual(['A']);
+    expect(state.decks[1].cards).toBe(targetCards);
+    expect(state.decks[1].cards.map((entry) => entry.term)).toEqual(['X']);
+    expect(state.list).toBe(sourceCards);
+  });
+});
+
+// The outline renders several deck bodies at once, so a card action must be
+// able to name its deck and card without the deck first becoming active.
+describe('card actions that name a deck that is not active', () => {
+  const card = (id: string, term: string): Card => ({ ...emptyCard(), id, term, card_key: `key-${id}` });
+  const stateWithTwoDecks = (): GameState => {
+    const decks: Deck[] = [
+      { id: 'd1', name: 'Basics', cards: [card('a', 'a')] },
+      { id: 'd2', name: 'Advanced', cards: [card('x', 'x'), card('y', 'y')] },
+    ];
+    return { ...initialState, decks, activeDeckId: 'd1', list: decks[0].cards };
+  };
+  const terms = (state: GameState, deckId: string) =>
+    state.decks.find((deck) => deck.id === deckId)?.cards.map((entry) => entry.term);
+
+  it('edits a card in a non-active deck by id', () => {
+    const next = updateCardField(stateWithTwoDecks(), { cardId: 'x' }, 'term', 'changed');
+
+    expect(terms(next, 'd2')).toEqual(['changed', 'y']);
+    expect(terms(next, 'd1')).toEqual(['a']);
+    expect(next.activeDeckId).toEqual('d1');
+    expect(next.list).toBe(next.decks[0].cards);
+    expect(next.isDirty).toBe(true);
+  });
+
+  it('opens and collapses a card in a non-active deck by id', () => {
+    const closed = setCardOpen(stateWithTwoDecks(), { cardId: 'y' }, false);
+
+    expect(closed.decks[1].cards[1].editorOpen).toBe(false);
+    expect(closed.list).toBe(closed.decks[0].cards);
+    // UI state only, as for a card in the active deck.
+    expect(closed.isDirty).toBe(false);
+  });
+
+  it('reorders a non-active deck with an explicit deck id', () => {
+    const state = stateWithTwoDecks();
+    const [x, y] = state.decks[1].cards;
+    const next = setList(state, [y, x], 'd2');
+
+    expect(terms(next, 'd2')).toEqual(['y', 'x']);
+    expect(terms(next, 'd1')).toEqual(['a']);
+    expect(next.activeDeckId).toEqual('d1');
+    expect(next.list).toBe(next.decks[0].cards);
+    expect(next.isDirty).toBe(true);
+  });
+
+  it('appends a card to a named deck', () => {
+    const next = addCard(stateWithTwoDecks(), card('z', 'z'), 'd2');
+
+    expect(terms(next, 'd2')).toEqual(['x', 'y', 'z']);
+    expect(terms(next, 'd1')).toEqual(['a']);
+    expect(next.list).toBe(next.decks[0].cards);
+  });
+
+  it('removes a card from a non-active deck by id', () => {
+    const next = removeCard(stateWithTwoDecks(), { cardId: 'x' });
+
+    expect(terms(next, 'd2')).toEqual(['y']);
+    expect(terms(next, 'd1')).toEqual(['a']);
+    expect(next.list).toBe(next.decks[0].cards);
+  });
+
+  // The older call shape still means the active deck.
+  it('keeps the position call shape on the active deck', () => {
+    const state = stateWithTwoDecks();
+    const next = setList(state, [state.decks[0].cards[0], card('b', 'b')]);
+
+    expect(terms(next, 'd1')).toEqual(['a', 'b']);
+    expect(terms(next, 'd2')).toEqual(['x', 'y']);
+    expect(next.list).toBe(next.decks[0].cards);
+  });
+
+  it('returns the same state for an unknown deck or card id', () => {
+    const state = stateWithTwoDecks();
+
+    expect(setList(state, [], 'missing')).toBe(state);
+    expect(addCard(state, emptyCard(), 'missing')).toBe(state);
+    expect(removeCard(state, { cardId: 'missing' })).toBe(state);
+    expect(setCardOpen(state, { cardId: 'missing' }, true)).toBe(state);
+    expect(updateCardField(state, { cardId: 'missing' }, 'term', 'x')).toBe(state);
+    expect(state.isDirty).toBe(false);
   });
 });

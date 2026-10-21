@@ -18,6 +18,7 @@ import { Info, InfoOutline, Plus } from '@openedx/paragon/icons';
 import EditorContainer from '@src/editors/containers/EditorContainer';
 import Button from '@src/editors/sharedComponents/Button';
 import DraggableList from '@src/generic/DraggableList';
+import { isBlankCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
 import type { GameActions } from '@src/editors/containers/GamesEditor/data/useGameState';
 import {
   cardIdOf,
@@ -39,13 +40,15 @@ import type {
   ImageType,
   RequestError,
 } from '@src/editors/containers/GamesEditor/types';
-import DeckPicker from './DeckPicker';
+import DeckOutline from './DeckOutline';
+import { DeckCardDragProvider, DeckCardList } from './DeckCardDragContext';
 import GameCard from './GameCard';
+import CardPreview from './CardPreview';
 import GameImageSettingsModal from './GameImageSettingsModal';
 import SettingsSidebar from './SettingsSidebar';
 
 /** Which image the settings modal is editing. */
-type ImageSettingsTarget = { imageData: ImageData; cardIndex: number; imageType: ImageType; };
+type ImageSettingsTarget = { imageData: ImageData; cardId: string; imageType: ImageType; };
 
 // The card and setting actions come straight from useGameState, so reuse its
 // contract. `getLatestState`, `waitForPendingRequests` and `save` are consumed
@@ -64,7 +67,7 @@ export interface GameEditorProps extends ViewActions {
   studioEndpointUrl: string;
   settings: GameSettings;
   type: GameType;
-  /** The active deck's cards: the list the card editor renders. */
+  /** The active deck's cards, for the single-list (Matching) view. */
   list: Card[];
   /** Every deck, in stored order; the first is the block's primary deck. */
   decks: Deck[];
@@ -79,10 +82,10 @@ export interface GameEditorProps extends ViewActions {
 }
 
 /**
- * The Games editor itself: the card list, the settings sidebar and the alerts,
- * inside the shared EditorContainer. Holds only view state (validation
- * messages, the open image settings, whether a save is out); the game content
- * comes in through props.
+ * The Games editor itself: the deck outline (or the flat card list for a game
+ * that has one), the settings sidebar and the alerts, inside the shared
+ * EditorContainer. Holds only view state (validation messages, the open image
+ * settings, whether a save is out); the game content comes in through props.
  */
 const GameEditor = ({
   onClose,
@@ -113,7 +116,7 @@ const GameEditor = ({
   addDeck,
   renameDeck,
   deleteDeck,
-  moveCardToDeck,
+  moveCard,
 
   uploadGameImage,
   deleteGameImage,
@@ -127,9 +130,12 @@ const GameEditor = ({
   const intl = useIntl();
   const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
   const [isAlertVisible, setIsAlertVisible] = useState(true);
-  // Set when a Save click found deck names that block it, so a failure inside
-  // the collapsed deck panel is still seen outside it.
+  // Set when a Save click found deck names that block it, so the failure stays
+  // visible even after the author dismisses the alert.
   const [deckAlertVisible, setDeckAlertVisible] = useState(false);
+  // Bumped on every save/validate that found bad deck names: the outline opens
+  // those rows and focuses the first one. Live typing never does.
+  const [deckFocusRequest, setDeckFocusRequest] = useState(0);
   // True from the Save click until the save has settled. The form is disabled
   // meanwhile: the response closes the editor, so anything typed during the
   // wait would be lost without a word.
@@ -140,22 +146,21 @@ const GameEditor = ({
 
   // Writes one text field of a card straight into the game state and clears
   // that field's validation error, so the message goes away as the author types.
-  const handleInputChange = useCallback((index: number, field: TextField, value: string) => {
+  // The card is named by id: several deck bodies render at once.
+  const handleInputChange = useCallback((cardId: string, field: TextField, value: string) => {
     if (field === 'term') {
-      updateTerm({ index, term: value });
+      updateTerm({ cardId, term: value });
     } else {
-      updateDefinition({ index, definition: value });
+      updateDefinition({ cardId, definition: value });
     }
-    const card = list[index];
-    if (!card) { return; }
-    const key = fieldKey(card.id, field);
+    const key = fieldKey(cardId, field);
     setValidationErrors((prev) => {
       if (!prev[key]) { return prev; }
       const next = { ...prev };
       delete next[key];
       return next;
     });
-  }, [list, updateTerm, updateDefinition]);
+  }, [updateTerm, updateDefinition]);
 
   // Deck authoring exists only where the block stores decks and the game type
   // authors them: matching renders one deck and offers no rename or move.
@@ -163,12 +168,14 @@ const GameEditor = ({
 
   // Validates the content as it is in the game state, which is what the author
   // sees: there is no unsaved text outside it. Deck names block a save wherever
-  // the block stores decks (validateCards), including Matching, where the deck
-  // panel is hidden until a save proves a name needs fixing.
+  // the block stores decks (validateCards), including Matching.
   const validateAllCards = useCallback(() => {
     const { errors, deckErrors: nameErrors, isValid } = validateCards({ decks, list, type, supportsDecks });
     setValidationErrors(errors);
-    if (Object.keys(nameErrors).length > 0) { setDeckAlertVisible(true); }
+    if (Object.keys(nameErrors).length > 0) {
+      setDeckAlertVisible(true);
+      setDeckFocusRequest((request) => request + 1);
+    }
     return isValid;
   }, [decks, list, type, supportsDecks]);
 
@@ -189,17 +196,6 @@ const GameEditor = ({
     [decks, list, type, supportsDecks],
   );
   const hasDeckNameErrors = Object.keys(deckNameErrors).length > 0;
-  // Matching hides deck editing, except once a save proved a name needs fixing:
-  // then the fields stay reachable so the author can repair one without the
-  // panel vanishing mid-keystroke.
-  const showDeckSettings = supportsDecks && (deckAuthoring || hasDeckNameErrors || deckAlertVisible);
-  const deckOptions = useMemo(() => decks.map((deck) => ({ id: deck.id, name: deck.name })), [decks]);
-  // Every other deck is a move target for a card; with one deck there are none.
-  const moveTargets = useMemo(
-    () => deckOptions.filter((deck) => deck.id !== activeDeckId),
-    [deckOptions, activeDeckId],
-  );
-
   // Show alert when new validation errors appear
   useEffect(() => {
     if (Object.keys(validationErrors).length > 0) {
@@ -209,14 +205,27 @@ const GameEditor = ({
 
   const cardsWithErrors = useMemo(() => new Set(Object.keys(validationErrors).map(cardIdOf)), [validationErrors]);
 
-  // Opens every card that has an error, so the author can see the message.
+  // The decks holding a card with an error: their rows must open, or the message
+  // stays behind a collapsed row. The card itself is opened below.
+  const cardErrorDeckIds = useMemo(
+    () =>
+      decks
+        .filter((deck) => deck.cards.some((card) => cardsWithErrors.has(card.id)))
+        .map((deck) => deck.id),
+    [decks, cardsWithErrors],
+  );
+
+  // Opens every card that has an error, in whichever deck it lives, so the
+  // author can see the message.
   useEffect(() => {
-    list.forEach((card, index) => {
-      if (cardsWithErrors.has(card.id) && !card.editorOpen) {
-        toggleOpen({ index, isOpen: true });
-      }
-    });
-  }, [cardsWithErrors, list, toggleOpen]);
+    decks.forEach((deck) =>
+      deck.cards.forEach((card) => {
+        if (cardsWithErrors.has(card.id) && !card.editorOpen) {
+          toggleOpen({ cardId: card.id, isOpen: true });
+        }
+      })
+    );
+  }, [cardsWithErrors, decks, toggleOpen]);
 
   // The save revalidates after waiting on image requests, by which point this
   // component's own check (validateEntry, run at the click) is out of date.
@@ -233,27 +242,37 @@ const GameEditor = ({
       .finally(() => setIsSaving(false));
   }, [onSave]);
 
-  const moveCard = useCallback((from: number, to: number) => {
-    if (to < 0 || to >= list.length) { return; }
-    const next = list.slice();
+  // Reorders one deck's cards; the deck is named, so it need not be active.
+  const reorderDeck = useCallback((deckId: string, cards: Card[], from: number, to: number) => {
+    if (to < 0 || to >= cards.length) { return; }
+    const next = cards.slice();
     [next[from], next[to]] = [next[to], next[from]];
-    setList(next);
-  }, [list, setList]);
+    setList({ deckId, cards: next });
+  }, [setList]);
 
   // DraggableList keeps its own mirror through `setState` and reports the final
   // order through `updateOrder`. Here both are the same store, so the mirror
   // setter is the persist and `updateOrder` has nothing left to do.
-  const applyListUpdate: React.Dispatch<React.SetStateAction<Card[]>> = useCallback((next) => {
-    setList(typeof next === 'function' ? next(list) : next);
-  }, [list, setList]);
+  const replaceDeckCards = useCallback((
+    deckId: string,
+    cards: Card[],
+    next: React.SetStateAction<Card[]>,
+  ) => {
+    setList({ deckId, cards: typeof next === 'function' ? next(cards) : next });
+  }, [setList]);
 
-  const openImageSettings = useCallback((card: Card, index: number, imageType: ImageType) => {
+  // A drag reports one move; the transition is the only thing that writes it.
+  const handleCardMove = useCallback((move: { cardId: string; toDeckId: string; toIndex: number; }) => {
+    moveCard(move);
+  }, [moveCard]);
+
+  const openImageSettings = useCallback((card: Card, imageType: ImageType) => {
     setImageSettings({
       imageData: {
         url: imageDisplayUrl(card[`${imageType}_image`], studioEndpointUrl),
         altText: card[`${imageType}_image_alt`] || '',
       },
-      cardIndex: index,
+      cardId: card.id,
       imageType,
     });
   }, [studioEndpointUrl]);
@@ -262,11 +281,11 @@ const GameEditor = ({
     // A modal that was already open when Save was clicked must not write
     // into a save that has already gone out.
     if (isSaving || !imageSettings) { return; }
-    const { cardIndex, imageType } = imageSettings;
+    const { cardId, imageType } = imageSettings;
     if (imageType === 'term') {
-      updateTermImageAlt({ index: cardIndex, termImageAlt: altText });
+      updateTermImageAlt({ cardId, termImageAlt: altText });
     } else {
-      updateDefinitionImageAlt({ index: cardIndex, definitionImageAlt: altText });
+      updateDefinitionImageAlt({ cardId, definitionImageAlt: altText });
     }
     closeImageSettings();
   }, [imageSettings, updateTermImageAlt, updateDefinitionImageAlt, isSaving, closeImageSettings]);
@@ -298,6 +317,65 @@ const GameEditor = ({
     </div>
   );
 
+  // One card row. Every action names the card and its deck, so several decks
+  // can render their cards at the same time.
+  const renderCard = (deckId: string, cards: Card[], card: Card, index: number) => (
+    <GameCard
+      key={card.id}
+      card={card}
+      index={index}
+      draggable={!isBlankCard(card)}
+      type={type}
+      studioEndpointUrl={studioEndpointUrl}
+      errors={{
+        term: validationErrors[fieldKey(card.id, 'term')],
+        definition: validationErrors[fieldKey(card.id, 'definition')],
+      }}
+      isSaving={isSaving}
+      onToggle={(isOpen) => toggleOpen({ cardId: card.id, isOpen })}
+      onChange={(field, value) => handleInputChange(card.id, field, value)}
+      onMoveUp={() => reorderDeck(deckId, cards, index, index - 1)}
+      onMoveDown={() => reorderDeck(deckId, cards, index, index + 1)}
+      onDelete={() => removeCard({ cardId: card.id })}
+      // Fire and forget: the hook tracks the request and reports its failure.
+      onImagePicked={(imageType, file) => {
+        void uploadGameImage({ cardId: card.id, imageFile: file, imageType });
+      }}
+      onImageRemoved={(imageType) => deleteGameImage({ cardId: card.id, imageType })}
+      onOpenImageSettings={(imageType) => openImageSettings(card, imageType)}
+    />
+  );
+
+  const addCardButton = (deckId?: string) => {
+    const deck = deckId == null ? null : decks.find((candidate) => candidate.id === deckId);
+    return (
+      <Button
+        className="add-button text-primary-500 py-3 pr-3 pl-0"
+        onClick={() => addCard(deckId)}
+        iconBefore={Plus}
+        variant="link"
+        size="inline"
+        // Several decks may be open at once, so each names the deck it adds to.
+        // The single-list view keeps the plain label.
+        aria-label={deck ? intl.formatMessage(messages.addCardToDeckLabel, { deckName: deck.name }) : undefined}
+      >
+        {intl.formatMessage(messages.addLabel)}
+      </Button>
+    );
+  };
+
+  // The cards of one deck, as its outline row shows them. The drag layer
+  // supplies the preview decks, so a card moved here by a drag-over appears.
+  const renderDeck = (deckId: string) => (
+    <div className="deck-outline-cards">
+      <DeckCardList
+        deckId={deckId}
+        renderCard={(deck, card, index) => renderCard(deck.id, deck.cards, card, index)}
+      />
+      {addCardButton(deckId)}
+    </div>
+  );
+
   const page = (
     <div className="page-body d-flex align-items-start w-100 py-2">
       <div className="terms d-flex flex-column align-items-start align-self-stretch">
@@ -318,58 +396,43 @@ const GameEditor = ({
             <Icon src={InfoOutline} />
           </OverlayTrigger>
         </div>
-        {deckAuthoring && (
-          <div className="deck-picker-row d-flex align-items-center align-self-stretch mb-2">
-            <DeckPicker
-              decks={deckOptions}
-              activeDeckId={activeDeckId}
-              onSelectDeck={selectDeck}
-              onAddDeck={() => addDeck()}
-            />
-          </div>
-        )}
-        <DraggableList
-          itemList={list}
-          setState={applyListUpdate}
-          updateOrder={() => () => undefined}
-        >
-          {list.map((card, index) => (
-            <GameCard
-              key={card.id}
-              card={card}
-              index={index}
-              type={type}
-              studioEndpointUrl={studioEndpointUrl}
-              errors={{
-                term: validationErrors[fieldKey(card.id, 'term')],
-                definition: validationErrors[fieldKey(card.id, 'definition')],
-              }}
-              isSaving={isSaving}
-              onToggle={(isOpen) => toggleOpen({ index, isOpen })}
-              onChange={(field, value) => handleInputChange(index, field, value)}
-              onMoveUp={() => moveCard(index, index - 1)}
-              onMoveDown={() => moveCard(index, index + 1)}
-              onDelete={() => removeCard({ index })}
-              // Fire and forget: the hook tracks the request and reports its failure.
-              onImagePicked={(imageType, file) => {
-                void uploadGameImage({ cardId: card.id, imageFile: file, imageType });
-              }}
-              onImageRemoved={(imageType) => deleteGameImage({ cardId: card.id, imageType })}
-              onOpenImageSettings={(imageType) => openImageSettings(card, index, imageType)}
-              moveTargets={deckAuthoring ? moveTargets : []}
-              onMoveToDeck={(deckId) => moveCardToDeck({ cardId: card.id, toDeckId: deckId })}
-            />
-          ))}
-        </DraggableList>
-        <Button
-          className="add-button text-primary-500 py-3 pr-3 pl-0"
-          onClick={() => addCard()}
-          iconBefore={Plus}
-          variant="link"
-          size="inline"
-        >
-          {intl.formatMessage(messages.addLabel)}
-        </Button>
+        {deckAuthoring ?
+          (
+            <DeckCardDragProvider
+              decks={decks}
+              onCardMove={handleCardMove}
+              renderOverlayCard={(card) => (
+                <div className="deck-drag-overlay d-flex align-items-center px-4 py-3 border border-light-700 rounded bg-white shadow-sm">
+                  <CardPreview card={card} type={type} studioEndpointUrl={studioEndpointUrl} />
+                </div>
+              )}
+            >
+              <DeckOutline
+                decks={deckSummaries}
+                activeDeckId={activeDeckId}
+                nameErrors={deckNameErrors}
+                cardErrorDeckIds={cardErrorDeckIds}
+                focusRequest={deckFocusRequest}
+                onSelect={selectDeck}
+                onRename={(deckId, name) => renameDeck({ deckId, name })}
+                onDelete={(deckId) => deleteDeck({ deckId })}
+                onAdd={() => addDeck()}
+                renderDeck={renderDeck}
+              />
+            </DeckCardDragProvider>
+          ) :
+          (
+            <>
+              <DraggableList
+                itemList={list}
+                setState={(next) => replaceDeckCards(activeDeckId, list, next)}
+                updateOrder={() => () => undefined}
+              >
+                {list.map((card, index) => renderCard(activeDeckId, list, card, index))}
+              </DraggableList>
+              {addCardButton()}
+            </>
+          )}
       </div>
       <SettingsSidebar
         type={type}
@@ -377,15 +440,6 @@ const GameEditor = ({
         updateType={updateType}
         setShuffleStatus={setShuffleStatus}
         setTimerStatus={setTimerStatus}
-        showDeckSettings={showDeckSettings}
-        decks={deckSummaries}
-        activeDeckId={activeDeckId}
-        deckNameErrors={deckNameErrors}
-        onSelectDeck={selectDeck}
-        // The deck settings panel passes the id and value it holds, not the
-        // action's object argument.
-        onRenameDeck={(deckId, name) => renameDeck({ deckId, name })}
-        onDeleteDeck={(deckId) => deleteDeck({ deckId })}
       />
     </div>
   );
@@ -462,7 +516,7 @@ const GameEditor = ({
       </div>
       {imageSettings && (
         <GameImageSettingsModal
-          key={`${imageSettings.cardIndex}-${imageSettings.imageType}-${imageSettings.imageData.url}`}
+          key={`${imageSettings.cardId}-${imageSettings.imageType}-${imageSettings.imageData.url}`}
           imageData={imageSettings.imageData}
           close={closeImageSettings}
           onSave={handleImageSettingsSave}

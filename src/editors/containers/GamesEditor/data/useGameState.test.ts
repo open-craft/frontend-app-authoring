@@ -143,4 +143,123 @@ describe('saving with decks', () => {
     expect(payload.cards.map((card) => card.term)).toEqual(['fresh']);
     expect(payload).not.toHaveProperty('display_name');
   });
+
+  // A drag reports a position, so the action moves the card there without
+  // touching the active deck, its compatibility list, or the card itself.
+  it('moves a card to an explicit position in another deck', async () => {
+    const { result } = loadBlock({
+      game_type: 'flashcards',
+      decks: [
+        { deck_key: 'd1', name: 'Deck 1', cards: [{ term: 'a', definition: 'b', card_key: 'k1' }] },
+        {
+          deck_key: 'd2',
+          name: 'Deck 2',
+          cards: [{ term: 'x', definition: 'y', card_key: 'k2' }, { term: 'z', definition: 'w', card_key: 'k3' }],
+        },
+      ],
+    });
+    await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
+    const [first, second] = result.current.state.decks;
+    const cardId = first.cards[0].id;
+
+    act(() => result.current.actions.moveCard({ cardId, toDeckId: second.id, toIndex: 1 }));
+
+    const { state } = result.current;
+    expect(state.decks[0].cards).toEqual([]);
+    expect(state.decks[1].cards.map((entry) => entry.term)).toEqual(['x', 'a', 'z']);
+    // The card object travels whole, key included.
+    expect(state.decks[1].cards[1]).toMatchObject({ id: cardId, card_key: 'k1' });
+    expect(state.isDirty).toBe(true);
+    // The active deck and its compatibility list are untouched.
+    expect(state.activeDeckId).toEqual(first.id);
+    expect(state.list).toBe(state.decks[0].cards);
+  });
+
+  // Dropping a card on the position it already has is no move: same state,
+  // nothing dirty.
+  it('leaves the state alone for a move to the same position', async () => {
+    const { result } = loadBlock({
+      game_type: 'flashcards',
+      decks: [
+        { deck_key: 'd1', name: 'Deck 1', cards: [{ term: 'a', definition: 'b', card_key: 'k1' }] },
+        { deck_key: 'd2', name: 'Deck 2', cards: [] },
+      ],
+    });
+    await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
+    const deck = result.current.state.decks[0];
+    const before = result.current.state;
+
+    act(() => result.current.actions.moveCard({ cardId: deck.cards[0].id, toDeckId: deck.id, toIndex: 0 }));
+
+    expect(result.current.state).toBe(before);
+    expect(result.current.state.isDirty).toBe(false);
+  });
+});
+
+// Several deck bodies render at once, so the hook's card actions must accept a
+// card or deck id and leave the active compatibility list where it was.
+describe('card actions on a deck that is not active', () => {
+  const wrapper = makeQueryClientWrapper(new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+
+  const loadBlock = () => {
+    mockedApi.getSettings.mockResolvedValue({
+      data: {
+        game_type: 'flashcards',
+        decks: [
+          { deck_key: 'd1', name: 'Deck 1', cards: [{ term: 'a', definition: 'b', card_key: 'k1' }] },
+          {
+            deck_key: 'd2',
+            name: 'Deck 2',
+            cards: [{ term: 'x', definition: 'y', card_key: 'k2' }, { term: 'y', definition: 'x', card_key: 'k3' }],
+          },
+        ],
+      },
+    });
+    return renderHook(() => useGameState(block), { wrapper });
+  };
+
+  beforeEach(() => {
+    initializeMocks();
+    mockedApi.getSettings.mockReset();
+  });
+
+  it('edits and collapses a card in a non-active deck by id', async () => {
+    const { result } = loadBlock();
+    await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
+    const activeCards = result.current.state.decks[0].cards;
+    const cardId = result.current.state.decks[1].cards[0].id;
+
+    act(() => result.current.actions.updateTerm({ cardId, term: 'changed' }));
+    act(() => result.current.actions.toggleOpen({ cardId, isOpen: false }));
+
+    const { state } = result.current;
+    expect(state.decks[1].cards[0]).toMatchObject({ term: 'changed', editorOpen: false });
+    expect(state.decks[1].cards[1].term).toEqual('y');
+    expect(state.decks[0].cards.map((card) => card.term)).toEqual(['a']);
+    expect(state.activeDeckId).toEqual(state.decks[0].id);
+    expect(state.list).toBe(activeCards);
+    expect(state.list).toBe(state.decks[0].cards);
+  });
+
+  it('reorders, appends and removes in a named deck only', async () => {
+    const { result } = loadBlock();
+    await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
+    const [first, second] = result.current.state.decks;
+    const activeCards = first.cards;
+    const [x, y] = second.cards;
+
+    act(() => result.current.actions.setList({ deckId: second.id, cards: [y, x] }));
+    expect(result.current.state.decks[1].cards.map((card) => card.term)).toEqual(['y', 'x']);
+
+    act(() => result.current.actions.addCard(second.id));
+    expect(result.current.state.decks[1].cards).toHaveLength(3);
+
+    act(() => result.current.actions.removeCard({ cardId: x.id }));
+    expect(result.current.state.decks[1].cards.map((card) => card.term)).toEqual(['y', '']);
+
+    expect(result.current.state.decks[0].cards.map((card) => card.term)).toEqual(['a']);
+    expect(result.current.state.activeDeckId).toEqual(first.id);
+    expect(result.current.state.list).toBe(activeCards);
+    expect(result.current.state.isDirty).toBe(true);
+  });
 });
