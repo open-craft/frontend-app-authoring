@@ -18,6 +18,7 @@ import { useIntl, FormattedMessage } from '@edx/frontend-platform/i18n';
 import { parseErrorMsg } from '@src/library-authoring/add-content/AddContent';
 import libraryMessages from '@src/library-authoring/add-content/messages';
 import usePromptIfDirty from '@src/generic/promptIfDirty/usePromptIfDirty';
+import { isSaveOverrideResult } from '@src/editors/hooks';
 
 import { EditorComponent } from '../../EditorComponent';
 import TitleHeader from './components/TitleHeader';
@@ -153,8 +154,9 @@ const EditorContainer: React.FC<Props> = ({
     setOverrideSaveFailed(false);
     setOverridePending(true);
     try {
-      await onSaveOverride();
-      setSaved(true);
+      const result = await onSaveOverride();
+      // An override that did not persist leaves the unsaved-changes warning armed.
+      setSaved(isSaveOverrideResult(result) ? result.persisted : true);
     } catch {
       setOverrideSaveFailed(true);
     } finally {
