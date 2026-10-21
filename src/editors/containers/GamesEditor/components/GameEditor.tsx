@@ -17,7 +17,6 @@ import {
 import { Info, InfoOutline, Plus } from '@openedx/paragon/icons';
 
 import EditorContainer from '@src/editors/containers/EditorContainer';
-import Button from '@src/editors/sharedComponents/Button';
 import DraggableList from '@src/generic/DraggableList';
 import { isBlankCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
 import type { GameActions } from '@src/editors/containers/GamesEditor/data/useGameState';
@@ -419,18 +418,17 @@ const GameEditor = ({
   const addCardButton = (deckId?: string) => {
     const deck = deckId == null ? null : decks.find((candidate) => candidate.id === deckId);
     return (
-      <Button
-        className="add-button text-primary-500 py-3 pr-3 pl-0"
+      <PgnButton
+        className="text-primary-500 py-2 pr-3 pl-0"
+        variant="tertiary"
         onClick={() => addCard(deckId)}
         iconBefore={Plus}
-        variant="link"
-        size="inline"
         // Several decks may be open at once, so each names the deck it adds to.
         // The single-list view keeps the plain label.
         aria-label={deck ? intl.formatMessage(messages.addCardToDeckLabel, { deckName: deck.name }) : undefined}
       >
         {intl.formatMessage(messages.addLabel)}
-      </Button>
+      </PgnButton>
     );
   };
 
