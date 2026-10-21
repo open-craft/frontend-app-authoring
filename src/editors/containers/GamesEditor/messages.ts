@@ -51,11 +51,6 @@ const messages = defineMessages({
     defaultMessage: 'Term',
     description: 'Label for term input field',
   },
-  deckCardCount: {
-    id: 'GameEditor.deckCardCount',
-    defaultMessage: '{cardCount, plural, =0 {No cards} one {1 card} other {# cards}}',
-    description: 'Number of cards in a deck, shown beside the deck name in the deck list.',
-  },
   deckListLabel: {
     id: 'GameEditor.deckListLabel',
     defaultMessage: 'Decks',

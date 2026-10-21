@@ -172,8 +172,8 @@ const GameEditor = ({
   // authors them: matching renders one deck and offers no rename or move.
   const deckAuthoring = supportsDecks && type === 'flashcards';
 
-  // One place decides what a save would carry, so the count beside each deck
-  // name is the count that will be saved (blank placeholders excluded).
+  // One place decides what a save would carry, so the count a deck's delete
+  // prompt states is the count that will be saved (blank placeholders excluded).
   const contents = useMemo(() => getContent({ type, settings, decks, list }), [type, settings, decks, list]);
   const deckSummaries = useMemo(() =>
     decks.map((deck, index) => ({
@@ -436,7 +436,7 @@ const GameEditor = ({
   // The cards of one deck, as its outline row shows them. The drag layer
   // supplies the preview decks, so a card moved here by a drag-over appears.
   const renderDeck = (deckId: string) => (
-    <div className="d-flex flex-column">
+    <div className="deck-outline-cards d-flex flex-column">
       <DeckCardList
         deckId={deckId}
         renderCard={(_deck, card, index) => renderCard(card, index)}

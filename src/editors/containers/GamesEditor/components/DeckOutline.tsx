@@ -19,7 +19,7 @@ import { DeckDropTarget } from './DeckCardDragContext';
 import type { DeckNameError } from '@src/editors/containers/GamesEditor/types';
 import messages from '@src/editors/containers/GamesEditor/messages';
 
-/** One deck as the outline shows it: its name and how many cards it holds. */
+/** One deck as the outline shows it: its name, and the count its delete prompt uses. */
 export interface DeckOutlineSummary {
   id: string;
   name: string;
@@ -57,10 +57,9 @@ const focusNameInput = (deckId: string) => document.getElementById(nameInputId(d
 
 /**
  * Decks as a list of independently collapsible rows, course-outline style:
- * the name is editable in place, the header carries the card count and the
- * delete action, and the deck's cards render inside the row. Invalid names and
- * decks holding invalid cards open their row; a save request also focuses the
- * first invalid name.
+ * the name is editable in place, the header carries the delete action, and the
+ * deck's cards render inside the row. A deck with an invalid name or cards opens
+ * its row; a save request also focuses the first invalid name.
  */
 const DeckOutline = ({
   decks,
@@ -247,9 +246,6 @@ const DeckOutline = ({
                           </span>
                         </Form.Control.Feedback>
                       )}
-                      <small className="text-muted">
-                        {intl.formatMessage(messages.deckCardCount, { cardCount: deck.cardCount })}
-                      </small>
                     </div>
                     <IconButton
                       src={DeleteOutline}

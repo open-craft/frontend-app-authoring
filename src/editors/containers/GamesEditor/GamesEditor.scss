@@ -153,6 +153,11 @@
     gap: .5rem;
   }
 
+  // One deck's cards stack at the 1rem the flat list gets from `.terms`.
+  .deck-outline-cards {
+    gap: 1rem;
+  }
+
   // Lets a long deck name truncate instead of widening the row.
   .deck-outline-name {
     min-width: 0;
