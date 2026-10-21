@@ -483,10 +483,12 @@ export const DeckCardDragProvider = ({
           // Inside DndContext's React subtree so the overlay reads its context,
           // portalled out of the editor's scrolling box and above its modal
           // (Paragon uses --pgn-elevation-modal-zindex, 1050; dnd-kit's own
-          // overlay defaults to 999 and would disappear behind it).
+          // overlay defaults to 999 and would disappear behind it). The portal
+          // also leaves the editor's wrapper, so the overlay carries that
+          // wrapper's class and keeps its scoped preview styles.
         }
         {createPortal(
-          <DragOverlay zIndex={2000} dropAnimation={null}>
+          <DragOverlay zIndex={2000} dropAnimation={null} className="xblock-games-editor">
             {activeCard ? renderOverlayCard(activeCard) : null}
           </DragOverlay>,
           document.body,

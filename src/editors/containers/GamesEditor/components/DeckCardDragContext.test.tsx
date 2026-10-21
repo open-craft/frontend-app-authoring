@@ -36,7 +36,11 @@ jest.mock('@dnd-kit/core', () => {
       mockAnnouncements = accessibility?.announcements;
       return ReactModule.createElement('div', null, children);
     },
-    DragOverlay: () => null,
+    // The real overlay renders only while a card is active; here it has to
+    // render so its wrapper can be inspected.
+    DragOverlay: (
+      { children, className }: any,
+    ) => (children ? ReactModule.createElement('div', { className, 'data-testid': 'drag-overlay' }, children) : null),
     useDroppable: ({ id }: { id: string; }) => ({
       isOver: id === mockHoveredDroppableId,
       setNodeRef: () => undefined,
@@ -394,6 +398,27 @@ describe('DeckCardDragContext', () => {
     await settle();
     expect(elsewhere).toHaveFocus();
     expect(handle).not.toHaveFocus();
+  });
+
+  // The overlay is portalled to <body>, out of the editor wrapper, so the
+  // overlay's own wrapper carries the scope class its preview sizes come from.
+  it('renders the drag overlay inside the editor scope class', () => {
+    render(
+      <DeckCardDragProvider
+        decks={[deck('d1', ['A'])]}
+        onCardMove={jest.fn<void, [CardMove]>()}
+        renderOverlayCard={(dragged) => <span>overlay {dragged.term}</span>}
+      >
+        <Preview />
+      </DeckCardDragProvider>,
+    );
+    expect(screen.queryByTestId('drag-overlay')).not.toBeInTheDocument();
+
+    dragStart('A');
+
+    const overlay = screen.getByTestId('drag-overlay');
+    expect(overlay).toHaveClass('xblock-games-editor');
+    expect(overlay).toHaveTextContent('overlay A');
   });
 
   it('refuses to drag the blank placeholder card', () => {
