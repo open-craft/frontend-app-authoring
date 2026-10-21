@@ -57,23 +57,6 @@
     flex: 1;
   }
 
-  .preview-term,
-  .preview-definition {
-    max-width: 45%;
-  }
-
-  .preview-term {
-    left: 0;
-  }
-
-  .preview-definition {
-    left: 50%;
-  }
-
-  .preview-block {
-    bottom: 30%;
-  }
-
   .description-header,
   .sidebar-title {
     font-size: var(--pgn-typography-font-size-base);

@@ -18,7 +18,7 @@ import CardPreview from './CardPreview';
 
 const actionStyle: React.CSSProperties = {
   position: 'absolute',
-  top: '12px',
+  top: '6px',
   left: '12px',
   zIndex: 2,
 };
@@ -165,9 +165,9 @@ const GameCard = ({
           onChange={handlePick('definition')}
           accept={acceptedImages}
         />
-        <Stack direction="horizontal" gap={2.5} className="w-100 pr-4">
+        <Stack direction="horizontal" gap={2.5} className="w-100 pr-4 align-items-center">
           <Collapsible.Trigger className="card-heading-wrapper d-flex align-items-center flex-grow-1 py-2.5 pl-4">
-            <Stack direction="horizontal" gap={2.5} className="align-self-stretch w-100 ml-4">
+            <Stack direction="horizontal" gap={2.5} className="align-self-stretch w-100 ml-4 align-items-center">
               <div className="card-number d-inline-flex align-items-center justify-content-center mr-2.5 text-primary-500 font-weight-bold">
                 {index + 1}
               </div>
