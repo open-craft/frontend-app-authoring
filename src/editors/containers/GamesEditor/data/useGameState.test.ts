@@ -88,9 +88,9 @@ describe('saving with decks', () => {
     mockedApi.saveSettings.mockResolvedValue({ data: { success: true } });
   });
 
-  // The save runs after awaits, from the store, so a caller holding older cards
-  // or decks cannot overwrite what the editor shows.
-  it('saves the state, not the cards and decks the caller passes in', async () => {
+  // The save runs after awaits, from the store: it projects the payload from
+  // the state, so nothing a caller could hold can overwrite what it shows.
+  it('saves the state, not what the caller could pass in', async () => {
     const { result } = loadBlock({
       game_type: 'flashcards',
       cards: [{ term: 'fresh', definition: 'd', card_key: 'k1' }],
@@ -102,17 +102,13 @@ describe('saving with decks', () => {
     await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
 
     await act(async () => {
-      await result.current.actions.save({
-        gameType: 'flashcards',
-        isShuffled: true,
-        hasTimer: true,
-        cards: [{ term: 'stale', definition: 'stale' }],
-        decks: [{ name: 'Stale', cards: [{ term: 'stale', definition: 'stale' }] }],
-        title: 'Title',
-      });
+      await result.current.actions.save({ title: 'Title' });
     });
 
     const payload = api.buildSavePayload(saveArgs());
+    expect(payload.game_type).toEqual('flashcards');
+    expect(payload.is_shuffled).toEqual(true);
+    expect(payload.has_timer).toEqual(true);
     expect(payload.cards.map((card) => card.term)).toEqual(['fresh']);
     expect(payload.decks?.map((deck) => deck.name)).toEqual(['Deck 1', 'Deck 2']);
   });
@@ -127,14 +123,7 @@ describe('saving with decks', () => {
     await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
 
     await act(async () => {
-      await result.current.actions.save({
-        gameType: 'flashcards',
-        isShuffled: true,
-        hasTimer: true,
-        cards: [{ term: 'stale', definition: 'stale' }],
-        decks: [{ name: 'Stale', cards: [{ term: 'stale', definition: 'stale' }] }],
-        title: null,
-      });
+      await result.current.actions.save({ title: null });
     });
 
     expect(saveArgs()).not.toHaveProperty('decks');

@@ -290,10 +290,10 @@ describe('per-card state after a reorder', () => {
     renderEditor();
     expect(await screen.findByDisplayValue('Second term')).toBeInTheDocument();
 
-    // Save: the wrapper's own validation flags card 2.
+    // Save: the seam's validation flags card 2.
     const { onSave } = MockedEditorContainer.mock.lastCall[0];
     await act(async () => {
-      await expect(onSave()).rejects.toThrow('Game cards failed validation.');
+      expect(await onSave()).toMatchObject({ persisted: false });
     });
     expect(await screen.findByText('Enter a definition')).toBeInTheDocument();
     expect(mockedApi.saveSettings).not.toHaveBeenCalled();
@@ -477,7 +477,10 @@ describe('changing the Studio endpoint for the same block', () => {
 
     expect(screen.queryByDisplayValue('old server')).not.toBeInTheDocument();
     const { onSave } = MockedEditorContainer.mock.lastCall[0];
-    await expect(onSave()).rejects.toThrow('not loaded');
+    expect(await onSave()).toMatchObject({
+      persisted: false,
+      error: expect.objectContaining({ message: expect.stringMatching(/not loaded/) }),
+    });
     expect(mockedApi.saveSettings).not.toHaveBeenCalled();
   });
 });
@@ -570,13 +573,7 @@ describe('settings are always loaded fresh', () => {
 // this editor that is wrong in both directions: requests must go out (and fail)
 // at once, exactly as a plain HTTP call would.
 describe('while the browser is offline', () => {
-  const saveArgs = {
-    gameType: 'flashcards' as const,
-    isShuffled: true,
-    hasTimer: false,
-    cards: [],
-    title: 'Games',
-  };
+  const saveArgs = { title: 'Games' };
 
   beforeEach(() => {
     initializeMocks();
@@ -792,12 +789,15 @@ describe('saving before the settings have loaded', () => {
   });
 
   // The pre-load list is a single blank placeholder card. It validates clean,
-  // so without a gate a Save click would overwrite the block's real content.
-  it('fails validation and refuses to save', async () => {
+  // so without the seam's loaded gate a Save click would overwrite the block's
+  // real content.
+  it('refuses to save before the settings have loaded', async () => {
     renderEditor();
-    const { validateEntry, onSave } = MockedEditorContainer.mock.calls[0][0];
-    expect(validateEntry()).toBe(false);
-    await expect(onSave()).rejects.toThrow(/not loaded/);
+    const { onSave } = MockedEditorContainer.mock.calls[0][0];
+    expect(await onSave()).toMatchObject({
+      persisted: false,
+      error: expect.objectContaining({ message: expect.stringMatching(/not loaded/) }),
+    });
     expect(api.saveSettings).not.toHaveBeenCalled();
   });
 });
@@ -958,7 +958,7 @@ describe('saving while an image request is in flight', () => {
 
   // Regression: a failed request used to be swallowed, so the save went ahead
   // with the old image state and closed the editor on top of the error.
-  it('rejects, without saving or closing, when the pending upload fails', async () => {
+  it('reports the failure, without saving or closing, when the pending upload fails', async () => {
     let finishUpload;
     mockedApi.uploadImage.mockReturnValue(
       new Promise((resolve) => {
@@ -973,10 +973,12 @@ describe('saving while an image request is in flight', () => {
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
 
     const saving = latestContainerProps().onSave();
+    let outcome;
     await act(async () => {
       finishUpload({ data: { success: false, error: 'too large' } });
-      await expect(saving).rejects.toThrow('too large');
+      outcome = await saving;
     });
+    expect(outcome).toMatchObject({ persisted: false, error: expect.objectContaining({ message: 'too large' }) });
     expect(api.saveSettings).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByText('too large')).toBeInTheDocument();
@@ -1021,14 +1023,17 @@ describe('a save the block rejects', () => {
 
   // The block's save_settings handler reports failure as HTTP 200 with
   // `success: false`, so a resolved request is not yet a successful save.
-  it('rejects with the block error and keeps the editor open', async () => {
+  it('reports the block error and keeps the editor open', async () => {
     mockedApi.saveSettings.mockResolvedValue({ data: { success: false, error: 'Each card must be an object' } });
     const onClose = jest.fn();
     renderEditor({ onClose });
     await screen.findByDisplayValue('Photosynthesis');
 
     await act(async () => {
-      await expect(latestContainerProps().onSave()).rejects.toThrow('Each card must be an object');
+      expect(await latestContainerProps().onSave()).toMatchObject({
+        persisted: false,
+        error: expect.objectContaining({ message: 'Each card must be an object' }),
+      });
     });
     expect(onClose).not.toHaveBeenCalled();
     expect(await screen.findByText('Each card must be an object')).toBeInTheDocument();
@@ -1060,7 +1065,10 @@ describe('handler failures with no detail message', () => {
 
     await act(async () => {
       // No server detail, so the error carries only its code.
-      await expect(latestContainerProps().onSave()).rejects.toMatchObject({ code: 'saveFailed', message: '' });
+      expect(await latestContainerProps().onSave()).toMatchObject({
+        persisted: false,
+        error: expect.objectContaining({ code: 'saveFailed', message: '' }),
+      });
     });
     expect(await screen.findByText('The game could not be saved.')).toBeInTheDocument();
     expect(screen.queryByText('Save failed')).not.toBeInTheDocument();
@@ -1073,7 +1081,10 @@ describe('handler failures with no detail message', () => {
     await screen.findByDisplayValue('Photosynthesis');
 
     await act(async () => {
-      await expect(latestContainerProps().onSave()).rejects.toThrow('Each card must be an object');
+      expect(await latestContainerProps().onSave()).toMatchObject({
+        persisted: false,
+        error: expect.objectContaining({ message: 'Each card must be an object' }),
+      });
     });
     expect(await screen.findByText('The game could not be saved.')).toBeInTheDocument();
     expect(screen.getByText('Each card must be an object')).toBeInTheDocument();
@@ -1087,8 +1098,8 @@ describe('validation after a pending upload', () => {
     mockedApi.saveSettings.mockResolvedValue({ data: { success: true } });
   });
 
-  // Regression: validateEntry runs at the Save click, before the upload lands.
-  // A blank card validates clean then, and is image-only by the time it saves.
+  // Regression: the card validated clean at the Save click, before the upload
+  // landed, and was image-only by the time the save went out.
   it('refuses to save an image-only card the upload produced', async () => {
     let finishUpload;
     mockedApi.uploadImage.mockReturnValue(
@@ -1098,17 +1109,19 @@ describe('validation after a pending upload', () => {
     );
     const onClose = jest.fn();
     renderEditor({ onClose });
-    await waitFor(() => expect(latestContainerProps().validateEntry()).toBe(true));
+    // The settings have loaded once the blank card's fields render.
+    await waitFor(() => expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0));
 
     pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
-    expect(latestContainerProps().validateEntry()).toBe(true);
 
     const saving = latestContainerProps().onSave();
+    let outcome;
     await act(async () => {
       finishUpload({ data: { success: true, url: '/media/x.png', file_path: 'games/x.png' } });
-      await expect(saving).rejects.toThrow(/validation/i);
+      outcome = await saving;
     });
+    expect(outcome).toMatchObject({ persisted: false });
     expect(api.saveSettings).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
     expect(await screen.findByText('Text is required for flashcard images.')).toBeInTheDocument();
@@ -1124,25 +1137,23 @@ describe('validation with text not yet blurred', () => {
   });
 
   // Safari, and Firefox on macOS, do not blur the focused field when Save is
-  // clicked, so the click-time check can run before the field is left. It
-  // must validate what the author sees.
+  // clicked, so validation can run before the field is left. It must validate
+  // what the author sees.
   it('accepts a field the author has filled in but not left', async () => {
     renderEditor();
     await screen.findByDisplayValue('a');
-    expect(latestContainerProps().validateEntry()).toBe(false);
     fireEvent.change(screen.getByLabelText('Definition'), { target: { value: 'b' } });
-    expect(latestContainerProps().validateEntry()).toBe(true);
+    expect(await latestContainerProps().onSave()).toMatchObject({ persisted: true });
   });
 
-  it('rejects a field the author has just cleared but not left', async () => {
+  it('reports a field the author has just cleared but not left', async () => {
     mockedApi.getSettings.mockResolvedValue({
       data: { game_type: 'matching', cards: [{ term: 'a', definition: 'b' }] },
     });
     renderEditor();
     await screen.findByDisplayValue('a');
-    expect(latestContainerProps().validateEntry()).toBe(true);
     fireEvent.change(screen.getByLabelText('Definition'), { target: { value: '' } });
-    expect(latestContainerProps().validateEntry()).toBe(false);
+    expect(await latestContainerProps().onSave()).toMatchObject({ persisted: false });
   });
 });
 
@@ -1204,13 +1215,7 @@ describe('removing a saved image', () => {
     expect(result.current.state.isDirty).toBe(true);
 
     await act(async () => {
-      await result.current.actions.save({
-        gameType: 'flashcards',
-        isShuffled: true,
-        hasTimer: false,
-        cards: result.current.state.list,
-        title: 'Games',
-      });
+      await result.current.actions.save({ title: 'Games' });
     });
     // Settings load and the save: no other request, and no way to make one.
     expect(api.uploadImage).not.toHaveBeenCalled();
@@ -1422,7 +1427,10 @@ describe('a save still waiting when the editor goes away', () => {
 
     await act(async () => {
       finishUpload({ data: { success: true, url: '/media/x.png', file_path: 'games/x.png' } });
-      await expect(saving).rejects.toThrow(/closed/i);
+      expect(await saving).toMatchObject({
+        persisted: false,
+        error: expect.objectContaining({ message: expect.stringMatching(/closed/i) }),
+      });
     });
     expect(api.saveSettings).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
@@ -1494,8 +1502,10 @@ describe('switching to another block without remounting', () => {
     );
 
     expect(screen.queryByDisplayValue('Photosynthesis')).not.toBeInTheDocument();
-    expect(latestContainerProps().validateEntry()).toBe(false);
-    await expect(latestContainerProps().onSave()).rejects.toThrow(/not loaded/);
+    expect(await latestContainerProps().onSave()).toMatchObject({
+      persisted: false,
+      error: expect.objectContaining({ message: expect.stringMatching(/not loaded/) }),
+    });
     expect(api.saveSettings).not.toHaveBeenCalled();
   });
 });
@@ -1560,10 +1570,12 @@ describe('while the save request is out', () => {
     await waitFor(() => expect(term).toBeDisabled());
     expect(screen.getByRole('button', { name: /^add$/i })).toBeDisabled();
 
+    let outcome;
     await act(async () => {
       finishSave({ data: { success: false, error: 'nope' } });
-      await expect(saving).rejects.toThrow('nope');
+      outcome = await saving;
     });
+    expect(outcome).toMatchObject({ persisted: false, error: expect.objectContaining({ message: 'nope' }) });
     await waitFor(() => expect(term).toBeEnabled());
   });
 
@@ -1866,8 +1878,8 @@ describe('validation feedback', () => {
     await user.click(screen.getByRole('button', { name: 'Collapse card' }));
     await waitFor(() => expect(screen.queryByDisplayValue('a')).not.toBeInTheDocument());
 
-    act(() => {
-      expect(latestContainerProps().validateEntry()).toBe(false);
+    await act(async () => {
+      expect(await latestContainerProps().onSave()).toMatchObject({ persisted: false });
     });
     // The invalid card is expanded again so the flagged field can be seen.
     expect(await screen.findByDisplayValue('a')).toBeInTheDocument();
@@ -1949,7 +1961,10 @@ describe('save analytics', () => {
     renderEditor();
     await screen.findByDisplayValue('Photosynthesis');
     await act(async () => {
-      await expect(latestContainerProps().onSave()).rejects.toThrow('nope');
+      expect(await latestContainerProps().onSave()).toMatchObject({
+        persisted: false,
+        error: expect.objectContaining({ message: 'nope' }),
+      });
     });
     expect(saveEvents()).toEqual([]);
   });

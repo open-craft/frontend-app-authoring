@@ -164,16 +164,21 @@ export const useGameState = (block: BlockRef | null) => {
       // keys the shared saveBlock payload builder drops.
       // The handler reports failure as HTTP 200 with `success: false`, so a
       // resolved request is not yet a successful save.
-      save: (content: SaveArgs) => {
+      save: ({ title }: { title: string | null; }) => {
         // The payload comes from the state, so a caller holding older cards or
-        // decks cannot overwrite what the editor shows. `cards` is the primary
-        // deck; `decks` goes only to a backend that declared the field.
+        // decks cannot overwrite what the editor shows: the caller supplies
+        // only the title, which lives in the editors' store rather than this
+        // one. `cards` is the primary deck; `decks` goes only to a backend
+        // that declared the field.
         const latest = store.get();
         const { cards, decks } = getContent(latest);
-        // Content comes from the state alone: whatever the caller passed in is
-        // only used for the settings and the title.
-        const { gameType, isShuffled, hasTimer, title } = content;
-        const args: SaveArgs = { gameType, isShuffled, hasTimer, title, cards };
+        const args: SaveArgs = {
+          gameType: latest.type,
+          isShuffled: latest.settings.shuffle,
+          hasTimer: latest.settings.timer,
+          title,
+          cards,
+        };
         if (latest.supportsDecks) { args.decks = decks; }
         return saveSettings(args).then((response) => {
           if (response.data?.success === false) {

@@ -20,6 +20,8 @@ import Button from '@src/editors/sharedComponents/Button';
 import DraggableList from '@src/generic/DraggableList';
 import { isBlankCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
 import type { GameActions } from '@src/editors/containers/GamesEditor/data/useGameState';
+import type { SaveOutcome } from '@src/editors/containers/GamesEditor/data/saveGame';
+import type { EditorSaveOverrideResult } from '@src/editors/hooks';
 import {
   cardIdOf,
   fieldKey,
@@ -60,7 +62,8 @@ type ViewActions = Omit<
 
 export interface GameEditorProps extends ViewActions {
   onClose: (() => void) | null;
-  onSave: () => Promise<unknown>;
+  /** The save seam. Its outcome is mapped to the container's contract below. */
+  onSave: () => Promise<SaveOutcome>;
   returnFunction?: BlockEditorProps['returnFunction'];
   blockFinished: boolean;
   /** The block's Studio, which its relative image URLs are shown from. */
@@ -166,19 +169,6 @@ const GameEditor = ({
   // authors them: matching renders one deck and offers no rename or move.
   const deckAuthoring = supportsDecks && type === 'flashcards';
 
-  // Validates the content as it is in the game state, which is what the author
-  // sees: there is no unsaved text outside it. Deck names block a save wherever
-  // the block stores decks (validateCards), including Matching.
-  const validateAllCards = useCallback(() => {
-    const { errors, deckErrors: nameErrors, isValid } = validateCards({ decks, list, type, supportsDecks });
-    setValidationErrors(errors);
-    if (Object.keys(nameErrors).length > 0) {
-      setDeckAlertVisible(true);
-      setDeckFocusRequest((request) => request + 1);
-    }
-    return isValid;
-  }, [decks, list, type, supportsDecks]);
-
   // One place decides what a save would carry, so the count beside each deck
   // name is the count that will be saved (blank placeholders excluded).
   const contents = useMemo(() => getContent({ type, settings, decks, list }), [type, settings, decks, list]);
@@ -227,17 +217,23 @@ const GameEditor = ({
     );
   }, [cardsWithErrors, decks, toggleOpen]);
 
-  // The save revalidates after waiting on image requests, by which point this
-  // component's own check (validateEntry, run at the click) is out of date.
-  // Show what it found the same way.
-  const handleSave = useCallback(() => {
+  // The seam reports its outcome: an invalid save shows the same inline errors
+  // a click used to raise, and an alert when deck names are the cause.
+  const handleSave = useCallback((): Promise<EditorSaveOverrideResult> => {
     setIsSaving(true);
     return onSave()
-      .catch((saveError) => {
-        if (saveError?.validationErrors) {
-          setValidationErrors(saveError.validationErrors);
+      .then((outcome): EditorSaveOverrideResult => {
+        if (outcome.status === 'invalid') {
+          setValidationErrors(outcome.validationErrors);
+          if (Object.keys(outcome.deckErrors).length > 0) {
+            setDeckAlertVisible(true);
+            setDeckFocusRequest((request) => request + 1);
+          }
         }
-        throw saveError;
+        // The container owns the leave-page warning, so it has to know whether
+        // anything was written.
+        if (outcome.status === 'saved') { return { persisted: true }; }
+        return { persisted: false, error: outcome.status === 'failed' ? outcome.error : undefined };
       })
       .finally(() => setIsSaving(false));
   }, [onSave]);
@@ -456,9 +452,6 @@ const GameEditor = ({
       // *_image_path storage keys, losing the link from a card to its file.
       onSave={handleSave}
       isDirty={isDirty}
-      // Until the block's settings have loaded the list is a placeholder blank
-      // card, which validates clean and would overwrite the real content.
-      validateEntry={() => blockFinished && validateAllCards()}
     >
       <div className="xblock-games-editor">
         <div className="h-75 overflow-auto">
