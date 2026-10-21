@@ -1746,19 +1746,52 @@ describe('card list controls', () => {
     expect(terms()).toEqual(['First', 'Second', '']);
   });
 
-  it('leaves the order alone when the first card is moved up or the last moved down', async () => {
+  // The cards' own action menus, in list order. A blank card has no drag
+  // handle, so its row is found from its menu rather than by card name.
+  const cardMenus = () => screen.getAllByRole('button', { name: 'Card actions' });
+  const cardAt = (index: number) => cardMenus()[index].closest('.card') as HTMLElement;
+  // A menu item is an anchor with role="button": disabled, it says so with
+  // aria-disabled rather than the `disabled` attribute.
+  const moveItem = (index: number, label: 'Move up' | 'Move down') =>
+    within(cardAt(index)).getByRole('button', { name: label });
+
+  // A matching game's visible list is its whole list, so the first card has
+  // nowhere above it and the last nowhere below: those items say so, rather
+  // than accepting a click that could only fail.
+  it('disables moving the first card up and the last card down', async () => {
     const user = userEvent.setup();
     await renderEditorWithCardsOpen();
     await screen.findByDisplayValue('First');
-    const menus = () => screen.getAllByRole('button', { name: 'Card actions' });
 
-    const menuItem = (index: number, label: string) =>
-      within(menus()[index].closest('.dropdown') as HTMLElement).findByText(label);
-    await user.click(menus()[0]);
-    await user.click(await menuItem(0, 'Move up'));
-    await user.click(menus()[1]);
-    await user.click(await menuItem(1, 'Move down'));
-    expect(terms()).toEqual(['First', 'Second']);
+    await user.click(cardMenus()[0]);
+    expect(moveItem(0, 'Move up')).toHaveAttribute('aria-disabled', 'true');
+    expect(moveItem(0, 'Move down')).not.toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(cardMenus()[1]);
+    expect(moveItem(1, 'Move down')).toHaveAttribute('aria-disabled', 'true');
+    expect(moveItem(1, 'Move up')).not.toHaveAttribute('aria-disabled', 'true');
+  });
+
+  // The card an author adds is a blank placeholder, not a card to move: it has
+  // no drag handle, and neither menu move offers to send it anywhere, even
+  // though the cards above it can still move.
+  it('disables both moves on a newly added blank card with cards above it', async () => {
+    const user = userEvent.setup();
+    await renderEditorWithCardsOpen();
+    await screen.findByDisplayValue('First');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+    expect(terms()).toEqual(['First', 'Second', '']);
+
+    await user.click(cardMenus()[2]);
+    expect(moveItem(2, 'Move up')).toHaveAttribute('aria-disabled', 'true');
+    expect(moveItem(2, 'Move down')).toHaveAttribute('aria-disabled', 'true');
+
+    // The real card above the blank row cannot move down past it: the blank is
+    // not saved, so that move would leave the saved order exactly as it is.
+    await user.click(cardMenus()[1]);
+    expect(moveItem(1, 'Move down')).toHaveAttribute('aria-disabled', 'true');
+    // Upwards still changes the saved order, so that way stays open.
+    expect(moveItem(1, 'Move up')).not.toHaveAttribute('aria-disabled', 'true');
   });
 
   it('reorders cards by keyboard drag', async () => {

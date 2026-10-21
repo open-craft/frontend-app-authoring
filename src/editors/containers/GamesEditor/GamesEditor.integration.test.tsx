@@ -272,6 +272,79 @@ describe('GamesEditor decks', () => {
     expect(payload.cards).toEqual(payload.decks[0].cards);
   });
 
+  /** Opens the menu of one card row, found by the card's term. */
+  const openCardMenu = async (user: User, cardName: string) => {
+    await user.click(within(cardRoot(cardName)).getByRole('button', { name: 'Card actions' }));
+  };
+  /** One item of the card menu that is open. */
+  const cardMenuItem = (label: 'Move up' | 'Move down') => screen.findByText(label);
+  /** The cards of one deck row, in the order the row draws them. */
+  const cardHandlesIn = (deckName: string) => within(rowOf(deckName)).queryAllByRole('button', { name: /^Reorder / });
+  const savedTerms = (payload: { decks: { cards: { term: string; }[]; }[]; }) =>
+    payload.decks.map((deck) => deck.cards.map((card) => card.term));
+
+  // A deck boundary is a destination, not a stop: the first card of a later
+  // deck moves up into the end of the deck above it, through the same
+  // transition a drop uses.
+  it('moves the first card of a deck up to the end of the previous deck', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await openDeck(user, 'Deck 1');
+    await openDeck(user, 'Deck 2');
+
+    await openCardMenu(user, 'Two');
+    // Nothing below the last deck, but a deck above: only that way is offered.
+    expect(await cardMenuItem('Move down')).toHaveAttribute('aria-disabled', 'true');
+    expect(await cardMenuItem('Move up')).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(await cardMenuItem('Move up'));
+
+    // Deck 1 kept its card and took Deck 2's, which is now empty.
+    const deckOne = cardHandlesIn('Deck 1');
+    expect(deckOne).toHaveLength(2);
+    expect(deckOne[0]).toHaveAccessibleName('Reorder One');
+    expect(deckOne[1]).toHaveAccessibleName('Reorder Two');
+    expect(cardHandlesIn('Deck 2')).toHaveLength(0);
+    // Focus follows the card into the deck it landed in, so the author can keep
+    // working from where the card went.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder Two' })).toHaveFocus());
+
+    await user.click(saveButton());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const payload = savedPayload();
+    expect(savedTerms(payload)).toEqual([['One', 'Two'], []]);
+    // The block's legacy mirror is the primary deck.
+    expect(payload.cards.map((card: { term: string; }) => card.term)).toEqual(['One', 'Two']);
+  });
+
+  // The mirror image: the last card of a deck moves down to the start of the
+  // deck below it.
+  it('moves the last card of a deck down to the start of the next deck', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await openDeck(user, 'Deck 1');
+    await openDeck(user, 'Deck 2');
+
+    await openCardMenu(user, 'One');
+    // Nothing above the first deck, but a deck below: only that way is offered.
+    expect(await cardMenuItem('Move up')).toHaveAttribute('aria-disabled', 'true');
+    expect(await cardMenuItem('Move down')).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(await cardMenuItem('Move down'));
+
+    // Deck 2 took the card in front of its own, and Deck 1 is empty.
+    expect(cardHandlesIn('Deck 1')).toHaveLength(0);
+    const deckTwo = cardHandlesIn('Deck 2');
+    expect(deckTwo).toHaveLength(2);
+    expect(deckTwo[0]).toHaveAccessibleName('Reorder One');
+    expect(deckTwo[1]).toHaveAccessibleName('Reorder Two');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder One' })).toHaveFocus());
+
+    await user.click(saveButton());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const payload = savedPayload();
+    expect(savedTerms(payload)).toEqual([[], ['One', 'Two']]);
+    expect(payload.cards).toEqual([]);
+  });
+
   // A card with no term still gets a readable handle name instead of the
   // composed "Reorder No text".
   it('names the drag handle of a card that has no term', async () => {

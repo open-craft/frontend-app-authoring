@@ -35,6 +35,7 @@ import messages from '@src/editors/containers/GamesEditor/messages';
 import type {
   BlockEditorProps,
   Card,
+  CardDropTarget,
   Deck,
   GameSettings,
   GameType,
@@ -50,6 +51,9 @@ import SettingsSidebar from './SettingsSidebar';
 
 /** Which image the settings modal is editing. */
 type ImageSettingsTarget = { imageData: ImageData; cardId: string; imageType: ImageType; };
+
+/** Which way the card menu's Move up / Move down sends a card. */
+type MenuMoveDirection = 'up' | 'down';
 
 // The card and setting actions come straight from useGameState, so reuse its
 // contract. `getLatestState`, `waitForPendingRequests` and `save` are consumed
@@ -245,13 +249,64 @@ const GameEditor = ({
       .finally(() => setIsSaving(false));
   }, [onSave]);
 
-  // Reorders one deck's cards; the deck is named, so it need not be active.
-  const reorderDeck = useCallback((deckId: string, cards: Card[], from: number, to: number) => {
-    if (to < 0 || to >= cards.length) { return; }
-    const next = cards.slice();
-    [next[from], next[to]] = [next[to], next[from]];
-    setList({ deckId, cards: next });
-  }, [setList]);
+  // Where a card menu's Move up / Move down sends the card, read from the decks
+  // on screen: one position within its own deck, or, at that deck's edge - a
+  // real card with a deck boundary or blank scaffolding beside it - into the
+  // deck beside it in the outline: the previous deck's end going up, the next
+  // deck's start going down. The transition does the rest: clamping, the
+  // target's blank placeholder and the no-op that must not dirty the state.
+  const menuMoveTarget = useCallback((cardId: string, direction: MenuMoveDirection): CardDropTarget | null => {
+    const deckIndex = decks.findIndex((deck) => deck.cards.some((card) => card.id === cardId));
+    const deck = decks[deckIndex];
+    const index = deck?.cards.findIndex((card) => card.id === cardId) ?? -1;
+    if (!deck || index < 0) { return null; }
+    // The blank placeholder is editor scaffolding, not a card to move.
+    if (isBlankCard(deck.cards[index])) { return null; }
+    const step = direction === 'up' ? index - 1 : index + 1;
+    const adjacent = deck.cards[step];
+    // A blank row is scaffolding, never saved, so stepping onto it is no move:
+    // the card sits at that edge of its deck instead.
+    if (adjacent && !isBlankCard(adjacent)) {
+      return { deckId: deck.id, index: step };
+    }
+    // The flat view renders the primary deck alone, so the decks beside it are
+    // not destinations its menu can name.
+    if (!deckAuthoring) { return null; }
+    const neighbour = decks[deckIndex + (direction === 'up' ? -1 : 1)];
+    if (!neighbour) { return null; }
+    return { deckId: neighbour.id, index: direction === 'up' ? neighbour.cards.length : 0 };
+  }, [deckAuthoring, decks]);
+
+  // A cross-deck move re-renders the row in another deck body, so the control
+  // that had focus is gone: focus follows the card, or the outline when the
+  // target deck is collapsed and the row never appears.
+  const focusMovedCard = useCallback((cardId: string) => {
+    const attempt = (remaining: number) => {
+      const row = Array.from(document.querySelectorAll<HTMLElement>('[data-dnd-id]'))
+        .find((element) => element.dataset.dndId === cardId);
+      const handle = row?.querySelector<HTMLElement>('[data-drag-handle]');
+      if (handle) {
+        handle.focus();
+        return;
+      }
+      if (remaining > 0) {
+        requestAnimationFrame(() => attempt(remaining - 1));
+        return;
+      }
+      document.querySelector<HTMLElement>('[data-deck-outline]')?.focus();
+    };
+    requestAnimationFrame(() => attempt(2));
+  }, []);
+
+  // Every menu move goes through the same `moveCard` a drop does.
+  const moveCardFromMenu = useCallback((cardId: string, direction: MenuMoveDirection) => {
+    const target = menuMoveTarget(cardId, direction);
+    if (!target) { return; }
+    const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
+    moveCard({ cardId, toDeckId: target.deckId, toIndex: target.index });
+    // Within one deck the row stays where it was, focus and all.
+    if (target.deckId !== sourceDeckId) { focusMovedCard(cardId); }
+  }, [menuMoveTarget, moveCard, decks, focusMovedCard]);
 
   // DraggableList keeps its own mirror through `setState` and reports the final
   // order through `updateOrder`. Here both are the same store, so the mirror
@@ -329,13 +384,16 @@ const GameEditor = ({
   );
 
   // One card row. Every action names the card and its deck, so several decks
-  // can render their cards at the same time.
-  const renderCard = (deckId: string, cards: Card[], card: Card, index: number) => (
+  // can render their cards at the same time. Both moves are read from the decks
+  // on screen, so a menu never offers a destination that is not there.
+  const renderCard = (card: Card, index: number) => (
     <GameCard
       key={card.id}
       card={card}
       index={index}
       draggable={!isBlankCard(card)}
+      canMoveUp={menuMoveTarget(card.id, 'up') !== null}
+      canMoveDown={menuMoveTarget(card.id, 'down') !== null}
       type={type}
       studioEndpointUrl={studioEndpointUrl}
       errors={{
@@ -345,8 +403,8 @@ const GameEditor = ({
       isSaving={isSaving}
       onToggle={(isOpen) => toggleOpen({ cardId: card.id, isOpen })}
       onChange={(field, value) => handleInputChange(card.id, field, value)}
-      onMoveUp={() => reorderDeck(deckId, cards, index, index - 1)}
-      onMoveDown={() => reorderDeck(deckId, cards, index, index + 1)}
+      onMoveUp={() => moveCardFromMenu(card.id, 'up')}
+      onMoveDown={() => moveCardFromMenu(card.id, 'down')}
       onDelete={() => removeCard({ cardId: card.id })}
       // Fire and forget: the hook tracks the request and reports its failure.
       onImagePicked={(imageType, file) => {
@@ -381,7 +439,7 @@ const GameEditor = ({
     <div className="d-flex flex-column">
       <DeckCardList
         deckId={deckId}
-        renderCard={(deck, card, index) => renderCard(deck.id, deck.cards, card, index)}
+        renderCard={(_deck, card, index) => renderCard(card, index)}
       />
       {addCardButton(deckId)}
     </div>
@@ -440,7 +498,7 @@ const GameEditor = ({
                   if (cardId) { handleCardDragStart(cardId); }
                 }}
               >
-                {list.map((card, index) => renderCard(activeDeckId, list, card, index))}
+                {list.map((card, index) => renderCard(card, index))}
               </DraggableList>
               {addCardButton()}
             </>

@@ -46,6 +46,10 @@ interface GameCardProps {
   isSaving: boolean;
   onToggle: (isOpen: boolean) => void;
   onChange: (field: TextField, value: string) => void;
+  /** Whether Move up is available for this card; false at a deck edge or beside blank scaffolding. */
+  canMoveUp: boolean;
+  /** Whether Move down is available for this card; false at a deck edge or beside blank scaffolding. */
+  canMoveDown: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;
   onDelete: () => void;
@@ -65,6 +69,8 @@ const GameCard = ({
   isSaving,
   onToggle,
   onChange,
+  canMoveUp,
+  canMoveDown,
   onMoveUp,
   onMoveDown,
   onDelete,
@@ -181,10 +187,10 @@ const GameCard = ({
               variant="primary"
             />
             <Dropdown.Menu align="right">
-              <Dropdown.Item onClick={onMoveUp}>
+              <Dropdown.Item onClick={onMoveUp} disabled={!canMoveUp}>
                 {intl.formatMessage(messages.moveUpLabel)}
               </Dropdown.Item>
-              <Dropdown.Item onClick={onMoveDown}>
+              <Dropdown.Item onClick={onMoveDown} disabled={!canMoveDown}>
                 {intl.formatMessage(messages.moveDownLabel)}
               </Dropdown.Item>
               <Dropdown.Divider />
