@@ -1,5 +1,5 @@
 import { useIntl } from '@edx/frontend-platform/i18n';
-import { Button, Icon, IconButton, OverlayTrigger, Tooltip } from '@openedx/paragon';
+import { Button, Icon, IconButton, OverlayTrigger, Stack, Tooltip } from '@openedx/paragon';
 import { DeleteOutline } from '@openedx/paragon/icons';
 
 import messages from '@src/editors/containers/GamesEditor/messages';
@@ -34,7 +34,11 @@ export const CardImage = ({
     onOpenSettings();
   };
   return (
-    <div className="card-image-area d-flex align-items-center justify-content-center align-self-stretch px-4 pb-2">
+    <Stack
+      direction="horizontal"
+      gap={2.5}
+      className="card-image-area justify-content-center align-self-stretch px-4 pb-2"
+    >
       <OverlayTrigger
         placement="bottom"
         overlay={
@@ -69,7 +73,7 @@ export const CardImage = ({
         variant="primary"
         onClick={onRemove}
       />
-    </div>
+    </Stack>
   );
 };
 

@@ -1,17 +1,12 @@
 // Everything here is scoped to the wrapper GameEditor renders, so the
 // editor's .card/.sidebar rules never reach Paragon or Studio.
 //
-// Layout, spacing, colour and type come from Paragon utility classes on the
-// elements themselves. This file only holds what those classes do not cover:
-// flex `gap`, fixed sizes, and overrides of Paragon component styles.
+// Layout, spacing, colour and type come from Paragon components and utility
+// classes on the elements themselves. This file only holds what those do not
+// cover: fixed sizes and overrides of Paragon component styles.
 .xblock-games-editor {
-  .page-body {
-    gap: 1.5rem;
-  }
-
   .terms {
     flex: 1 0 0;
-    gap: 1rem;
   }
 
   .terms > div {
@@ -20,7 +15,6 @@
 
   .sidebar {
     width: 320px;
-    gap: 1rem;
   }
 
   .card-number {
@@ -43,7 +37,6 @@
   }
 
   .card-image-area {
-    gap: .625rem;
     max-height: 200px;
   }
 
@@ -81,10 +74,6 @@
     bottom: 30%;
   }
 
-  .description {
-    gap: .25rem;
-  }
-
   .description-header,
   .sidebar-title {
     font-size: var(--pgn-typography-font-size-base);
@@ -96,12 +85,6 @@
     border: none;
   }
 
-  .card-heading-row,
-  .card-heading-wrapper,
-  .card-heading {
-    gap: .75rem;
-  }
-
   // Lets the collapsed preview truncate instead of widening the row.
   .card-heading-wrapper {
     min-width: 0;
@@ -109,7 +92,6 @@
 
   .card-term,
   .card-definition {
-    gap: 1rem;
     font-size: .875rem;
     line-height: 1.75rem;
   }
@@ -142,20 +124,6 @@
 
   .card-dropdown {
     z-index: 10;
-  }
-
-  // Layout comes from utility classes on the section; this only spaces the rows.
-  .deck-outline {
-    gap: .5rem;
-  }
-
-  .deck-outline-header {
-    gap: .5rem;
-  }
-
-  // One deck's cards stack at the 1rem the flat list gets from `.terms`.
-  .deck-outline-cards {
-    gap: 1rem;
   }
 
   // Lets a long deck name truncate instead of widening the row.

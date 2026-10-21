@@ -6,6 +6,7 @@ import {
   Form,
   Icon,
   IconButton,
+  Stack,
 } from '@openedx/paragon';
 import {
   Add,
@@ -184,96 +185,98 @@ const DeckOutline = ({
     <>
       <section
         aria-label={intl.formatMessage(messages.deckListLabel)}
-        className="deck-outline d-flex flex-column w-100"
+        className="w-100"
         // Programmatically focusable: the drag layer puts focus here when a
         // keyboard drag ends and the moved card's handle is gone.
         data-deck-outline="true"
         tabIndex={-1}
       >
-        {decks.map((deck, index) => {
-          const isOpen = openDeckIds.has(deck.id);
-          const error = nameErrors[deck.id];
-          const errorId = nameErrorId(deck.id);
-          return (
-            <div key={deck.id} className="deck-outline-row border border-light-700 rounded mb-2">
-              <Collapsible.Advanced open={isOpen} onToggle={(open) => toggleDeck(deck.id, open)}>
-                <DeckDropTarget
-                  deckId={deck.id}
-                  isExpanded={isOpen}
-                  onRequestExpand={() => toggleDeck(deck.id, true)}
-                >
-                  <div className="deck-outline-header d-flex align-items-center p-2">
-                    <Collapsible.Trigger
-                      className="deck-outline-toggle d-flex align-items-center px-1 mr-2"
-                      aria-label={intl.formatMessage(
-                        isOpen ? messages.collapseDeckLabel : messages.expandDeckLabel,
-                        { deckName: deck.name },
-                      )}
-                      // The body unmounts when the row closes, so only point at it while it exists.
-                      aria-controls={isOpen ? bodyId(deck.id) : undefined}
-                      onKeyDown={(event) => {
-                        // Paragon's Trigger only answers Enter; a role="button"
-                        // must also toggle on Space.
-                        if (event.key === ' ') {
-                          event.preventDefault();
-                          toggleDeck(deck.id, !isOpen);
-                        }
-                      }}
-                    >
-                      <Icon src={isOpen ? ExpandLess : ExpandMore} />
-                    </Collapsible.Trigger>
-                    <div className="deck-outline-name flex-grow-1">
-                      <label className="sr-only" htmlFor={nameInputId(deck.id)}>
-                        {intl.formatMessage(messages.deckNameInputLabel, { number: index + 1 })}
-                      </label>
-                      <Form.Control
-                        id={nameInputId(deck.id)}
-                        type="text"
-                        value={deck.name}
-                        onChange={(event) => onRename(deck.id, event.target.value)}
-                        onFocus={() => onSelect(deck.id)}
-                        isInvalid={!!error}
-                        // The message is the field's description, not just nearby text.
-                        aria-invalid={!!error}
-                        aria-describedby={error ? errorId : undefined}
+        <Stack direction="vertical" gap={2}>
+          {decks.map((deck, index) => {
+            const isOpen = openDeckIds.has(deck.id);
+            const error = nameErrors[deck.id];
+            const errorId = nameErrorId(deck.id);
+            return (
+              <div key={deck.id} className="deck-outline-row border border-light-700 rounded mb-2">
+                <Collapsible.Advanced open={isOpen} onToggle={(open) => toggleDeck(deck.id, open)}>
+                  <DeckDropTarget
+                    deckId={deck.id}
+                    isExpanded={isOpen}
+                    onRequestExpand={() => toggleDeck(deck.id, true)}
+                  >
+                    <Stack direction="horizontal" gap={2} className="p-2">
+                      <Collapsible.Trigger
+                        className="deck-outline-toggle d-flex align-items-center px-1 mr-2"
+                        aria-label={intl.formatMessage(
+                          isOpen ? messages.collapseDeckLabel : messages.expandDeckLabel,
+                          { deckName: deck.name },
+                        )}
+                        // The body unmounts when the row closes, so only point at it while it exists.
+                        aria-controls={isOpen ? bodyId(deck.id) : undefined}
+                        onKeyDown={(event) => {
+                          // Paragon's Trigger only answers Enter; a role="button"
+                          // must also toggle on Space.
+                          if (event.key === ' ') {
+                            event.preventDefault();
+                            toggleDeck(deck.id, !isOpen);
+                          }
+                        }}
+                      >
+                        <Icon src={isOpen ? ExpandLess : ExpandMore} />
+                      </Collapsible.Trigger>
+                      <div className="deck-outline-name flex-grow-1">
+                        <label className="sr-only" htmlFor={nameInputId(deck.id)}>
+                          {intl.formatMessage(messages.deckNameInputLabel, { number: index + 1 })}
+                        </label>
+                        <Form.Control
+                          id={nameInputId(deck.id)}
+                          type="text"
+                          value={deck.name}
+                          onChange={(event) => onRename(deck.id, event.target.value)}
+                          onFocus={() => onSelect(deck.id)}
+                          isInvalid={!!error}
+                          // The message is the field's description, not just nearby text.
+                          aria-invalid={!!error}
+                          aria-describedby={error ? errorId : undefined}
+                        />
+                        {error && (
+                          <Form.Control.Feedback type="invalid" hasIcon={false}>
+                            <span id={errorId}>
+                              {intl.formatMessage(
+                                error === 'duplicate' ? messages.deckNameDuplicate : messages.deckNameRequired,
+                              )}
+                            </span>
+                          </Form.Control.Feedback>
+                        )}
+                      </div>
+                      <IconButton
+                        src={DeleteOutline}
+                        iconAs={Icon}
+                        alt={intl.formatMessage(messages.deleteDeckLabel, { deckName: deck.name })}
+                        variant="primary"
+                        className="deck-outline-delete ml-2"
+                        // The block always stores at least one deck.
+                        disabled={decks.length === 1}
+                        onClick={() => requestDelete(deck)}
                       />
-                      {error && (
-                        <Form.Control.Feedback type="invalid" hasIcon={false}>
-                          <span id={errorId}>
-                            {intl.formatMessage(
-                              error === 'duplicate' ? messages.deckNameDuplicate : messages.deckNameRequired,
-                            )}
-                          </span>
-                        </Form.Control.Feedback>
-                      )}
-                    </div>
-                    <IconButton
-                      src={DeleteOutline}
-                      iconAs={Icon}
-                      alt={intl.formatMessage(messages.deleteDeckLabel, { deckName: deck.name })}
-                      variant="primary"
-                      className="deck-outline-delete ml-2"
-                      // The block always stores at least one deck.
-                      disabled={decks.length === 1}
-                      onClick={() => requestDelete(deck)}
-                    />
-                  </div>
-                </DeckDropTarget>
-                {
-                  /* The body is unmounted while the row is collapsed, so this id
-                    resolves for the open row the trigger controls. */
-                }
-                <Collapsible.Body id={bodyId(deck.id)} className="deck-outline-body px-2 pb-2">
-                  {renderDeck(deck.id)}
-                </Collapsible.Body>
-              </Collapsible.Advanced>
-            </div>
-          );
-        })}
-        <Button variant="outline-primary" className="align-self-start" onClick={onAdd}>
-          <Icon src={Add} className="mr-2" />
-          {intl.formatMessage(messages.newDeckLabel)}
-        </Button>
+                    </Stack>
+                  </DeckDropTarget>
+                  {
+                    /* The body is unmounted while the row is collapsed, so this id
+                      resolves for the open row the trigger controls. */
+                  }
+                  <Collapsible.Body id={bodyId(deck.id)} className="deck-outline-body px-2 pb-2">
+                    {renderDeck(deck.id)}
+                  </Collapsible.Body>
+                </Collapsible.Advanced>
+              </div>
+            );
+          })}
+          <Button variant="outline-primary" className="align-self-start" onClick={onAdd}>
+            <Icon src={Add} className="mr-2" />
+            {intl.formatMessage(messages.newDeckLabel)}
+          </Button>
+        </Stack>
       </section>
       {pendingDelete && (
         <BaseModal

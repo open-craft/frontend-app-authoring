@@ -11,6 +11,7 @@ import {
   Icon,
   OverlayTrigger,
   Spinner,
+  Stack,
   Tooltip,
 } from '@openedx/paragon';
 import { Info, InfoOutline, Plus } from '@openedx/paragon/icons';
@@ -436,19 +437,19 @@ const GameEditor = ({
   // The cards of one deck, as its outline row shows them. The drag layer
   // supplies the preview decks, so a card moved here by a drag-over appears.
   const renderDeck = (deckId: string) => (
-    <div className="deck-outline-cards d-flex flex-column">
+    <Stack gap={3}>
       <DeckCardList
         deckId={deckId}
         renderCard={(_deck, card, index) => renderCard(card, index)}
       />
       {addCardButton(deckId)}
-    </div>
+    </Stack>
   );
 
   const page = (
-    <div className="page-body d-flex align-items-start w-100 py-2">
-      <div className="terms d-flex flex-column align-items-start align-self-stretch">
-        <div className="description d-flex flex-row align-items-start align-self-stretch mb-2">
+    <Stack direction="horizontal" gap={4} className="align-items-start w-100 py-2">
+      <Stack gap={3} className="terms align-items-start">
+        <Stack direction="horizontal" gap={1} className="align-items-start mb-2">
           <div className="description-header text-primary-500 font-weight-bold">
             {intl.formatMessage(
               type === 'matching' ? messages.descriptionHeaderMatching : messages.descriptionHeaderFlashcard,
@@ -464,7 +465,7 @@ const GameEditor = ({
           >
             <Icon src={InfoOutline} />
           </OverlayTrigger>
-        </div>
+        </Stack>
         {deckAuthoring ?
           (
             <DeckCardDragProvider
@@ -503,7 +504,7 @@ const GameEditor = ({
               {addCardButton()}
             </>
           )}
-      </div>
+      </Stack>
       <SettingsSidebar
         type={type}
         settings={settings}
@@ -511,7 +512,7 @@ const GameEditor = ({
         setShuffleStatus={setShuffleStatus}
         setTimerStatus={setTimerStatus}
       />
-    </div>
+    </Stack>
   );
 
   return (

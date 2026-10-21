@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { useIntl } from '@edx/frontend-platform/i18n';
-import { Collapsible, Dropdown, Icon, IconButton } from '@openedx/paragon';
+import { Collapsible, Dropdown, Icon, IconButton, Stack } from '@openedx/paragon';
 import { ExpandLess, ExpandMore, MoreHoriz } from '@openedx/paragon/icons';
 
 import { SortableItem } from '@src/generic/DraggableList';
@@ -165,16 +165,16 @@ const GameCard = ({
           onChange={handlePick('definition')}
           accept={acceptedImages}
         />
-        <div className="card-heading-row d-flex align-items-center w-100 pr-4">
+        <Stack direction="horizontal" gap={2.5} className="w-100 pr-4">
           <Collapsible.Trigger className="card-heading-wrapper d-flex align-items-center flex-grow-1 py-2.5 pl-4">
-            <div className="card-heading d-flex align-items-center align-self-stretch w-100 ml-4">
+            <Stack direction="horizontal" gap={2.5} className="align-self-stretch w-100 ml-4">
               <div className="card-number d-inline-flex align-items-center justify-content-center mr-2.5 text-primary-500 font-weight-bold">
                 {index + 1}
               </div>
               {!card.editorOpen
                 ? <CardPreview card={card} type={type} studioEndpointUrl={studioEndpointUrl} />
                 : <div className="d-flex align-self-stretch flex-grow-1" />}
-            </div>
+            </Stack>
           </Collapsible.Trigger>
           {/* Siblings of the trigger: a button nested in a button is invalid markup. */}
           <Dropdown>
@@ -206,7 +206,7 @@ const GameCard = ({
             variant="primary"
             onClick={() => onToggle(!card.editorOpen)}
           />
-        </div>
+        </Stack>
         <div className="card-body w-100 position-relative p-0">
           <Collapsible.Body>
             <div className="card-divider w-100 bg-light-400" />

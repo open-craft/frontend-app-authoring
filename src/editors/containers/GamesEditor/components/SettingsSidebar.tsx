@@ -1,5 +1,5 @@
 import { useIntl } from '@edx/frontend-platform/i18n';
-import { Icon } from '@openedx/paragon';
+import { Icon, Stack } from '@openedx/paragon';
 import { Check } from '@openedx/paragon/icons';
 
 import Button from '@src/editors/sharedComponents/Button';
@@ -27,7 +27,7 @@ const OnOffSetting = ({ name, title, description, value, onChange }: OnOffSettin
     >
       <>
         <div className="pb-3 mb-2 text-gray-600">{description}</div>
-        <div className="d-flex flex-row gap-0 w-100">
+        <Stack direction="horizontal" gap={0} className="w-100 align-items-stretch">
           <Button
             onClick={() => onChange(false)}
             variant={!value ? 'primary' : 'outline-primary'}
@@ -42,7 +42,7 @@ const OnOffSetting = ({ name, title, description, value, onChange }: OnOffSettin
           >
             {intl.formatMessage(messages.onLabel)}
           </Button>
-        </div>
+        </Stack>
       </>
     </SettingsCard>
   );
@@ -77,7 +77,11 @@ const SettingsSidebar = ({
     </Button>
   );
   return (
-    <div className="sidebar d-flex flex-column align-items-start flex-shrink-0 py-2">
+    <Stack
+      direction="vertical"
+      gap={3}
+      className="sidebar align-items-start align-self-start flex-shrink-0 flex-grow-0 py-2"
+    >
       <div className="sidebar-header d-flex align-items-center align-self-stretch">
         <span className="sidebar-title text-primary-500 font-weight-bold">
           {intl.formatMessage(messages.settingsTitle)}
@@ -108,7 +112,7 @@ const SettingsSidebar = ({
           onChange={setTimerStatus}
         />
       )}
-    </div>
+    </Stack>
   );
 };
 
