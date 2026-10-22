@@ -54,9 +54,9 @@ describe('resolveCardDrop', () => {
       .toEqual({ deckId: 'genetics', index: 1 });
   });
 
-  // An empty deck is drawn as its one blank placeholder and has no rows to aim
-  // at, so its own drop zone is the deck header, and its only position is 0.
-  it('drops an empty deck, drawn as one blank card, at index 0', () => {
+  // A deck holding only a blank draft has one row and nothing saved, so its
+  // drop zone is the deck header, and its only position is 0.
+  it('drops into a deck holding only a blank draft at index 0', () => {
     const withEmpty = [...decks(), deckWith('ecology', emptyCard())];
     expect(resolveCardDrop(withEmpty, 'A', { kind: 'deck', deckId: 'ecology' }))
       .toEqual({ deckId: 'ecology', index: 0 });
@@ -75,13 +75,13 @@ describe('resolveCardDrop', () => {
     expect(resolveCardDrop(decks(), 'C', { kind: 'deck', deckId: 'cell' })).toBeNull();
   });
 
-  // A blank card is editor scaffolding with no content to move, so a drag never
-  // starts from one; moveCard refuses it too, and this is the same rule.
-  it('means nothing for a card that is only a blank placeholder', () => {
-    const blank = emptyCard();
-    const state = [deckWith('cell', blank), deckOf('genetics', ['X'])];
-    expect(resolveCardDrop(state, blank.id, { kind: 'card', deckId: 'genetics', cardId: 'X' })).toBeNull();
-    expect(resolveCardDrop(state, blank.id, { kind: 'deck', deckId: 'genetics' })).toBeNull();
+  // A blank draft has no content to move, so a drag never starts from one;
+  // moveCard refuses it too, and this is the same rule.
+  it('means nothing for a card that is only a blank draft', () => {
+    const draft = emptyCard();
+    const state = [deckWith('cell', draft), deckOf('genetics', ['X'])];
+    expect(resolveCardDrop(state, draft.id, { kind: 'card', deckId: 'genetics', cardId: 'X' })).toBeNull();
+    expect(resolveCardDrop(state, draft.id, { kind: 'deck', deckId: 'genetics' })).toBeNull();
   });
 
   it('means nothing without a target, or for an unknown card or deck', () => {
@@ -111,10 +111,10 @@ describe('resolveCardDrop feeding moveCard', () => {
     return moveCard(state, cardId, target);
   };
 
-  // The deck entered is drawn as [blank, X]. Hovering X from a later deck means
-  // "before X", which is the blank's own position: the transition has to drop
-  // the blank and leave the card where the author aimed.
-  it('lands before the hovered row of a deck that starts with a blank card', () => {
+  // The deck entered holds [blank draft, X]. Hovering X from a later deck means
+  // "before X", which is the draft's own position: the transition has to drop
+  // the draft and leave the card where the author aimed.
+  it('lands before the hovered row of a deck that starts with a blank draft', () => {
     const state = stateOf(deckWith('cell', emptyCard(), card('X')), deckOf('genetics', ['A']));
     const next = drop(state, 'A', { kind: 'card', deckId: 'cell', cardId: 'X' });
 
@@ -123,8 +123,8 @@ describe('resolveCardDrop feeding moveCard', () => {
   });
 
   // The deck header is how a position after the last row is reached; the
-  // entering card replaces the placeholder, so it lands before the drawn end.
-  it('appends to a deck that starts with a blank card through its header', () => {
+  // entering card replaces the draft, so it lands before the drawn end.
+  it('appends to a deck that starts with a blank draft through its header', () => {
     const state = stateOf(deckOf('cell', ['A']), deckWith('genetics', emptyCard(), card('X')));
     expect(terms(drop(state, 'A', { kind: 'deck', deckId: 'genetics' }), 'genetics'))
       .toEqual(['X', 'A']);

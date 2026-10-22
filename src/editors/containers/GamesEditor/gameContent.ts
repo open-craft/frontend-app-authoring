@@ -42,11 +42,11 @@ export const imageAlt = (altText: string, cardText: string): string => altText |
 export const cardIdOf = (key: string) => key.slice(0, key.lastIndexOf('_'));
 
 /**
- * The cards one deck saves. A completely blank card is an editing placeholder
- * and is dropped, unless the block already gave it a key: then it is authored
- * content the author emptied. It is kept here so the card is not silently
- * deleted, and validation stops the save until it is filled in or removed.
- * Only flashcards can carry an image without text.
+ * The cards one deck saves. A completely blank card is an explicit editing
+ * draft from addCard and is dropped, unless the block already gave it a key:
+ * then it is authored content the author emptied. It is kept here so the card
+ * is not silently deleted, and validation stops the save until it is filled in
+ * or removed. Only flashcards can carry an image without text.
  */
 const contentCards = (cards: Card[], type: GameType) => {
   const hasText = (card: Card) => (card.term || '').trim() !== '' || (card.definition || '').trim() !== '';
@@ -100,7 +100,7 @@ const cardErrors = (card: Card, type: GameType, errors: ValidationErrors) => {
     }
     // A completely blank card the block already keyed was authored content the
     // author emptied: saving it would show learners an empty card, so it has to
-    // be filled in. An unkeyed blank card is only the editor's placeholder.
+    // be filled in. An unkeyed blank card is only an explicit editing draft.
     if (!hasTermImage && !hasDefinitionImage && card.card_key) {
       errors[fieldKey(card.id, 'term')] = true;
       errors[fieldKey(card.id, 'definition')] = true;
@@ -172,8 +172,8 @@ export const validateCards = ({ decks, list, type, supportsDecks }: Pick<GameSta
   // the game type. An older backend receives no decks, so names cannot block.
   const deckNamesBlock = supportsDecks === true;
 
-  // An empty deck is valid: the block accepts it, and a blank placeholder
-  // card already saves as none (getContent drops it). Only real field, image
+  // An empty deck is valid: the block accepts it, and a blank draft card
+  // already saves as none (getContent drops it). Only real field, image
   // and actionable deck-name errors block a save.
   return {
     errors,

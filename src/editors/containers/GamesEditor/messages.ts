@@ -128,7 +128,7 @@ const messages = defineMessages({
   },
   newDeckLabel: {
     id: 'GameEditor.newDeckLabel',
-    defaultMessage: 'New deck',
+    defaultMessage: 'Add deck',
     description: 'Action that adds an empty deck to the game.',
   },
   noImageLabel: {
@@ -178,13 +178,8 @@ const messages = defineMessages({
   },
   addLabel: {
     id: 'GameEditor.addLabel',
-    defaultMessage: 'Add',
-    description: 'Label for add button.',
-  },
-  dropCardHereLabel: {
-    id: 'GameEditor.dropCardHereLabel',
-    defaultMessage: 'Drop a card here',
-    description: 'Placeholder text in the empty area of a deck that has no cards, where a dragged card can be dropped.',
+    defaultMessage: 'Add card',
+    description: 'Label for the button that adds a card to the deck being edited.',
   },
   addCardToDeckLabel: {
     id: 'GameEditor.addCardToDeckLabel',

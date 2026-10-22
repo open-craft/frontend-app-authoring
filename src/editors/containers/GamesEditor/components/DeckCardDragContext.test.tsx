@@ -220,28 +220,43 @@ describe('DeckCardDragContext', () => {
     expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
   });
 
-  // A deck holding only its unkeyed placeholder is empty for authoring, so it
-  // shows the drop zone; the placeholder card itself stays editable.
-  it('puts a card into a placeholder-only deck at index 0 through the empty zone', () => {
-    const placeholder = emptyCard();
+  // A deck holding only a blank draft has nothing saved in it, so its header is
+  // the drop target.
+  it('drops a card into a draft-only deck at index 0 through its header', () => {
+    const draft = emptyCard();
     const decks: Deck[] = [
       { id: 'd1', name: 'd1', cards: [card('A')] },
-      { id: 'd2', name: 'd2', cards: [placeholder] },
+      { id: 'd2', name: 'd2', cards: [draft] },
     ];
     const onCardMove = jest.fn<void, [CardMove]>();
     renderDrag(decks, onCardMove, <DeckCardList deckId="d2" renderCard={() => null} />);
 
-    expect(screen.getByText('Drop a card here')).toBeInTheDocument();
-
     dragStart('A');
-    dragOver('A', 'deck:d2:empty');
+    dragOver('A', 'deck:d2');
     expect(preview()).toEqual('d1: | d2:A');
 
-    dragEnd('A', 'deck:d2:empty');
+    dragEnd('A', 'deck:d2');
     expect(onCardMove).toHaveBeenCalledTimes(1);
     expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
-    // Committed decks are never mutated; the placeholder is still there.
-    expect(decks[1].cards).toEqual([placeholder]);
+    // Committed decks are never mutated; the draft is still there.
+    expect(decks[1].cards).toEqual([draft]);
+  });
+
+  // A deck with no cards at all - no blank draft either - has no rows, so its
+  // header is what takes a pointer drop, at position 1.
+  it('drops a pointer drag into a deck with no cards through its header', () => {
+    const decks = [deck('d1', ['A']), deck('d2', [])];
+    const onCardMove = renderDrag(decks, undefined, <DeckCardList deckId="d2" renderCard={() => null} />);
+
+    dragStart('A');
+    dragOver('A', 'deck:d2');
+    expect(preview()).toEqual('d1: | d2:A');
+    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'deck:d2' } }))
+      .toEqual('A moved over the empty deck d2.');
+
+    dragEnd('A', 'deck:d2');
+    expect(onCardMove).toHaveBeenCalledTimes(1);
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
   });
 
   // After a cross-deck preview has re-parented the card, dnd-kit can report
@@ -273,30 +288,6 @@ describe('DeckCardDragContext', () => {
 
     expect(onCardMove).not.toHaveBeenCalled();
     expect(preview()).toEqual('d1:A,B,C');
-  });
-
-  // Returning across a preview to the source deck's empty zone is the same
-  // no-op as its header: the committed view comes back and nothing commits.
-  it('restores the preview when a keyboard drag returns to the source empty zone', () => {
-    const decks = [deck('d1', ['A']), deck('d2', ['X'])];
-    const onCardMove = renderDrag(decks, undefined, <OpenState />);
-
-    dragStart('A', keyboardEvent());
-    dragOver('A', 'X', keyboardEvent());
-    expect(preview()).toEqual('d1: | d2:A,X');
-    expect(openState()).toEqual('false');
-
-    dragOver('A', 'deck:d1:empty', keyboardEvent());
-    expect(preview()).toEqual('d1:A | d2:X');
-    // Restoring the tree the drag started from keeps the card collapsed: what
-    // is dragged is the real, compact card, not the form it came from.
-    expect(openState()).toEqual('false');
-    // The announcement must not claim a move to the deck the card is still in.
-    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'deck:d1:empty' } }))
-      .toBeUndefined();
-
-    dragEnd('A', 'deck:d1:empty', keyboardEvent());
-    expect(onCardMove).not.toHaveBeenCalled();
   });
 
   it('treats a final drop outside every target as a cancel', () => {
@@ -362,7 +353,7 @@ describe('DeckCardDragContext', () => {
   // shows the committed tree again and commits nothing.
   it('restores the preview and commits nothing when a keyboard drag returns to its own header', async () => {
     const decks = [deck('d1', ['A', 'B']), deck('d2', ['X'])];
-    const onCardMove = renderDrag(decks);
+    const onCardMove = renderDrag(decks, undefined, <OpenState />);
 
     dragStart('A', keyboardEvent());
     dragOver('A', 'X', keyboardEvent());
@@ -370,6 +361,12 @@ describe('DeckCardDragContext', () => {
 
     dragOver('A', 'deck:d1', keyboardEvent());
     expect(preview()).toEqual('d1:A,B | d2:X');
+    // The restored tree is the one the drag started from, so the card is still
+    // collapsed: what travelled is the compact card, not the form it came from.
+    expect(openState()).toEqual('false');
+    // The announcement must not claim a move to the deck the card is still in.
+    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'deck:d1' } }))
+      .toBeUndefined();
 
     dragEnd('A', 'deck:d1', keyboardEvent());
     expect(onCardMove).not.toHaveBeenCalled();
@@ -454,7 +451,7 @@ describe('DeckCardDragContext', () => {
     expect(onCardDragStart).not.toHaveBeenCalled();
   });
 
-  it('refuses to drag the blank placeholder card', () => {
+  it('refuses to drag the blank draft card', () => {
     const blank = emptyCard();
     const decks: Deck[] = [{ id: 'd1', name: 'd1', cards: [blank] }, deck('d2', ['X'])];
     const onCardMove = renderDrag(decks);

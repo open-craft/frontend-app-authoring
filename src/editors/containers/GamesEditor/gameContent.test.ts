@@ -8,9 +8,9 @@ const card = (overrides: Partial<Card> = {}): Card => ({ ...emptyCard(), ...over
 const deck = (id: string, name: string, cards: Card[]): Deck => ({ id, name, cards });
 
 describe('getContent', () => {
-  // A blank card is how the editor keeps an empty deck editable; it must never
-  // reach the payload, in any deck.
-  it('drops blank placeholder cards in every deck and mirrors the first deck in cards', () => {
+  // A blank card is an explicit draft from Add; it must never reach the
+  // payload, in any deck.
+  it('drops blank draft cards in every deck and mirrors the first deck in cards', () => {
     const content = getContent({
       type: 'flashcards',
       settings,
@@ -29,7 +29,7 @@ describe('getContent', () => {
   });
 
   // A blank card the block already keyed was authored and emptied; dropping it
-  // would delete the card. Only an unkeyed placeholder is dropped.
+  // would delete the card. Only an unkeyed draft is dropped.
   it('preserves an authored blank card the block already keyed', () => {
     const content = getContent({
       type: 'flashcards',
@@ -151,8 +151,8 @@ describe('validateCards', () => {
     expect(isValid).toBe(false);
   });
 
-  // The unkeyed blank card is how an empty deck stays editable; it is not content.
-  it('accepts an unkeyed blank placeholder card', () => {
+  // The unkeyed blank card is an explicit draft from Add; it is not content.
+  it('accepts an unkeyed blank draft card', () => {
     const { errors, isValid } = validateCards({
       type: 'flashcards',
       supportsDecks: true,

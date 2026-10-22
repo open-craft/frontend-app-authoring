@@ -206,6 +206,7 @@ describe('GamesEditor decks', () => {
     expect(await screen.findByDisplayValue('One')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Two')).not.toBeInTheDocument();
     // Each open deck's Add control names its deck, so they are distinguishable.
+    expect(screen.getByRole('button', { name: 'Add card to Deck 1' })).toHaveTextContent('Add card');
     expect(screen.getByRole('button', { name: 'Add card to Deck 1' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add card to Deck 2' })).toBeInTheDocument();
     // Each drag handle names its card, so a screen reader can tell them apart.
@@ -213,12 +214,44 @@ describe('GamesEditor decks', () => {
     expect(screen.getByRole('button', { name: 'Reorder Two' })).toBeInTheDocument();
   });
 
+  // A loaded empty deck's own Add button makes the deck's first card.
+  it('adds the first card to a loaded empty deck through its Add button', async () => {
+    const user = userEvent.setup();
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'flashcards',
+      is_shuffled: true,
+      has_timer: false,
+      cards: [{ term: 'One', definition: 'first', card_key: 'c1' }],
+      decks: [
+        { deck_key: 'dk-1', name: 'Deck 1', cards: [{ term: 'One', definition: 'first', card_key: 'c1' }] },
+        { deck_key: 'dk-2', name: 'Deck 2', cards: [] },
+      ],
+    });
+    const onClose = renderEditor();
+    await openDeck(user, 'Deck 2');
+
+    const emptyDeck = rowOf('Deck 2');
+
+    await user.click(within(emptyDeck).getByRole('button', { name: 'Add card to Deck 2' }));
+
+    // The card is created open, in the deck whose button made it.
+    await user.type(await within(emptyDeck).findByPlaceholderText('Enter your term'), 'Two');
+    await user.type(within(emptyDeck).getByPlaceholderText('Enter your definition'), 'second');
+    await user.click(saveButton());
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const payload = savedPayload();
+    expect(payload.decks.map((deck: { deck_key?: string; }) => deck.deck_key)).toEqual(['dk-1', 'dk-2']);
+    expect(payload.decks.map((deck: { cards: { term: string; }[]; }) => deck.cards.map((card) => card.term)))
+      .toEqual([['One'], ['Two']]);
+  });
+
   it('adds a deck, focuses its name, renames it, and saves every deck with cards mirroring the first', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
     await screen.findByRole('button', { name: 'Expand Deck 1' });
 
-    await user.click(screen.getByRole('button', { name: 'New deck' }));
+    await user.click(screen.getByRole('button', { name: 'Add deck' }));
     const nameInput = await screen.findByDisplayValue('Deck 3');
     // A new deck opens and its name is ready to type over.
     expect(deckToggle('Collapse Deck 3')).toHaveAttribute('aria-expanded', 'true');
@@ -502,7 +535,7 @@ describe('GamesEditor decks', () => {
     expect(screen.queryByRole('region', { name: 'Decks' })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('deck 1')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add deck' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Delete Deck/ })).not.toBeInTheDocument();
 
     await user.click(saveButton());
@@ -596,7 +629,7 @@ describe('GamesEditor decks', () => {
     renderEditor();
     await screen.findByDisplayValue('Deck 1');
 
-    await user.click(screen.getByRole('button', { name: 'New deck' }));
+    await user.click(screen.getByRole('button', { name: 'Add deck' }));
     expect(await screen.findByDisplayValue('Deck 3')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete Deck 3' }));
@@ -646,7 +679,7 @@ describe('GamesEditor deck authoring availability', () => {
     renderEditor();
 
     expect(await screen.findByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add deck' })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
 
     // The card menu keeps its own actions; moving between decks is a drag now.
@@ -668,7 +701,7 @@ describe('GamesEditor deck authoring availability', () => {
     renderEditor();
 
     expect(await screen.findByDisplayValue('Deck 1')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New deck' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add deck' })).toBeInTheDocument();
   });
 
   // Matching renders the block's primary deck only, so deck authoring would
@@ -684,7 +717,7 @@ describe('GamesEditor deck authoring availability', () => {
     renderEditor();
 
     expect(await screen.findByRole('button', { name: 'Reorder One' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'New deck' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add deck' })).not.toBeInTheDocument();
     expect(screen.queryByDisplayValue('Deck 1')).not.toBeInTheDocument();
   });
 });

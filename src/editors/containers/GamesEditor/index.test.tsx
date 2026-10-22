@@ -643,6 +643,8 @@ describe('while the browser is offline', () => {
     const { result } = renderGameState();
     await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
 
+    // The loaded block has no cards, so the author makes the one they upload to.
+    act(() => result.current.actions.addCard());
     act(() => onlineManager.setOnline(false));
     mockedApi.uploadImage.mockRejectedValue(new Error('Network Error'));
     await act(async () => {
@@ -729,9 +731,9 @@ describe('validateCards', () => {
     expect(isValid).toBe(false);
   });
 
-  // A blank placeholder card already saves as an empty game (getContent drops
-  // it). Deleting the last card must reach the same outcome, not a Save that
-  // is refused with nothing to point at.
+  // A blank draft already saves as an empty game (getContent drops it), and
+  // deleting the last card leaves the same empty list. Save must not be refused
+  // with nothing to point at.
   it('accepts an empty card list', () => {
     expect(editorViewHooks.validateCards({ type: 'matching', list: [] }).isValid).toBe(true);
   });
@@ -819,9 +821,9 @@ describe('saving before the settings have loaded', () => {
     mockedApi.saveSettings.mockResolvedValue({ data: { success: true } });
   });
 
-  // The pre-load list is a single blank placeholder card. It validates clean,
-  // so without the seam's loaded gate a Save click would overwrite the block's
-  // real content.
+  // The pre-load list is empty, and an empty list validates clean, so without
+  // the seam's loaded gate a Save click would overwrite the block's real
+  // content.
   it('refuses to save before the settings have loaded', async () => {
     renderEditor();
     const { onSave } = MockedEditorContainer.mock.calls[0][0];
@@ -860,11 +862,11 @@ describe('image requests after the settings have loaded', () => {
     mockedApi.saveSettings.mockResolvedValue({ data: { success: true } });
   });
 
-  // Regression: the upload handler once closed over the pre-load placeholder
-  // list, so it looked up a card id that no longer existed and the
-  // update was dropped. Proven here by saving: only an update that reached the
-  // loaded card puts the storage path in the payload.
-  it('attaches an uploaded image to the loaded card, not the placeholder', async () => {
+  // Regression: the upload handler once closed over the pre-load list, so it
+  // looked up a card id that was not there and the update was dropped. Proven
+  // here by saving: only an update that reached the loaded card puts the
+  // storage path in the payload.
+  it('attaches an uploaded image to the loaded card, not the pre-load state', async () => {
     mockedApi.uploadImage.mockResolvedValue({ data: { success: true, url: '/media/x.png', file_path: 'games/x.png' } });
     await renderEditorWithCardsOpen();
     await screen.findByDisplayValue('Photosynthesis');
@@ -1140,10 +1142,12 @@ describe('validation after a pending upload', () => {
       }),
     );
     const onClose = jest.fn();
-    // A loaded empty deck holds one collapsed placeholder: open it to type.
-    await renderEditorWithCardsOpen({ onClose });
-    // The settings have loaded once the blank card's fields render.
-    await waitFor(() => expect(screen.getAllByRole('textbox').length).toBeGreaterThan(0));
+    const user = userEvent.setup();
+    renderEditor({ onClose });
+    // A loaded block with no cards offers only its Add button: the author
+    // creates the card they fill in; the load ships no draft to type into.
+    await user.click(await screen.findByRole('button', { name: 'Add card' }));
+    expect(screen.getAllByPlaceholderText('Enter your term')).toHaveLength(1);
 
     pickFile('term');
     await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(1));
@@ -1601,7 +1605,7 @@ describe('while the save request is out', () => {
 
     const saving = latestContainerProps().onSave();
     await waitFor(() => expect(term).toBeDisabled());
-    expect(screen.getByRole('button', { name: /^add$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^add card$/i })).toBeDisabled();
 
     let outcome;
     await act(async () => {
@@ -1742,11 +1746,11 @@ describe('card list controls', () => {
     const user = userEvent.setup();
     await renderEditorWithCardsOpen();
     await screen.findByDisplayValue('First');
-    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await user.click(screen.getByRole('button', { name: 'Add card' }));
     expect(terms()).toEqual(['First', 'Second', '']);
   });
 
-  // The cards' own action menus, in list order. A blank card has no drag
+  // The cards' own action menus, in list order. A blank draft has no drag
   // handle, so its row is found from its menu rather than by card name.
   const cardMenus = () => screen.getAllByRole('button', { name: 'Card actions' });
   const cardAt = (index: number) => cardMenus()[index].closest('.card') as HTMLElement;
@@ -1772,21 +1776,21 @@ describe('card list controls', () => {
     expect(moveItem(1, 'Move up')).not.toHaveAttribute('aria-disabled', 'true');
   });
 
-  // The card an author adds is a blank placeholder, not a card to move: it has
-  // no drag handle, and neither menu move offers to send it anywhere, even
-  // though the cards above it can still move.
-  it('disables both moves on a newly added blank card with cards above it', async () => {
+  // The card an author adds is a blank draft, not a card to move: it has no
+  // drag handle, and neither menu move offers to send it anywhere, even though
+  // the cards above it can still move.
+  it('disables both moves on a newly added blank draft with cards above it', async () => {
     const user = userEvent.setup();
     await renderEditorWithCardsOpen();
     await screen.findByDisplayValue('First');
-    await user.click(screen.getByRole('button', { name: 'Add' }));
+    await user.click(screen.getByRole('button', { name: 'Add card' }));
     expect(terms()).toEqual(['First', 'Second', '']);
 
     await user.click(cardMenus()[2]);
     expect(moveItem(2, 'Move up')).toHaveAttribute('aria-disabled', 'true');
     expect(moveItem(2, 'Move down')).toHaveAttribute('aria-disabled', 'true');
 
-    // The real card above the blank row cannot move down past it: the blank is
+    // The real card above the draft row cannot move down past it: the draft is
     // not saved, so that move would leave the saved order exactly as it is.
     await user.click(cardMenus()[1]);
     expect(moveItem(1, 'Move down')).toHaveAttribute('aria-disabled', 'true');

@@ -261,25 +261,20 @@ describe('DeckCardDragContext keyboard dragging', () => {
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
   });
 
-  it('drops a card into an expanded empty deck at position one', async () => {
+  it('drops a card into an empty deck through its header', async () => {
     const user = userEvent.setup();
     const decks = [
       deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
       deck('d2', 'Ecology', []),
     ];
-    useRects({
-      'deck:d1': [0, 40],
-      c1: [60, 100],
-      'deck:d2': [120, 160],
-      'deck:d2:empty': [180, 220],
-    });
+    // The empty deck has no rows: its header is the target.
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], 'deck:d2': [120, 160] });
     render(<Harness initialDecks={decks} initiallyOpen={['d1', 'd2']} />);
 
     await startDrag(user, 'c1');
 
     await user.keyboard('{ArrowDown}');
-    // The preview moved the card out of Deck 1, which now shows its empty zone.
-    await waitFor(() => expect(row('deck:d1:empty')).toBeInTheDocument());
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the empty deck Ecology'));
 
     await user.keyboard(' ');
     await waitFor(() => expect(committed()).toEqual('d1: | d2:c1'));
@@ -287,22 +282,22 @@ describe('DeckCardDragContext keyboard dragging', () => {
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
   });
 
-  // A deck drawn as [blank placeholder, card] has one slot in front of that
-  // card. The transition's index is measured before the placeholder is dropped,
-  // so hover and drop have to report the position the card ends up in, not the
-  // index they passed in.
-  it('drops and announces the same position in a deck with a placeholder', async () => {
+  // A deck holding [blank draft, card] has one slot in front of that card. The
+  // transition's index is measured before the draft is dropped, so hover and
+  // drop have to report the position the card ends up in, not the index they
+  // passed in.
+  it('drops and announces the same position in a deck with a blank draft', async () => {
     const user = userEvent.setup();
-    const placeholder = emptyCard();
+    const draft = emptyCard();
     const decks = [
       deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
-      { id: 'd2', name: 'Genetics', cards: [placeholder, card('c2', 'Allele')] },
+      { id: 'd2', name: 'Genetics', cards: [draft, card('c2', 'Allele')] },
     ];
     useRects({
       'deck:d1': [0, 40],
       c1: [60, 100],
       'deck:d2': [120, 160],
-      [placeholder.id]: [180, 220],
+      [draft.id]: [180, 220],
       c2: [240, 280],
     });
     render(<Harness initialDecks={decks} initiallyOpen={['d1', 'd2']} />);
@@ -311,7 +306,7 @@ describe('DeckCardDragContext keyboard dragging', () => {
     await user.keyboard('{ArrowDown}');
     await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the end of Genetics'));
 
-    // The placeholder is not a position of its own: both rows land at 1.
+    // The blank draft is not a position of its own: both rows land at 1.
     await user.keyboard('{ArrowDown}');
     await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 1 of Genetics'));
     await user.keyboard('{ArrowDown}');

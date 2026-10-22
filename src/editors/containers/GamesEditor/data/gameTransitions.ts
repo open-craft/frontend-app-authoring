@@ -33,8 +33,8 @@ export const emptyCard = (): Card => ({
   editorOpen: true,
 });
 
-/** A new, empty, editable deck: one blank placeholder, which is never saved. */
-export const newDeck = (name: string): Deck => ({ id: uuidv4(), name, cards: [emptyCard()] });
+/** A new deck, with no cards: its header is the drop target until one is added. */
+export const newDeck = (name: string): Deck => ({ id: uuidv4(), name, cards: [] });
 
 const initialDeck = newDeck(DEFAULT_DECK_NAME);
 
@@ -173,7 +173,11 @@ export const setList = (state: GameState, list: Card[], deckId?: string): GameSt
   };
 };
 
-/** Appends a card to the active deck, or to the given deck id. */
+/**
+ * Appends a card to the active deck, or to the given deck id. This is the only
+ * transition that creates a blank draft card (emptyCard), and a save drops it
+ * until the author fills it in.
+ */
 export const addCard = (state: GameState, card: Card = emptyCard(), deckId?: string): GameState => {
   const target = deckId ?? selectActiveDeck(state).id;
   if (!state.decks.some((deck) => deck.id === target)) { return state; }
@@ -207,15 +211,13 @@ export const removeCard = (state: GameState, target: number | CardTarget): GameS
 
 /**
  * Switches the deck being edited. Navigation, not a change to the game, so it
- * does not mark the state dirty. A deck emptied while editing gets an open blank
- * placeholder so it can be typed into; a deck loaded empty already holds its
- * collapsed one. Placeholders are filtered out of a save.
+ * does not mark the state dirty and invents no card: an empty deck stays empty,
+ * and a draft comes only from addCard.
  */
 export const selectDeck = (state: GameState, deckId: string): GameState => {
   const deck = state.decks.find((candidate) => candidate.id === deckId);
   if (!deck || deck.id === state.activeDeckId) { return state; }
-  const editable = deck.cards.length ? deck : { ...deck, cards: [emptyCard()] };
-  return withDecks(state, state.decks.map((candidate) => (candidate.id === deckId ? editable : candidate)), deckId);
+  return withDecks(state, state.decks, deckId);
 };
 
 /** The next free "Deck N" name, so a new deck does not start out invalid. */
@@ -253,17 +255,17 @@ export const deleteDeck = (state: GameState, deckId: string): GameState => {
 };
 
 /**
- * A card the author has not filled in yet: only an editing placeholder. A blank
- * card the block already keyed is authored content and is never dropped. The
- * one rule: the transitions drop and refuse these, and the drag resolver refuses
- * to start a drag from one.
+ * A card the author has not filled in yet: an explicit blank draft from addCard.
+ * A blank card the block already keyed is authored content and is never dropped.
+ * The one rule: a save drops these, moveCard refuses to move one, and the drag
+ * resolver refuses to start a drag from one.
  */
 export const isBlankCard = (card: Card) => (
   !card.card_key
   && !card.term.trim() && !card.definition.trim() && !card.term_image && !card.definition_image
 );
 
-/** The deck's cards without its first keyless blank placeholder, if any. */
+/** The deck's cards without its first keyless blank draft, if any. */
 const dropOnePlaceholder = (cards: Card[]): Card[] => {
   const index = cards.findIndex(isBlankCard);
   if (index < 0) { return cards; }
@@ -274,14 +276,14 @@ const dropOnePlaceholder = (cards: Card[]): Card[] => {
  * Moves a card to `target.index` in `target.deckId`, in one path for both a
  * reorder and a move to another deck. The index counts positions in the target
  * deck after the card has left its source deck but before that deck's blank
- * placeholder is dropped, which is the deck as a caller draws it (see
+ * draft is dropped, which is the deck as a caller draws it (see
  * resolveCardDrop). It is clamped, so a caller appending to a deck may pass
  * that deck's current length.
  *
  * The card object itself moves, so its id (uploads target it), `card_key`
  * (the block's identity), images and `editorOpen` go with it, and deck order is
  * untouched. A real card entering another deck replaces that deck's blank
- * placeholder, which is editor scaffolding rather than content.
+ * draft, which is editor state rather than content.
  */
 export const moveCard = (state: GameState, cardId: string, target: CardDropTarget): GameState => {
   // Not a position: clamping NaN would silently put the card first, and dirty
@@ -293,22 +295,22 @@ export const moveCard = (state: GameState, cardId: string, target: CardDropTarge
   const fromCards = state.decks[fromDeckIndex].cards;
   const fromIndex = fromCards.findIndex((card) => card.id === cardId);
   const card = fromCards[fromIndex];
-  // A keyless blank card is the editor's editing placeholder, not content: it
-  // has nothing to move, and dragging it would invent a card in the target.
+  // A keyless blank card is an explicit editing draft, not content: it has
+  // nothing to move, and dragging it would invent a card in the target.
   if (isBlankCard(card)) { return state; }
   const sameDeck = fromDeckIndex === toDeckIndex;
   const remaining = fromCards.filter((_, index) => index !== fromIndex);
   // The target deck as the caller counts positions in it. Within one deck that
   // is just the cards minus this one.
   const enteredCards = sameDeck ? remaining : state.decks[toDeckIndex].cards;
-  // Only a card entering another deck meets its placeholder; within one deck
-  // nothing enters, so its own blank card stays where it is.
+  // Only a card entering another deck meets its blank draft; within one deck
+  // nothing enters, so its own draft stays where it is.
   const scaffold = sameDeck ? -1 : enteredCards.findIndex(isBlankCard);
   const targetCards = scaffold < 0 ? enteredCards : dropOnePlaceholder(enteredCards);
-  // Dropping a placeholder above the requested gap shifts that gap up by one.
+  // Dropping a blank draft above the requested gap shifts that gap up by one.
   const gap = scaffold >= 0 && scaffold < target.index ? target.index - 1 : target.index;
   const index = Math.max(0, Math.min(gap, targetCards.length));
-  // The one same-position check, after clamping and the placeholder shift: an
+  // The one same-position check, after clamping and the draft shift: an
   // index that lands back on the card is no move, and must not dirty the state.
   if (sameDeck && index === fromIndex) { return state; }
   const cards = [...targetCards.slice(0, index), card, ...targetCards.slice(index)];
@@ -330,7 +332,7 @@ export const moveCard = (state: GameState, cardId: string, target: CardDropTarge
 const cardFromSettings = (card: Partial<Card>): Card => ({
   ...emptyCard(),
   // A loaded card starts collapsed: the outline is a list to scan, not a form
-  // to fill in. Adding, selecting or opening a card still shows its fields.
+  // to fill in. Adding or opening a card still shows its fields.
   editorOpen: false,
   card_key: card.card_key,
   term: card.term || '',
@@ -345,15 +347,8 @@ const cardFromSettings = (card: Partial<Card>): Card => ({
   definition_image_alt: card.definition_image_alt || '',
 });
 
-/** A loaded deck's cards, with a blank placeholder when the deck is empty. */
-const editableCards = (cards: unknown): Card[] => {
-  const loaded = (Array.isArray(cards) ? cards : []).map(cardFromSettings);
-  // The placeholder standing in for a loaded empty deck is collapsed like every
-  // other loaded card, and stays collapsed when the deck is opened. Only the
-  // explicit paths - a new deck, an added card, a deck emptied while editing -
-  // use emptyCard() and so start open.
-  return loaded.length ? loaded : [{ ...emptyCard(), editorOpen: false }];
-};
+/** A loaded deck's cards. An empty deck stays empty: no draft card is invented. */
+const editableCards = (cards: unknown): Card[] => (Array.isArray(cards) ? cards : []).map(cardFromSettings);
 
 const deckFromSettings = (deck: SettingsDeck | null | undefined, index: number): Deck => {
   const name = typeof deck?.name === 'string' ? deck.name.trim() : '';

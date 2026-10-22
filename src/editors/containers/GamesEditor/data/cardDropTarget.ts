@@ -12,13 +12,13 @@ export type CardDropOver =
 
 /**
  * Where dropping `activeCardId` on `over` lands, or null when it would not move
- * it: no target, an unknown card or deck, a card that is only the editor's blank
- * placeholder, or the position it is already in.
+ * it: no target, an unknown card or deck, a card that is only an explicit blank
+ * draft, or the position it is already in.
  *
  * A non-null result is passed directly to `moveCard`, which is the only thing
  * that acts on it: its index is a position in the target deck counted after the
- * card has left its source deck but before that deck's blank placeholder is
- * dropped, the same frame `moveCard` takes.
+ * card has left its source deck but before that deck's blank draft is dropped,
+ * the same frame `moveCard` takes.
  *
  * The geometry is dnd-kit's, and it only holds within one deck: the sorting
  * strategy draws the gap below the row being passed on a downward move and
@@ -28,7 +28,8 @@ export type CardDropOver =
  * vacated the position it is counted from. Rows of another deck never shift
  * (dnd-kit disables its transforms once the active card is outside their
  * container), so a hovered row there always means "insert before it", whatever
- * the order of the two decks. A hovered deck header appends.
+ * the order of the two decks. A hovered deck header appends, which for a deck
+ * with no cards is position 0.
  *
  * Pure and independent of dnd-kit, so it is tested without any layout. It
  * depends on the state transitions for the blank-card rule, never the other way
@@ -45,14 +46,15 @@ export const resolveCardDrop = (
   if (fromDeckIndex < 0 || toDeckIndex < 0) { return null; }
   const sameDeck = fromDeckIndex === toDeckIndex;
   const fromIndex = decks[fromDeckIndex].cards.findIndex((card) => card.id === activeCardId);
-  // A blank card is editor scaffolding: there is nothing to drag.
+  // A blank card is an explicit editing draft: there is nothing to drag.
   if (isBlankCard(decks[fromDeckIndex].cards[fromIndex])) { return null; }
   const targetCards = decks[toDeckIndex].cards;
 
   // A hovered deck header appends: past the end of the deck as it is drawn.
   if (over.kind === 'deck') {
-    // An empty deck is drawn as its one blank placeholder, which a card entering
-    // it replaces, so there is nothing to sit behind: it lands at 0.
+    // A deck drawn as one blank draft, which a card entering it replaces, has
+    // nothing to sit behind: it lands at 0. A deck with no cards has no rows,
+    // so its header is position 0 too.
     const empty = targetCards.length === 1 && isBlankCard(targetCards[0]);
     const index = empty ? 0 : sameDeck ? targetCards.length - 1 : targetCards.length;
     // A card in another deck at that position is not the same position.

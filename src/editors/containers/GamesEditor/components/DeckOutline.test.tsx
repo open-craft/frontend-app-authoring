@@ -106,7 +106,7 @@ describe('DeckOutline', () => {
     };
     render(<Harness />);
 
-    await user.click(screen.getByRole('button', { name: 'New deck' }));
+    await user.click(screen.getByRole('button', { name: 'Add deck' }));
 
     expect(toggle('Collapse Deck 4')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Cards of deck-4')).toBeInTheDocument();

@@ -54,20 +54,18 @@ export interface CardMove {
 }
 
 const DECK_ID_PREFIX = 'deck:';
-const EMPTY_ZONE_SUFFIX = ':empty';
 
 /** Namespaced so a deck droppable id can never be a card id. */
 const deckDroppableId = (deckId: string) => DECK_ID_PREFIX + deckId;
-const emptyZoneDroppableId = (deckId: string) => DECK_ID_PREFIX + deckId + EMPTY_ZONE_SUFFIX;
 
 /**
- * The dragged card's own deck is not a destination while dragging: its header
- * and, once a preview has emptied it, its empty zone both mean "still here".
- * One helper so the drag, the drop and the announcement cannot disagree.
+ * The dragged card's own deck header is not a destination while dragging: it
+ * means "still here". One helper so the drag, the drop and the announcement
+ * cannot disagree. An empty deck has no drop zone of its own: its header is
+ * the target, whether it holds no cards or only a blank draft.
  */
 const isSourceDeckTarget = (overId: string, sourceDeckId: string | null | undefined) =>
-  sourceDeckId != null
-  && (overId === deckDroppableId(sourceDeckId) || overId === emptyZoneDroppableId(sourceDeckId));
+  sourceDeckId != null && overId === deckDroppableId(sourceDeckId);
 
 /** Typed targets: the resolver never parses a droppable id. */
 const targetsOf = (decks: Deck[]): Map<string, CardDropOver> => {
@@ -77,7 +75,6 @@ const targetsOf = (decks: Deck[]): Map<string, CardDropOver> => {
       targets.set(card.id, { kind: 'card', deckId: deck.id, cardId: card.id });
     });
     targets.set(deckDroppableId(deck.id), { kind: 'deck', deckId: deck.id });
-    targets.set(emptyZoneDroppableId(deck.id), { kind: 'deck', deckId: deck.id });
   });
   return targets;
 };
@@ -106,12 +103,11 @@ const labelTarget = (overId: string, decks: Deck[], preview: Deck[]): DropLabel 
     const previewDeck = preview.find((candidate) => candidate.id === deck.id);
     const cards = previewDeck?.cards ?? deck.cards;
     if (overId === deckDroppableId(deck.id)) {
-      return cards.every(isBlankCard)
+      // Emptiness is the committed deck's, as it is for the drop announcement:
+      // the preview already holds the card, by which measure no deck is empty.
+      return deck.cards.every(isBlankCard)
         ? { kind: 'empty', deckName: deck.name }
         : { kind: 'end', deckName: deck.name };
-    }
-    if (overId === emptyZoneDroppableId(deck.id)) {
-      return { kind: 'empty', deckName: deck.name };
     }
     const position = cards.findIndex((card) => card.id === overId);
     if (position >= 0) {
@@ -136,10 +132,10 @@ const deckLabelOf = (cardId: string, decks: Deck[], fallback: string): string =>
 /**
  * What `moveCard` makes of a drop target: the decks after it, and where the
  * card lands among them. `moveCard` is pure and already owns the clamping and
- * blank-placeholder rules, so this reuses it on a throwaway state instead of
+ * blank-draft rules, so this reuses it on a throwaway state instead of
  * duplicating them; a no-op returns the same decks array, which is how callers
  * detect "nothing to render differently". `index` is the position to
- * announce: `target.index` is measured before the target deck's placeholder
+ * announce: `target.index` is measured before the target deck's blank draft
  * is dropped, so it can be one past where the card actually ends up.
  */
 const moveResult = (decks: Deck[], cardId: string, target: CardDropTarget) => {
@@ -316,7 +312,7 @@ export const DeckCardDragProvider = ({
     }
     // The drop target is resolved against the committed decks, which is the
     // frame `moveCard` takes: a preview has already dropped the target deck's
-    // blank placeholder, so its indexes are in a different frame.
+    // blank draft, so its indexes are in a different frame.
     const committedTarget = targetsOf(decks).get(overId);
     const committedMove = committedTarget ? resolveCardDrop(decks, cardId, committedTarget) : null;
     if (committedMove) {
@@ -349,8 +345,8 @@ export const DeckCardDragProvider = ({
     if (overId) {
       const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
       if (keyboardDrag && isSourceDeckTarget(overId, sourceDeckId)) {
-        // Keyboard dropped on its own header or empty zone: no move. A pointer
-        // drop there is still the resolver's append.
+        // Keyboard dropped on its own header: no move. A pointer drop there is
+        // still the resolver's append.
         move = null;
       } else if (overId === cardId) {
         // dnd-kit can report the card itself as the target once a preview has
@@ -507,32 +503,10 @@ export const DeckCardDragProvider = ({
   );
 };
 
-interface DroppableZoneProps {
-  deckId: string;
-  droppableId: string;
-  className?: string;
-  children?: React.ReactNode;
-}
-
-const DroppableZone = ({ deckId, droppableId, className, children }: DroppableZoneProps) => {
-  const { setNodeRef, isOver } = useDroppable({
-    id: droppableId,
-    data: { kind: 'deck', deckId },
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      data-dnd-id={droppableId}
-      className={[className, isOver ? 'deck-outline-drop-active' : ''].filter(Boolean).join(' ')}
-    >
-      {children}
-    </div>
-  );
-};
-
 /**
- * A deck header as a drop target. Hovering a collapsed deck asks the outline to
- * open it; the request is made once per hover so it cannot loop.
+ * A deck header as a drop target: the deck's only target when it has no card
+ * rows. Hovering a collapsed deck asks the outline to open it; the request is
+ * made once per hover so it cannot loop.
  */
 export const DeckDropTarget = ({
   deckId,
@@ -585,41 +559,25 @@ export const DeckCardList = ({
   deckId: string;
   renderCard: (deck: Deck, card: Card, index: number) => React.ReactNode;
 }) => {
-  const intl = useIntl();
   const { previewDecks, activeCardId } = useDeckDragPreview();
   const deck = previewDecks.find((candidate) => candidate.id === deckId);
   if (!deck) { return null; }
   return (
-    <>
-      <SortableContext
-        id={deckId}
-        items={deck.cards.map((card) => card.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        {deck.cards.map((card, index) => (
-          <div
-            key={card.id}
-            data-dnd-id={card.id}
-            // The only marker a drag in flight leaves behind, for tests and cleanup.
-            data-dnd-dragging={activeCardId === card.id ? 'true' : undefined}
-          >
-            {renderCard(deck, card, index)}
-          </div>
-        ))}
-      </SortableContext>
-      {
-        /* An empty deck, or one holding only its blank placeholder, gets a
-          visible place to drop a card; the placeholder row itself stays. */
-      }
-      {deck.cards.every(isBlankCard) && (
-        <DroppableZone
-          deckId={deckId}
-          droppableId={emptyZoneDroppableId(deckId)}
-          className="deck-outline-empty p-3 text-muted text-center border border-light-700 rounded"
+    <SortableContext
+      id={deckId}
+      items={deck.cards.map((card) => card.id)}
+      strategy={verticalListSortingStrategy}
+    >
+      {deck.cards.map((card, index) => (
+        <div
+          key={card.id}
+          data-dnd-id={card.id}
+          // The only marker a drag in flight leaves behind, for tests and cleanup.
+          data-dnd-dragging={activeCardId === card.id ? 'true' : undefined}
         >
-          {intl.formatMessage(messages.dropCardHereLabel)}
-        </DroppableZone>
-      )}
-    </>
+          {renderCard(deck, card, index)}
+        </div>
+      ))}
+    </SortableContext>
   );
 };

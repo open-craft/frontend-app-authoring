@@ -132,7 +132,7 @@ export const useGameState = (block: BlockRef | null) => {
         store.update((s) => t.renameDeck(s, deckId, name)),
       deleteDeck: ({ deckId }: { deckId: string; }) => store.update((s) => t.deleteDeck(s, deckId)),
       // A drag reports the card, its target deck and the position in it; the
-      // transition owns clamping, the blank-placeholder rule and the no-op.
+      // transition owns clamping, the blank-draft rule and the no-op.
       moveCard: ({ cardId, toDeckId, toIndex }: { cardId: string; toDeckId: string; toIndex: number; }) =>
         store.update((s) => t.moveCard(s, cardId, { deckId: toDeckId, index: toIndex })),
       uploadGameImage: (

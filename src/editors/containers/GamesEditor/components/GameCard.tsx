@@ -36,7 +36,7 @@ const acceptedImages = 'image/png, image/jpeg, image/gif, image/webp';
 interface GameCardProps {
   card: Card;
   index: number;
-  /** False for the editor's blank placeholder, which has no content to move. */
+  /** False for a blank draft, which has no content to move. */
   draggable?: boolean;
   type: GameType;
   /** The block's Studio, which its relative image URLs are shown from. */
@@ -46,9 +46,9 @@ interface GameCardProps {
   isSaving: boolean;
   onToggle: (isOpen: boolean) => void;
   onChange: (field: TextField, value: string) => void;
-  /** Whether Move up is available for this card; false at a deck edge or beside blank scaffolding. */
+  /** Whether Move up is available for this card; false at a deck edge or beside a blank draft. */
   canMoveUp: boolean;
-  /** Whether Move down is available for this card; false at a deck edge or beside blank scaffolding. */
+  /** Whether Move down is available for this card; false at a deck edge or beside a blank draft. */
   canMoveDown: boolean;
   onMoveUp: () => void;
   onMoveDown: () => void;

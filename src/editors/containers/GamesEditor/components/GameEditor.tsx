@@ -173,7 +173,7 @@ const GameEditor = ({
   const deckAuthoring = supportsDecks && type === 'flashcards';
 
   // One place decides what a save would carry, so the count a deck's delete
-  // prompt states is the count that will be saved (blank placeholders excluded).
+  // prompt states is the count that will be saved (blank drafts excluded).
   const contents = useMemo(() => getContent({ type, settings, decks, list }), [type, settings, decks, list]);
   const deckSummaries = useMemo(() =>
     decks.map((deck, index) => ({
@@ -251,20 +251,20 @@ const GameEditor = ({
 
   // Where a card menu's Move up / Move down sends the card, read from the decks
   // on screen: one position within its own deck, or, at that deck's edge - a
-  // real card with a deck boundary or blank scaffolding beside it - into the
+  // real card with a deck boundary or a blank draft beside it - into the
   // deck beside it in the outline: the previous deck's end going up, the next
   // deck's start going down. The transition does the rest: clamping, the
-  // target's blank placeholder and the no-op that must not dirty the state.
+  // target's blank draft and the no-op that must not dirty the state.
   const menuMoveTarget = useCallback((cardId: string, direction: MenuMoveDirection): CardDropTarget | null => {
     const deckIndex = decks.findIndex((deck) => deck.cards.some((card) => card.id === cardId));
     const deck = decks[deckIndex];
     const index = deck?.cards.findIndex((card) => card.id === cardId) ?? -1;
     if (!deck || index < 0) { return null; }
-    // The blank placeholder is editor scaffolding, not a card to move.
+    // A blank draft is not a card to move.
     if (isBlankCard(deck.cards[index])) { return null; }
     const step = direction === 'up' ? index - 1 : index + 1;
     const adjacent = deck.cards[step];
-    // A blank row is scaffolding, never saved, so stepping onto it is no move:
+    // A blank draft row is never saved, so stepping onto it is no move:
     // the card sits at that edge of its deck instead.
     if (adjacent && !isBlankCard(adjacent)) {
       return { deckId: deck.id, index: step };
@@ -419,7 +419,7 @@ const GameEditor = ({
     const deck = deckId == null ? null : decks.find((candidate) => candidate.id === deckId);
     return (
       <PgnButton
-        className="text-primary-500 py-2 pr-3 pl-0"
+        className="text-primary-500 py-2 pr-3 pl-0 align-self-start"
         variant="tertiary"
         onClick={() => addCard(deckId)}
         iconBefore={Plus}

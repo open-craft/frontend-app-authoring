@@ -27,8 +27,18 @@ import {
 import type { Card, Deck, GameState } from '@src/editors/containers/GamesEditor/types';
 
 describe('game state transitions', () => {
+  // A new block, or one with no saved cards, opens with an empty deck. The
+  // blank draft an author types into comes from Add, not from the load.
+  it('starts with an empty deck and no draft card', () => {
+    expect(initialState.decks).toHaveLength(1);
+    expect(initialState.decks[0].name).toEqual('Deck 1');
+    expect(initialState.decks[0].cards).toEqual([]);
+    expect(initialState.list).toEqual([]);
+  });
+
   it('marks state dirty on a card edit', () => {
-    const next = updateCardField(initialState, { index: 0 }, 'term', 'x');
+    const state = { ...addCard(initialState), isDirty: false };
+    const next = updateCardField(state, { index: 0 }, 'term', 'x');
     expect(next.list[0].term).toEqual('x');
     expect(next.isDirty).toBe(true);
   });
@@ -39,10 +49,10 @@ describe('game state transitions', () => {
 
   it('adds and removes cards', () => {
     const added = addCard(initialState, emptyCard());
-    expect(added.list).toHaveLength(2);
+    expect(added.list).toHaveLength(1);
     expect(added.isDirty).toBe(true);
     const removed = removeCard(added, 0);
-    expect(removed.list).toHaveLength(1);
+    expect(removed.list).toHaveLength(0);
   });
 
   // The id is what an upload targets later, so the view and the upload must
@@ -93,7 +103,7 @@ describe('game state transitions', () => {
   // editorOpen is UI state: it is not saved, so changing it is not a change
   // to the game. It must not arm the discard prompt or enable a no-op save.
   it('does not mark the game dirty when a card is expanded or collapsed', () => {
-    const state = { ...initialState, list: [emptyCard()], isDirty: false };
+    const state = { ...addCard(initialState), isDirty: false };
     const collapsed = setCardOpen(state, 0, false);
     expect(collapsed.list[0].editorOpen).toBe(false);
     expect(collapsed.isDirty).toBe(false);
@@ -188,12 +198,10 @@ describe('decks', () => {
     expect(state.activeDeckId).toEqual(state.decks[0].id);
     // Two decks loaded from one response must not share a local id.
     expect(new Set(state.decks.map((deck) => deck.id)).size).toEqual(2);
-    // An empty deck is still editable: it gets a blank placeholder.
-    expect(state.decks[1].cards).toHaveLength(1);
-    expect(state.decks[1].cards[0].term).toEqual('');
-    // Loaded cards, and the placeholder of a loaded empty deck, start collapsed.
+    // A loaded empty deck stays empty: no placeholder card is invented.
+    expect(state.decks[1].cards).toEqual([]);
+    // Loaded cards start collapsed.
     expect(state.decks[0].cards[0].editorOpen).toBe(false);
-    expect(state.decks[1].cards[0].editorOpen).toBe(false);
   });
 
   // Switching decks is navigation, not a change to the game content.
@@ -206,21 +214,31 @@ describe('decks', () => {
     expect(next.isDirty).toBe(false);
   });
 
-  it('gives an empty deck a blank placeholder when it is selected', () => {
+  // Navigation never invents a card: an empty deck stays empty.
+  it('keeps an empty deck empty when it is selected', () => {
     const state = stateWithTwoDecks();
-    const emptied = {
-      ...state,
-      decks: state.decks.map((deck, index) => (index === 1 ? { ...deck, cards: [] } : deck)),
-    };
-    expect(emptied.decks[1].cards).toEqual([]);
+    expect(state.decks[1].cards).toEqual([]);
 
-    const next = selectDeck(emptied, emptied.decks[1].id);
+    const next = selectDeck(state, state.decks[1].id);
 
-    expect(selectActiveCards(next)).toHaveLength(1);
-    expect(selectActiveCards(next)[0].term).toEqual('');
-    // The placeholder a selected empty deck gets is the open one to type into.
-    expect(selectActiveCards(next)[0].editorOpen).toBe(true);
+    expect(selectActiveCards(next)).toEqual([]);
+    expect(next.list).toEqual([]);
     expect(next.isDirty).toBe(false);
+  });
+
+  // Emptying a deck by removing its last card leaves no draft behind either;
+  // the author asks for a card with the deck's Add control.
+  it('leaves a deck emptied by removal empty until a card is added', () => {
+    const state = stateWithTwoDecks();
+    const next = removeCard(state, 0);
+
+    expect(next.decks[0].cards).toEqual([]);
+    expect(next.isDirty).toBe(true);
+
+    // An explicit Add is the only thing that makes a draft card, and it is open.
+    const added = addCard(next);
+    expect(selectActiveCards(added)).toHaveLength(1);
+    expect(selectActiveCards(added)[0]).toMatchObject({ term: '', editorOpen: true });
   });
 
   it('adds a deck with a free name and starts editing it', () => {
@@ -229,7 +247,8 @@ describe('decks', () => {
 
     expect(next.decks.map((deck) => deck.name)).toEqual(['Basics', 'Advanced', 'Deck 3']);
     expect(next.activeDeckId).toEqual(next.decks[2].id);
-    expect(selectActiveCards(next)).toHaveLength(1);
+    // A new deck has no cards, and adding it writes no draft into it.
+    expect(selectActiveCards(next)).toEqual([]);
     expect(next.isDirty).toBe(true);
   });
 
@@ -291,10 +310,12 @@ describe('decks', () => {
   // decks must not move.
   it('edits, adds, removes and reorders only the active deck', () => {
     const state = stateWithTwoDecks();
-    const active = selectDeck(state, state.decks[1].id);
+    // Deck 2 starts empty; seed it with the explicit Add, then work in it.
+    const seeded = addCard(state, { ...emptyCard(), term: 'x' }, state.decks[1].id);
+    const active = selectDeck(seeded, seeded.decks[1].id);
 
-    const edited = updateCardField(active, { index: 0 }, 'term', 'x');
-    expect(selectActiveCards(edited)[0].term).toEqual('x');
+    const edited = updateCardField(active, { index: 0 }, 'term', 'y');
+    expect(selectActiveCards(edited)[0].term).toEqual('y');
     expect(edited.decks[0].cards[0].term).toEqual('a');
     // The rendered list is the active deck's cards, not a copy.
     expect(edited.list).toBe(selectActiveCards(edited));
@@ -410,13 +431,15 @@ describe('backend deck capability and hardening', () => {
     expect(noDeckArray.decks[0].name).toEqual('Deck 1');
 
     const noCardArray = stateFromSettings({ cards: 'nope' } as never);
-    expect(noCardArray.decks[0].cards).toHaveLength(1);
-    expect(noCardArray.decks[0].cards[0].term).toEqual('');
+    expect(noCardArray.decks[0].cards).toEqual([]);
+
+    const noCardsAtAll = stateFromSettings({});
+    expect(noCardsAtAll.decks[0].cards).toEqual([]);
 
     const junkDeck = stateFromSettings({ decks: [null] } as never);
     expect(junkDeck.decks).toHaveLength(1);
     expect(junkDeck.decks[0].name).toEqual('Deck 1');
-    expect(junkDeck.decks[0].cards).toHaveLength(1);
+    expect(junkDeck.decks[0].cards).toEqual([]);
   });
 });
 
@@ -479,43 +502,43 @@ describe('moving a card to a position', () => {
     expect(state.isDirty).toBe(false);
   });
 
-  // A keyless blank card is the editor's placeholder, not content: moving it
-  // would invent a card in the target deck.
-  it('rejects moving an unkeyed blank placeholder', () => {
+  // A keyless blank card is a blank draft, not content: moving it would invent
+  // a card in the target deck.
+  it('rejects moving a blank draft', () => {
     const d1 = { ...deckOf('d1', []), cards: [emptyCard()] };
     const state = stateOf(d1, deckOf('d2', ['X']));
     expect(moveCard(state, d1.cards[0].id, { deckId: 'd2', index: 1 })).toBe(state);
   });
 
-  it('drops one blank placeholder when a real card enters the deck', () => {
-    const twoBlank = { ...deckOf('d2', []), cards: [emptyCard(), emptyCard()] };
-    const state = stateOf(deckOf('d1', ['A']), twoBlank);
+  it('drops one blank draft when a real card enters the deck', () => {
+    const twoDrafts = { ...deckOf('d2', []), cards: [emptyCard(), emptyCard()] };
+    const state = stateOf(deckOf('d1', ['A']), twoDrafts);
     const next = moveCard(state, 'A', { deckId: 'd2', index: 0 });
     expect(next.decks[1].cards.map((entry) => entry.term)).toEqual(['A', '']);
     expect(next.decks[1].cards.filter((entry) => !entry.card_key)).toHaveLength(1);
 
-    const oneBlank = stateOf(deckOf('d1', ['A']), { ...deckOf('d2', []), cards: [emptyCard()] });
-    expect(moveCard(oneBlank, 'A', { deckId: 'd2', index: 0 }).decks[1].cards.map((entry) => entry.term)).toEqual([
+    const oneDraft = stateOf(deckOf('d1', ['A']), { ...deckOf('d2', []), cards: [emptyCard()] });
+    expect(moveCard(oneDraft, 'A', { deckId: 'd2', index: 0 }).decks[1].cards.map((entry) => entry.term)).toEqual([
       'A',
     ]);
   });
 
-  // A blank card is scaffolding, and the deck a card leaves keeps its own: only
-  // the deck the card enters gives one up, to the card that replaces it.
-  it('keeps the source deck\'s own blank placeholder when a real card moves out', () => {
-    const sourceBlank = emptyCard();
-    const targetBlank = emptyCard();
+  // A blank draft belongs to its own deck, and the deck a card leaves keeps its
+  // own: only the deck the card enters gives one up, to the card replacing it.
+  it('keeps the source deck\'s own blank draft when a real card moves out', () => {
+    const sourceDraft = emptyCard();
+    const targetDraft = emptyCard();
     const state = stateOf(
-      { ...deckOf('d1', []), cards: [sourceBlank, card('A')] },
-      { ...deckOf('d2', []), cards: [targetBlank, card('X')] },
+      { ...deckOf('d1', []), cards: [sourceDraft, card('A')] },
+      { ...deckOf('d2', []), cards: [targetDraft, card('X')] },
     );
 
     const next = moveCard(state, 'A', { deckId: 'd2', index: 2 });
 
     expect(next.decks[0].cards.map((entry) => entry.term)).toEqual(['']);
     expect(next.decks[0].cards).toHaveLength(1);
-    expect(next.decks[0].cards[0]).toBe(sourceBlank);
-    // The target's blank is the one that goes: the card replaces it.
+    expect(next.decks[0].cards[0]).toBe(sourceDraft);
+    // The target's draft is the one that goes: the card replaces it.
     expect(next.decks[1].cards.filter(isBlankCard)).toHaveLength(0);
     expect(next.decks[1].cards.map((entry) => entry.term)).toEqual(['X', 'A']);
   });
@@ -557,20 +580,20 @@ describe('moving a card to a position', () => {
     expect(next.list).toBe(next.decks[0].cards);
   });
 
-  // The deck a card enters is drawn with its blank placeholder still in it, so
-  // the caller's index counts that card: 1 is "before X", and the transition
-  // shifts the gap up when it drops the blank.
-  it('counts the blank placeholder a card entering a deck replaces', () => {
-    const withBlank = () => stateOf(deckOf('d1', ['A']), { ...deckOf('d2', ['X']), cards: [emptyCard(), card('X')] });
+  // The deck a card enters still holds its blank draft, so the caller's index
+  // counts that card: 1 is "before X", and the transition shifts the gap up when
+  // it drops the draft.
+  it('counts the blank draft a card entering a deck replaces', () => {
+    const withDraft = () => stateOf(deckOf('d1', ['A']), { ...deckOf('d2', ['X']), cards: [emptyCard(), card('X')] });
 
-    expect(order(moveCard(withBlank(), 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A', 'X']);
-    expect(order(moveCard(withBlank(), 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['A', 'X']);
-    expect(order(moveCard(withBlank(), 'A', { deckId: 'd2', index: 2 }), 'd2')).toEqual(['X', 'A']);
+    expect(order(moveCard(withDraft(), 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A', 'X']);
+    expect(order(moveCard(withDraft(), 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['A', 'X']);
+    expect(order(moveCard(withDraft(), 'A', { deckId: 'd2', index: 2 }), 'd2')).toEqual(['X', 'A']);
 
-    // An empty deck is drawn as its one blank, so both frames put the card first.
-    const emptyDeck = () => stateOf(deckOf('d1', ['A']), { ...deckOf('d2', []), cards: [emptyCard()] });
-    expect(order(moveCard(emptyDeck(), 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A']);
-    expect(order(moveCard(emptyDeck(), 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['A']);
+    // A deck holding only a blank draft puts the card first from either index.
+    const draftOnly = () => stateOf(deckOf('d1', ['A']), { ...deckOf('d2', []), cards: [emptyCard()] });
+    expect(order(moveCard(draftOnly(), 'A', { deckId: 'd2', index: 0 }), 'd2')).toEqual(['A']);
+    expect(order(moveCard(draftOnly(), 'A', { deckId: 'd2', index: 1 }), 'd2')).toEqual(['A']);
   });
 
   // A move can land in the deck being edited, which is the case where a stale

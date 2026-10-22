@@ -35,8 +35,8 @@ export interface GameSettings {
 
 /**
  * Where a card is dropped: a deck, and a position in it counted after the card
- * has left its source deck but before the target's blank placeholder is
- * dropped (see `moveCard`). A drag resolver reports this; the state transition
+ * has left its source deck but before the target's blank draft is dropped
+ * (see `moveCard`). A drag resolver reports this; the state transition
  * is the only thing that acts on it.
  */
 export interface CardDropTarget {
