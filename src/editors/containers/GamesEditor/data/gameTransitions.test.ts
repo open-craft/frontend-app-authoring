@@ -8,6 +8,7 @@ import {
   initialState,
   isBlankCard,
   loaded,
+  moveDeck,
   moveCard,
   removeCard,
   renameDeck,
@@ -350,6 +351,122 @@ describe('decks', () => {
     expect(selectActiveDeck(state)).toEqual(state.decks[0]);
     expect(selectActiveCards(state)).toEqual(state.decks[0].cards);
     expect(selectDeck(state, state.decks[1].id).decks[0].cards).toEqual(state.decks[0].cards);
+  });
+});
+
+// Deck order is the order the block saves, and the deck object moves whole: a
+// reorder changes nothing inside a deck.
+describe('moving a deck to a position', () => {
+  const threeDecks = () =>
+    decksFromSettings({
+      decks: [
+        { deck_key: 'dk-1', name: 'A', cards: [{ term: 'a', definition: 'x', card_key: 'c1' }] },
+        { deck_key: 'dk-2', name: 'B', cards: [{ term: 'b', definition: 'y', card_key: 'c2' }] },
+        { deck_key: 'dk-3', name: 'C', cards: [] },
+      ],
+    });
+
+  const stateWithThreeDecks = () => {
+    const decks = threeDecks();
+    return { ...initialState, decks, activeDeckId: decks[0].id, list: decks[0].cards };
+  };
+
+  const names = (state: GameState) => state.decks.map((deck) => deck.name);
+
+  // The index is a position in the final list, not a slot in the list as it was.
+  it('moves a deck to a later position', () => {
+    const state = stateWithThreeDecks();
+    const next = moveDeck(state, state.decks[0].id, 2);
+
+    expect(names(next)).toEqual(['B', 'C', 'A']);
+    expect(next.decks.map((deck) => deck.deck_key)).toEqual(['dk-2', 'dk-3', 'dk-1']);
+    expect(next.isDirty).toBe(true);
+  });
+
+  it('moves a deck to an earlier position', () => {
+    const state = stateWithThreeDecks();
+    expect(names(moveDeck(state, state.decks[2].id, 0))).toEqual(['C', 'A', 'B']);
+    expect(names(moveDeck(state, state.decks[2].id, 1))).toEqual(['A', 'C', 'B']);
+  });
+
+  it('moves a deck to a middle position', () => {
+    const state = stateWithThreeDecks();
+    expect(names(moveDeck(state, state.decks[0].id, 1))).toEqual(['B', 'A', 'C']);
+  });
+
+  // The deck object travels as it is: its key, its cards and the editor state
+  // of each card (a card's open flag is UI, not saved) are untouched.
+  it('moves the deck object itself, with its cards and their open state', () => {
+    const state = stateWithThreeDecks();
+    const moved = state.decks[0];
+    const openCard = { ...moved.cards[0], editorOpen: true };
+    const withOpenCard = {
+      ...state,
+      decks: [{ ...moved, cards: [openCard] }, ...state.decks.slice(1)],
+    };
+
+    const next = moveDeck(withOpenCard, moved.id, 2);
+
+    expect(next.decks[2]).toBe(withOpenCard.decks[0]);
+    expect(next.decks[2].cards[0]).toBe(openCard);
+    expect(next.decks[2].cards[0]).toMatchObject({ card_key: 'c1', editorOpen: true, term: 'a' });
+    expect(withOpenCard.decks[0].cards[0].editorOpen).toBe(true);
+  });
+
+  it('clamps a position past either end', () => {
+    const state = stateWithThreeDecks();
+    expect(names(moveDeck(state, state.decks[0].id, 99))).toEqual(['B', 'C', 'A']);
+    // A negative index means the front, not "counted from the end" as splice
+    // would read it.
+    expect(names(moveDeck(state, state.decks[2].id, -1))).toEqual(['C', 'A', 'B']);
+  });
+
+  // A slot drawn as a fraction is truncated first: 1.9 is the second place,
+  // and 1.5 from the deck that is already second is no move at all.
+  it('truncates a fractional position before moving', () => {
+    const state = stateWithThreeDecks();
+    expect(names(moveDeck(state, state.decks[0].id, 1.9))).toEqual(['B', 'A', 'C']);
+    expect(moveDeck(state, state.decks[1].id, 1.5)).toBe(state);
+    expect(state.isDirty).toBe(false);
+  });
+
+  // Anything that is not a move must not be written: the identical state, so
+  // the editor stays clean and a save is not offered.
+  it('leaves the state alone for an unknown deck, a NaN index or the deck\'s own slot', () => {
+    const state = stateWithThreeDecks();
+    const [first, middle] = state.decks;
+
+    expect(moveDeck(state, 'no-such-deck', 0)).toBe(state);
+    expect(moveDeck(state, first.id, Number.NaN)).toBe(state);
+    expect(moveDeck(state, middle.id, 1)).toBe(state);
+    expect(moveDeck(initialState, initialState.decks[0].id, 0)).toBe(initialState);
+    expect(state.isDirty).toBe(false);
+  });
+
+  // The deck order is not the selection: the deck being edited stays active,
+  // and the compatibility view keeps showing its cards.
+  it('keeps the active deck and refreshes the compatibility list', () => {
+    const loaded = stateWithThreeDecks();
+    const state = selectDeck(loaded, loaded.decks[1].id);
+    const activeId = state.decks[1].id;
+    const activeCards = state.decks[1].cards;
+
+    const next = moveDeck(state, state.decks[0].id, 2);
+
+    expect(next.activeDeckId).toEqual(activeId);
+    expect(selectActiveDeck(next).id).toEqual(activeId);
+    expect(next.list).toBe(activeCards);
+    expect(next.list).toBe(next.decks[0].cards);
+    expect(next.isDirty).toBe(true);
+  });
+
+  it('does not touch the state it was given', () => {
+    const state = stateWithThreeDecks();
+    const before = names(state);
+
+    moveDeck(state, state.decks[0].id, 2);
+
+    expect(names(state)).toEqual(before);
   });
 });
 

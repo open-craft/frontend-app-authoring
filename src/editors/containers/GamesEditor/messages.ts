@@ -288,8 +288,8 @@ const messages = defineMessages({
   },
   dragScreenReaderInstructions: {
     id: 'GameEditor.dragScreenReaderInstructions',
-    defaultMessage: 'To pick up a card, press Space or Enter. Use the arrow keys to move it to another position or deck. Press Space or Enter to drop it, or press Escape to cancel.',
-    description: 'Instructions read to screen-reader users when they focus a card drag handle.',
+    defaultMessage: 'To pick up an item, press Space or Enter. Use the arrow keys to move it. Press Space or Enter to drop it, or press Escape to cancel.',
+    description: 'Instructions read to screen-reader users when they focus a drag handle, for a card or a deck.',
   },
   dragCardHandleLabel: {
     id: 'GameEditor.dragCardHandleLabel',
@@ -300,6 +300,16 @@ const messages = defineMessages({
     id: 'GameEditor.dragCardHandleLabelNoText',
     defaultMessage: 'Reorder card with no text',
     description: 'Accessible name and tooltip of the handle that drags a card whose term is empty, so it is not read as "Reorder No text".',
+  },
+  dragDeckHandleLabel: {
+    id: 'GameEditor.dragDeckHandleLabel',
+    defaultMessage: 'Reorder {deckName}',
+    description: 'Accessible name and tooltip of the handle that drags one deck; it names the deck because several are on screen.',
+  },
+  dragDeckHandleLabelNoName: {
+    id: 'GameEditor.dragDeckHandleLabelNoName',
+    defaultMessage: 'Reorder deck {position}',
+    description: 'Accessible name and tooltip of the handle that drags a deck with an empty name, naming its position instead.',
   },
   dragPickedUp: {
     id: 'GameEditor.dragPickedUp',
@@ -350,6 +360,31 @@ const messages = defineMessages({
     id: 'GameEditor.dragCancelled',
     defaultMessage: 'Drag cancelled. {cardName} stayed in {deckName}.',
     description: 'Screen-reader announcement when a card drag is cancelled, naming the card and its deck.',
+  },
+  dragDeckPickedUp: {
+    id: 'GameEditor.dragDeckPickedUp',
+    defaultMessage: 'Picked up {deckName} at position {position} of the deck list.',
+    description: 'Screen-reader announcement when a deck drag starts, naming the deck and its position in the outline.',
+  },
+  dragDeckOverPosition: {
+    id: 'GameEditor.dragDeckOverPosition',
+    defaultMessage: '{deckName} moved over position {position} of the deck list.',
+    description: 'Screen-reader announcement when a dragged deck is over a position in the outline.',
+  },
+  dragDeckDroppedAtPosition: {
+    id: 'GameEditor.dragDeckDroppedAtPosition',
+    defaultMessage: 'Dropped {deckName} at position {position} of the deck list.',
+    description: 'Screen-reader announcement when a dragged deck is dropped at a position in the outline.',
+  },
+  dragDeckDroppedNowhere: {
+    id: 'GameEditor.dragDeckDroppedNowhere',
+    defaultMessage: 'Dropped {deckName}.',
+    description: 'Screen-reader announcement when a dragged deck is dropped where it already was.',
+  },
+  dragDeckCancelled: {
+    id: 'GameEditor.dragDeckCancelled',
+    defaultMessage: 'Drag cancelled. {deckName} stayed at position {position} of the deck list.',
+    description: 'Screen-reader announcement when a deck drag is cancelled, naming the deck and the position it kept.',
   },
   dragUnknownCard: {
     id: 'GameEditor.dragUnknownCard',

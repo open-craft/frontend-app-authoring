@@ -6,9 +6,14 @@ import type { Card, Deck } from '@src/editors/containers/GamesEditor/types';
 import {
   DeckCardDragProvider,
   DeckCardList,
+  DeckDragHandle,
+  DeckDragList,
+  DeckDragRow,
   DeckDropTarget,
+  deckRowDroppableId,
   useDeckDragPreview,
   type CardMove,
+  type DeckMove,
 } from './DeckCardDragContext';
 
 // jsdom has no layout, so the drag sensors are never driven. The provider's
@@ -25,8 +30,10 @@ let mockHoveredDroppableId: string | null = null;
 // The accessibility announcements the provider registered, for the unit-level
 // check that a no-op target says nothing.
 let mockAnnouncements: {
+  onDragStart?: (event: any) => string | undefined;
   onDragOver?: (event: any) => string | undefined;
   onDragEnd?: (event: any) => string | undefined;
+  onDragCancel?: (event: any) => string | undefined;
 } | undefined;
 // The collision detector the provider registered, so a test can hand it the
 // pointer coordinates the real dnd-kit would.
@@ -51,6 +58,21 @@ jest.mock('@dnd-kit/core', () => {
     }),
   };
 });
+
+jest.mock('@dnd-kit/sortable', () => ({
+  ...jest.requireActual('@dnd-kit/sortable'),
+  // The handlers are driven directly here, so a sortable row only has to render
+  // its own markup: no layout, no sensors, no transforms.
+  useSortable: () => ({
+    setNodeRef: () => undefined,
+    setActivatorNodeRef: () => undefined,
+    listeners: undefined,
+    attributes: {},
+    transform: null,
+    transition: undefined,
+    isDragging: false,
+  }),
+}));
 
 const card = (id: string): Card => ({ ...emptyCard(), id, term: id, card_key: 'key-' + id });
 const deck = (id: string, ids: string[]): Deck => ({ id, name: id, cards: ids.map(card) });
@@ -119,9 +141,15 @@ const renderDrag = (
   // The provider requires the caller to own the collapse; most tests only care
   // about the local preview, so the default asks for nothing.
   onCardDragStart: (cardId: string) => void = () => undefined,
+  onDeckMove = jest.fn<void, [DeckMove]>(),
 ) => {
   render(
-    <DeckCardDragProvider decks={decks} onCardMove={onCardMove} onCardDragStart={onCardDragStart}>
+    <DeckCardDragProvider
+      decks={decks}
+      onCardMove={onCardMove}
+      onDeckMove={onDeckMove}
+      onCardDragStart={onCardDragStart}
+    >
       <Preview />
       {decks.map((entry) => (
         <DeckDropTarget
@@ -138,6 +166,40 @@ const renderDrag = (
   );
   return onCardMove;
 };
+
+/**
+ * The outline as the drag layer needs it: one sortable row per deck, with the
+ * header droppable and the card rows inside it, exactly as DeckOutline nests
+ * them. Returns both move callbacks.
+ */
+const renderDeckDrag = (decks: Deck[]) => {
+  const onCardMove = jest.fn<void, [CardMove]>();
+  const onDeckMove = jest.fn<void, [DeckMove]>();
+  render(
+    <DeckCardDragProvider
+      decks={decks}
+      onCardMove={onCardMove}
+      onDeckMove={onDeckMove}
+      onCardDragStart={() => undefined}
+    >
+      <Preview />
+      <DeckDragList deckIds={decks.map((entry) => entry.id)}>
+        {decks.map((entry) => (
+          <DeckDragRow key={entry.id} deckId={entry.id}>
+            <DeckDragHandle deckName={entry.name} position={1} />
+            <DeckDropTarget deckId={entry.id} isExpanded onRequestExpand={() => undefined}>
+              {entry.name + ' header'}
+            </DeckDropTarget>
+          </DeckDragRow>
+        ))}
+      </DeckDragList>
+    </DeckCardDragProvider>,
+  );
+  return { onCardMove, onDeckMove };
+};
+
+/** The over dnd-kit hands a handler for a deck row: its id, and nothing else. */
+const overRow = (deckId: string) => ({ id: deckRowDroppableId(deckId) });
 
 describe('DeckCardDragContext', () => {
   beforeEach(() => {
@@ -603,5 +665,147 @@ describe('releasing a pointer outside the deck list', () => {
     expect(preview()).toEqual('d1:A | d2:X');
     expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'A' } }))
       .toEqual('Drag cancelled. A stayed in d1.');
+  });
+});
+
+// A deck drag is the same machinery as a card drag, one kind over: one reported
+// move, nothing written before the drop, and every card left alone.
+describe('moving a deck', () => {
+  const decks = () => [deck('d1', ['A']), deck('d2', ['X', 'Y']), deck('d3', [])];
+
+  const dragOverDeck = (rowId: string, deckId: string) =>
+    act(() => {
+      mockHandlers.onDragOver?.({ active: { id: rowId }, over: overRow(deckId), activatorEvent: pointerEvent() });
+    });
+  const dragEndDeck = (rowId: string, deckId: string | null, activatorEvent: Event = pointerEvent()) =>
+    act(() => {
+      mockHandlers.onDragEnd?.({
+        active: { id: rowId },
+        over: deckId ? overRow(deckId) : null,
+        activatorEvent,
+      });
+    });
+
+  it('reports one reorder when the row is dropped on another deck', () => {
+    const { onDeckMove, onCardMove } = renderDeckDrag(decks());
+
+    dragStart('deck-row:d1');
+    // A deck needs no preview tree: the row moves itself, and the order is the
+    // caller's until the drop.
+    expect(preview()).toEqual('d1:A | d2:X,Y | d3:');
+
+    dragOverDeck('deck-row:d1', 'd3');
+    expect(preview()).toEqual('d1:A | d2:X,Y | d3:');
+
+    dragEndDeck('deck-row:d1', 'd3');
+
+    expect(onDeckMove).toHaveBeenCalledTimes(1);
+    expect(onDeckMove).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 2 });
+    expect(onCardMove).not.toHaveBeenCalled();
+  });
+
+  it('reports nothing when the deck is dropped on its own row, outside every row, or cancelled', () => {
+    const { onDeckMove } = renderDeckDrag(decks());
+
+    dragStart('deck-row:d2');
+    dragEndDeck('deck-row:d2', 'd2');
+
+    dragStart('deck-row:d2');
+    dragEndDeck('deck-row:d2', null);
+
+    dragStart('deck-row:d2');
+    dragCancel();
+
+    expect(onDeckMove).not.toHaveBeenCalled();
+  });
+
+  // A drop that changed nothing is announced as a plain drop: saying a position
+  // would claim the deck moved.
+  it('announces a drop that moved nothing as a drop', () => {
+    const { onDeckMove } = renderDeckDrag(decks());
+
+    dragStart('deck-row:d2');
+    dragEndDeck('deck-row:d2', 'd2');
+    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'deck-row:d2' } })).toEqual('Dropped d2.');
+    expect(onDeckMove).not.toHaveBeenCalled();
+
+    dragStart('deck-row:d2');
+    dragEndDeck('deck-row:d2', null);
+    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'deck-row:d2' } })).toEqual('Dropped d2.');
+  });
+
+  it('announces the deck name and its position, never an id', () => {
+    renderDeckDrag(decks());
+
+    dragStart('deck-row:d2');
+    expect(mockAnnouncements?.onDragStart?.({ active: { id: 'deck-row:d2' } }))
+      .toEqual('Picked up d2 at position 2 of the deck list.');
+    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'deck-row:d2' }, over: overRow('d3') }))
+      .toEqual('d2 moved over position 3 of the deck list.');
+
+    dragEndDeck('deck-row:d2', 'd3');
+    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'deck-row:d2' } }))
+      .toEqual('Dropped d2 at position 3 of the deck list.');
+    expect(mockAnnouncements?.onDragStart?.({ active: { id: 'deck-row:d2' } })).not.toContain('deck-row:');
+  });
+
+  // Escape belongs to whichever drag is active, and a cancelled deck drag puts
+  // focus back on the handle it started from.
+  it('cancels with Escape, leaving the order alone and focus on the deck handle', async () => {
+    const { onDeckMove } = renderDeckDrag(decks());
+    const seen: boolean[] = [];
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { seen.push(event.defaultPrevented); }
+    };
+    document.addEventListener('keydown', listener);
+    const handle = document.querySelector<HTMLElement>('[data-dnd-id="deck-row:d1"] [data-drag-handle]') as HTMLElement;
+    handle.focus();
+
+    dragStart('deck-row:d1', keyboardEvent());
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true }));
+    dragCancel(keyboardEvent());
+    document.removeEventListener('keydown', listener);
+
+    expect(seen).toEqual([true]);
+    expect(mockAnnouncements?.onDragCancel?.({ active: { id: 'deck-row:d1' } }))
+      .toEqual('Drag cancelled. d1 stayed at position 1 of the deck list.');
+    expect(onDeckMove).not.toHaveBeenCalled();
+    await settle();
+    expect(handle).toHaveFocus();
+  });
+
+  // Both kinds share one context, so the nearest droppable of the wrong kind is
+  // not a target at all: a deck walks rows, a card walks cards and headers.
+  it('filters collision candidates by the dragged kind', () => {
+    renderDeckDrag(decks());
+    const rect = { top: 0, right: 300, bottom: 100, left: 0 };
+    const containers = [
+      { id: 'A', data: { current: { sortable: {} } } },
+      { id: 'deck:d2', data: { current: { kind: 'deck', deckId: 'd2' } } },
+      { id: deckRowDroppableId('d2'), data: { current: { kind: 'deck-row', deckId: 'd2' } } },
+    ];
+    const args = (activeId: string) => ({
+      active: { id: activeId },
+      collisionRect: rect,
+      droppableRects: new Map(containers.map((container) => [container.id, rect])),
+      droppableContainers: containers,
+      pointerCoordinates: { x: 100, y: 50 },
+    });
+
+    expect(mockCollisionDetection?.(args('deck-row:d1')).map((collision: any) => collision.id))
+      .toEqual([deckRowDroppableId('d2')]);
+    expect(mockCollisionDetection?.(args('A')).map((collision: any) => collision.id))
+      .toEqual(['A', 'deck:d2']);
+  });
+
+  // A deck row is not a card target, whatever the pointer says.
+  it('refuses a card dropped on a deck row', () => {
+    const onCardMove = jest.fn<void, [CardMove]>();
+    renderDrag(decks(), onCardMove);
+
+    dragStart('A');
+    dragEnd('A', deckRowDroppableId('d2'));
+
+    expect(onCardMove).not.toHaveBeenCalled();
   });
 });

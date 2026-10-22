@@ -44,7 +44,7 @@ import type {
   RequestError,
 } from '@src/editors/containers/GamesEditor/types';
 import DeckOutline from './DeckOutline';
-import { DeckCardDragProvider, DeckCardList } from './DeckCardDragContext';
+import { DeckCardDragProvider, DeckCardList, type DeckMove } from './DeckCardDragContext';
 import GameCard from './GameCard';
 import GameImageSettingsModal from './GameImageSettingsModal';
 import SettingsSidebar from './SettingsSidebar';
@@ -123,6 +123,7 @@ const GameEditor = ({
   renameDeck,
   deleteDeck,
   moveCard,
+  moveDeck,
 
   uploadGameImage,
   deleteGameImage,
@@ -324,6 +325,12 @@ const GameEditor = ({
     moveCard(move);
   }, [moveCard]);
 
+  // Same for a deck: the stored order is what was dropped, and the first deck is
+  // the block's primary one.
+  const handleDeckMove = useCallback((move: DeckMove) => {
+    moveDeck(move);
+  }, [moveDeck]);
+
   // The card that follows the pointer is the real one, so a drag collapses an
   // open card first. Checking `editorOpen` here is what keeps a drag of an
   // already collapsed card from writing to the store for nothing.
@@ -469,6 +476,7 @@ const GameEditor = ({
             <DeckCardDragProvider
               decks={decks}
               onCardMove={handleCardMove}
+              onDeckMove={handleDeckMove}
               onCardDragStart={handleCardDragStart}
             >
               <DeckOutline

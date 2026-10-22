@@ -183,6 +183,62 @@ describe('saving with decks', () => {
     expect(result.current.state).toBe(before);
     expect(result.current.state.isDirty).toBe(false);
   });
+
+  // A deck drag reports the slot it landed in. The deck objects move whole, the
+  // active deck stays selected, and the block receives the new order; the first
+  // deck is the primary one, so the legacy `cards` mirror follows it.
+  it('reorders decks and saves them in the new order, mirroring the new primary deck', async () => {
+    const { result } = loadBlock({
+      game_type: 'flashcards',
+      decks: [
+        { deck_key: 'd1', name: 'Deck 1', cards: [{ term: 'a', definition: 'b', card_key: 'k1' }] },
+        { deck_key: 'd2', name: 'Deck 2', cards: [{ term: 'x', definition: 'y', card_key: 'k2' }] },
+      ],
+    });
+    await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
+    const [first, second] = result.current.state.decks;
+    const activeCards = first.cards;
+
+    act(() => result.current.actions.moveDeck({ deckId: second.id, toIndex: 0 }));
+
+    const { state } = result.current;
+    expect(state.decks.map((deck) => deck.deck_key)).toEqual(['d2', 'd1']);
+    // The deck object itself moved: its cards and key are the same ones.
+    expect(state.decks[0]).toBe(second);
+    expect(state.decks[1]).toBe(first);
+    expect(state.isDirty).toBe(true);
+    // Reordering is not selecting: Deck 1 is still the deck being edited.
+    expect(state.activeDeckId).toEqual(first.id);
+    expect(state.list).toBe(activeCards);
+
+    await act(async () => {
+      await result.current.actions.save({ title: null });
+    });
+
+    const payload = api.buildSavePayload(saveArgs());
+    expect(payload.decks?.map((deck) => deck.deck_key)).toEqual(['d2', 'd1']);
+    // The block keeps `cards` as the primary deck, which is now Deck 2.
+    expect(payload.cards.map((card) => card.term)).toEqual(['x']);
+    expect(payload.cards).toEqual(payload.decks?.[0].cards);
+  });
+
+  it('leaves the state alone for a deck move to the slot it already has', async () => {
+    const { result } = loadBlock({
+      game_type: 'flashcards',
+      decks: [
+        { deck_key: 'd1', name: 'Deck 1', cards: [] },
+        { deck_key: 'd2', name: 'Deck 2', cards: [] },
+      ],
+    });
+    await waitFor(() => expect(result.current.state.isLoaded).toBe(true));
+    const before = result.current.state;
+    const { id } = before.decks[1];
+
+    act(() => result.current.actions.moveDeck({ deckId: id, toIndex: 1 }));
+
+    expect(result.current.state).toBe(before);
+    expect(result.current.state.isDirty).toBe(false);
+  });
 });
 
 // Several deck bodies render at once, so the hook's card actions must accept a

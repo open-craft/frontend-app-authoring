@@ -11,15 +11,24 @@ import {
   useSensors,
   type Announcements,
   type CollisionDetection,
+  type DroppableContainers,
+  type KeyboardCoordinateGetter,
   type DragCancelEvent,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
   type ScreenReaderInstructions,
 } from '@dnd-kit/core';
-import { isKeyboardEvent } from '@dnd-kit/utilities';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS, isKeyboardEvent, useCombinedRefs } from '@dnd-kit/utilities';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
+import { Icon, IconButton, OverlayTrigger, Tooltip } from '@openedx/paragon';
+import { DragIndicator } from '@openedx/paragon/icons';
 
 import messages from '@src/editors/containers/GamesEditor/messages';
 import { resolveCardDrop, type CardDropOver } from '@src/editors/containers/GamesEditor/data/cardDropTarget';
@@ -40,13 +49,18 @@ import type {
  *
  * The authored decks do not change until the drop: no card content and no deck
  * order is written while dragging, and the one commit goes through the editor's
- * `moveCard` transition. The collapse is the only state a drag writes before
- * that, and it is UI-only. A local, immutable `previewDecks` tree is what the
- * outline renders meanwhile; a cancelled drag drops it, so the committed view
- * returns with the move unwritten.
+ * `moveCard` or `moveDeck` transition. The collapse is the only state a drag
+ * writes before that, and it is UI-only. A local, immutable `previewDecks` tree
+ * is what the outline renders meanwhile; a cancelled drag drops it, so the
+ * committed view returns with the move unwritten.
+ *
+ * A deck is dragged by its own row, which moves as the real thing: the rows
+ * between its old and new place shift to make room, and the order changes once,
+ * on the drop. Deck rows therefore need no preview tree; they are one sortable
+ * list whose items are the decks themselves.
  */
 
-/** One committed move. The only thing this module reports. */
+/** One committed card move. */
 export interface CardMove {
   cardId: string;
   toDeckId: string;
@@ -54,7 +68,18 @@ export interface CardMove {
   toIndex: number;
 }
 
+/** One committed deck reorder: the position the deck ends up in. */
+export interface DeckMove {
+  deckId: string;
+  toIndex: number;
+}
+
 const DECK_ID_PREFIX = 'deck:';
+/**
+ * Deck rows sort the decks and take deck drops; they are namespaced apart from
+ * `deck:` so a row can never be read as a card's deck header.
+ */
+const DECK_ROW_ID_PREFIX = 'deck-row:';
 
 /** True when the point sits inside the rectangle, its own edges included. */
 const isPointWithin = (
@@ -69,6 +94,53 @@ const isPointWithin = (
 
 /** Namespaced so a deck droppable id can never be a card id. */
 const deckDroppableId = (deckId: string) => DECK_ID_PREFIX + deckId;
+
+/** The sortable row of a deck, the one thing a deck drag moves. */
+export const deckRowDroppableId = (deckId: string) => DECK_ROW_ID_PREFIX + deckId;
+
+const isDeckRowId = (id: string) => id.startsWith(DECK_ROW_ID_PREFIX);
+
+/** The deck a row id belongs to. */
+const deckIdOfRow = (rowId: string) => rowId.slice(DECK_ROW_ID_PREFIX.length);
+
+/**
+ * The droppables one kind of drag may reach: a deck drag sees deck rows only, a
+ * card drag sees cards and deck headers only. The pointer and the keyboard are
+ * narrowed by the same rule, so an arrow can never reach what the pointer
+ * could not, and a card released off the deck list still cancels.
+ */
+const containersOfKind = (
+  containers: DroppableContainers,
+  deckDrag: boolean,
+  activeId: string,
+): DroppableContainers => {
+  const onlyKind = (container: { id: string | number; }) => isDeckRowId(String(container.id)) === deckDrag;
+  const filtered = new Map(
+    [...containers].filter(([id]) => isDeckRowId(String(id)) === deckDrag),
+  ) as unknown as DroppableContainers;
+  // The stock getter reads the map's own ids and containers, and this list;
+  // nothing else on the map is touched. The dragged item is not a destination,
+  // so it is left out of the list the arrows aim at.
+  filtered.getEnabled = () =>
+    containers.getEnabled().filter((container) => (
+      onlyKind(container) && String(container.id) !== activeId
+    ));
+  return filtered;
+};
+
+/** `sortableKeyboardCoordinates` over the dragged item's own kind of droppable. */
+const kindAwareCoordinates: KeyboardCoordinateGetter = (event, args) =>
+  sortableKeyboardCoordinates(event, {
+    ...args,
+    context: {
+      ...args.context,
+      droppableContainers: containersOfKind(
+        args.context.droppableContainers,
+        isDeckRowId(String(args.active)),
+        String(args.active),
+      ),
+    },
+  });
 
 /**
  * The dragged card's own deck header is not a destination while dragging: it
@@ -165,13 +237,13 @@ const moveResult = (decks: Deck[], cardId: string, target: CardDropTarget) => {
 interface DragPreview {
   /** The decks to render: the preview while dragging, the committed ones after. */
   previewDecks: Deck[];
-  /** The card being dragged, so its row can be marked. */
-  activeCardId: string | null;
+  /** The row being dragged - a card id or a deck row id - so it can be marked. */
+  activeDragId: string | null;
 }
 
 const DeckDragContext = React.createContext<DragPreview>({
   previewDecks: [],
-  activeCardId: null,
+  activeDragId: null,
 });
 
 /** The decks to render and the card being dragged, for rows inside the provider. */
@@ -182,6 +254,8 @@ interface DeckCardDragProviderProps {
   decks: Deck[];
   /** Called once, on a valid drop. The caller applies `moveCard`. */
   onCardMove: (move: CardMove) => void;
+  /** Called once, when a deck is dropped in another position. */
+  onDeckMove: (move: DeckMove) => void;
   /**
    * Called when a drag starts on an open card. Required: the caller collapses
    * that card in the state it owns, which is what keeps it collapsed after the
@@ -198,12 +272,14 @@ interface DeckCardDragProviderProps {
 export const DeckCardDragProvider = ({
   decks,
   onCardMove,
+  onDeckMove,
   onCardDragStart,
   children,
 }: DeckCardDragProviderProps) => {
   const intl = useIntl();
   const [previewDecks, setPreviewDecks] = React.useState<Deck[] | null>(null);
-  const [activeCardId, setActiveCardId] = React.useState<string | null>(null);
+  // The droppable id being dragged: a card id or a `deck-row:` id.
+  const [activeDragId, setActiveDragId] = React.useState<string | null>(null);
   // The latest preview, read by handlers: several drag-over events can arrive
   // before React commits the state, and each must build on the last.
   const previewRef = React.useRef<Deck[] | null>(null);
@@ -217,10 +293,10 @@ export const DeckCardDragProvider = ({
   React.useEffect(() => {
     decksRef.current = decks;
   }, [decks]);
-  // The card being dragged, for the cancel handler, which runs after the state
+  // The row being dragged, for the cancel handler, which runs after the state
   // is gone. The drop announcement is built before the preview is dropped,
   // because the live region reads it after this handler returns.
-  const activeCardIdRef = React.useRef<string | null>(null);
+  const activeDragIdRef = React.useRef<string | null>(null);
   const dropAnnouncementRef = React.useRef<string | null>(null);
   // The last drop target that would really move the card, in committed-deck
   // coordinates. A cross-deck preview re-parents the active card, after which
@@ -241,9 +317,9 @@ export const DeckCardDragProvider = ({
   // with this one for the same touch gesture.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    // Arrows move to the next droppable in that direction - across deck
-    // containers too, because there is one context for the whole outline.
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    // Arrows move to the next droppable of the dragged item's own kind, in that
+    // direction: a card walks cards and deck headers, a deck walks deck rows.
+    useSensor(KeyboardSensor, { coordinateGetter: kindAwareCoordinates }),
   );
 
   const reset = React.useCallback(() => {
@@ -252,18 +328,19 @@ export const DeckCardDragProvider = ({
     lastMoveRef.current = null;
     hoverRef.current = null;
     pointerOutsideRef.current = false;
-    activeCardIdRef.current = null;
+    activeDragIdRef.current = null;
     setPreviewDecks(null);
-    setActiveCardId(null);
+    setActiveDragId(null);
   }, []);
 
-  // Focus follows the card after a commit or a cancel. The card is re-rendered
-  // (possibly in another deck), so the old activator node is gone: look the new
-  // row up by its data attribute and wait for React to have rendered it.
-  const focusCardHandle = React.useCallback((cardId: string) => {
+  // Focus follows the row after a commit or a cancel. A moved card is rendered
+  // again (possibly in another deck) and a reordered deck row moves, so the old
+  // activator node is gone: look the new row up by its data attribute and wait
+  // for React to have rendered it.
+  const focusDragHandle = React.useCallback((dragId: string) => {
     const attempt = (remaining: number) => {
       const row = Array.from(document.querySelectorAll<HTMLElement>('[data-dnd-id]'))
-        .find((element) => element.dataset.dndId === cardId);
+        .find((element) => element.dataset.dndId === dragId);
       const handle = row?.querySelector<HTMLElement>('[data-drag-handle]');
       if (handle) {
         handle.focus();
@@ -287,13 +364,13 @@ export const DeckCardDragProvider = ({
   // handled is all the modal checks. preventDefault only: the event still has
   // to reach dnd-kit, which cancels the drag and announces it.
   React.useEffect(() => {
-    if (!activeCardId) { return undefined; }
+    if (!activeDragId) { return undefined; }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); }
     };
     document.addEventListener('keydown', onKeyDown, true);
     return () => document.removeEventListener('keydown', onKeyDown, true);
-  }, [activeCardId]);
+  }, [activeDragId]);
 
   // dnd-kit's closestCorners always answers with the nearest droppable, however
   // far away it is, so a pointer released off the deck list would still commit
@@ -310,35 +387,57 @@ export const DeckCardDragProvider = ({
       }
     }
     pointerOutsideRef.current = false;
-    return closestCorners(args);
+    // A deck drag only ever lands on a deck row, a card drag never does: the
+    // two id spaces share one context, so the nearest droppable of the wrong
+    // kind is not a target at all.
+    return closestCorners({
+      ...args,
+      droppableContainers: args.droppableContainers.filter(
+        (container) => isDeckRowId(String(container.id)) === isDeckRowId(String(args.active.id)),
+      ),
+    });
   }, []);
 
-  const handleDragStart = ({ active }: DragStartEvent) => {
-    const cardId = String(active.id);
-    const card = findCard(decks, cardId);
-    if (!card) { return; }
+  /** What every drag writes before it moves: the row being dragged, nothing else. */
+  const beginDrag = (dragId: string) => {
     dropAnnouncementRef.current = null;
-    activeCardIdRef.current = cardId;
+    activeDragIdRef.current = dragId;
     lastMoveRef.current = null;
     hoverRef.current = null;
+    setActiveDragId(dragId);
+  };
+
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    const dragId = String(active.id);
+    if (isDeckRowId(dragId)) {
+      // A deck drag writes nothing before the drop: the real row is what moves,
+      // and the order is the caller's to change once.
+      if (decks.some((deck) => deckRowDroppableId(deck.id) === dragId)) { beginDrag(dragId); }
+      return;
+    }
+    const card = findCard(decks, dragId);
+    if (!card) { return; }
+    beginDrag(dragId);
     // An open card would drag as a tall form; collapsed, it is the compact card
     // the author picked up. The caller persists the same collapse, so the drop
     // leaves it closed.
     const startDecks = card.editorOpen
       ? decks.map((deck) => ({
         ...deck,
-        cards: deck.cards.map((entry) => (entry.id === cardId ? { ...entry, editorOpen: false } : entry)),
+        cards: deck.cards.map((entry) => (entry.id === dragId ? { ...entry, editorOpen: false } : entry)),
       }))
       : decks;
     dragStartDecksRef.current = startDecks;
     previewRef.current = startDecks;
     setPreviewDecks(startDecks);
-    setActiveCardId(cardId);
-    if (card.editorOpen) { onCardDragStart(cardId); }
+    if (card.editorOpen) { onCardDragStart(dragId); }
   };
 
   const handleDragOver = ({ active, over, activatorEvent }: DragOverEvent) => {
     if (!over) { return; }
+    // A deck's rows are drawn in committed order and moved by their own
+    // transforms, so there is no preview to build: the drop computes the move.
+    if (isDeckRowId(String(active.id))) { return; }
     const cardId = String(active.id);
     const overId = String(over.id);
     const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
@@ -387,9 +486,37 @@ export const DeckCardDragProvider = ({
   };
 
   const handleDragEnd = ({ active, over, activatorEvent }: DragEndEvent) => {
-    const cardId = String(active.id);
-    const overId = over ? String(over.id) : null;
+    const dragId = String(active.id);
     const keyboardDrag = isKeyboardEvent(activatorEvent);
+    if (isDeckRowId(dragId)) {
+      const deck = decks.find((entry) => deckRowDroppableId(entry.id) === dragId);
+      if (!deck) {
+        reset();
+        return;
+      }
+      // Only a deck row is a destination: the id says so on its own, without
+      // trusting whatever data a droppable happens to carry.
+      const overId = over ? String(over.id) : '';
+      const targetDeckId = isDeckRowId(overId) ? deckIdOfRow(overId) : null;
+      const from = decks.findIndex((entry) => entry.id === deck.id);
+      const to = targetDeckId ? decks.findIndex((entry) => entry.id === targetDeckId) : -1;
+      // A drop on the row the deck already has is no move: the order only
+      // changes when the row lands somewhere else.
+      const deckMove: DeckMove | null = to >= 0 && to !== from ? { deckId: deck.id, toIndex: to } : null;
+      const deckName = deck.name.trim() || intl.formatMessage(messages.dragUnknownDeck);
+      // The live region reads this after this handler returns.
+      dropAnnouncementRef.current = !deckMove && pointerOutsideRef.current
+        ? intl.formatMessage(messages.dragDeckCancelled, { deckName, position: from + 1 })
+        : deckMove
+        ? intl.formatMessage(messages.dragDeckDroppedAtPosition, { deckName, position: deckMove.toIndex + 1 })
+        : intl.formatMessage(messages.dragDeckDroppedNowhere, { deckName });
+      reset();
+      if (deckMove) { onDeckMove(deckMove); }
+      if (keyboardDrag) { focusDragHandle(deckRowDroppableId(deck.id)); }
+      return;
+    }
+    const cardId = dragId;
+    const overId = over ? String(over.id) : null;
     let move: CardMove | null = null;
     if (overId) {
       const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
@@ -430,13 +557,13 @@ export const DeckCardDragProvider = ({
     if (move) { onCardMove(move); }
     // Only a keyboard drag had focus on the handle to begin with; a pointer or
     // touch drop must not move focus (or pop the handle's tooltip).
-    if (keyboardDrag) { focusCardHandle(cardId); }
+    if (keyboardDrag) { focusDragHandle(dragId); }
   };
 
   const handleDragCancel = ({ activatorEvent }: DragCancelEvent) => {
-    const cardId = activeCardIdRef.current;
+    const dragId = activeDragIdRef.current;
     reset();
-    if (cardId && isKeyboardEvent(activatorEvent)) { focusCardHandle(cardId); }
+    if (dragId && isKeyboardEvent(activatorEvent)) { focusDragHandle(dragId); }
   };
 
   // Every announcement uses visible names and positions, never ids: dnd-kit's
@@ -451,6 +578,18 @@ export const DeckCardDragProvider = ({
   const deckNameOf = React.useCallback(
     (cardId: string) => deckLabelOf(cardId, decksRef.current, intl.formatMessage(messages.dragUnknownDeck)),
     [intl],
+  );
+  // A deck row is named by its own deck, not by a card in it, and its position
+  // is its place in the outline: the two things a deck announcement may say.
+  const deckRowName = React.useCallback(
+    (rowId: string) =>
+      decksRef.current.find((deck) => deck.id === deckIdOfRow(rowId))?.name.trim()
+      || intl.formatMessage(messages.dragUnknownDeck),
+    [intl],
+  );
+  const deckRowPosition = React.useCallback(
+    (rowId: string) => decksRef.current.findIndex((deck) => deck.id === deckIdOfRow(rowId)) + 1,
+    [],
   );
   const overMessage = React.useCallback((cardId: string, overId: string | null) => {
     const cardName = cardNameOf(cardId);
@@ -502,36 +641,71 @@ export const DeckCardDragProvider = ({
   }, [intl]);
 
   const announcements = React.useMemo<Announcements>(() => ({
-    onDragStart: ({ active }) =>
-      intl.formatMessage(messages.dragPickedUp, {
-        cardName: cardNameOf(String(active.id)),
-        deckName: deckNameOf(String(active.id)),
-      }),
-    // Hovering the dragged card itself is not a destination: say nothing and
-    // leave the pick-up announcement in place.
-    onDragOver: ({ active, over }) => (
-      over && String(over.id) === String(active.id)
+    onDragStart: ({ active }) => {
+      const dragId = String(active.id);
+      if (isDeckRowId(dragId)) {
+        return intl.formatMessage(messages.dragDeckPickedUp, {
+          deckName: deckRowName(dragId),
+          position: deckRowPosition(dragId),
+        });
+      }
+      return intl.formatMessage(messages.dragPickedUp, {
+        cardName: cardNameOf(dragId),
+        deckName: deckNameOf(dragId),
+      });
+    },
+    onDragOver: ({ active, over }) => {
+      const dragId = String(active.id);
+      if (isDeckRowId(dragId)) {
+        // The dragged row is its own first target, and it is not a destination:
+        // say nothing and leave the pick-up announcement in place.
+        const overId = over ? String(over.id) : '';
+        if (!isDeckRowId(overId) || overId === dragId) { return undefined; }
+        // The hovered row's own place is where the deck lands: no preview moves
+        // the rows, so nothing is measured past a gap.
+        const position = decksRef.current.findIndex((deck) => deck.id === deckIdOfRow(overId)) + 1;
+        if (position < 1) { return undefined; }
+        return intl.formatMessage(messages.dragDeckOverPosition, { deckName: deckRowName(dragId), position });
+      }
+      // Hovering the dragged card itself is not a destination: say nothing and
+      // leave the pick-up announcement in place.
+      return over && String(over.id) === dragId
         ? undefined
-        : overMessage(String(active.id), over ? String(over.id) : null)
-    ),
+        : overMessage(dragId, over ? String(over.id) : null);
+    },
     // Built in handleDragEnd, before the preview is dropped.
-    onDragEnd: ({ active }) =>
-      dropAnnouncementRef.current
-        ?? intl.formatMessage(messages.dragDroppedNowhere, { cardName: cardNameOf(String(active.id)) }),
-    onDragCancel: ({ active }) =>
-      intl.formatMessage(messages.dragCancelled, {
-        cardName: cardNameOf(String(active.id)),
-        deckName: deckNameOf(String(active.id)),
-      }),
-  }), [cardNameOf, deckNameOf, intl, overMessage]);
+    onDragEnd: ({ active }) => {
+      const dragId = String(active.id);
+      if (dropAnnouncementRef.current) { return dropAnnouncementRef.current; }
+      return isDeckRowId(dragId)
+        ? intl.formatMessage(messages.dragDeckDroppedAtPosition, {
+          deckName: deckRowName(dragId),
+          position: deckRowPosition(dragId),
+        })
+        : intl.formatMessage(messages.dragDroppedNowhere, { cardName: cardNameOf(dragId) });
+    },
+    onDragCancel: ({ active }) => {
+      const dragId = String(active.id);
+      if (isDeckRowId(dragId)) {
+        return intl.formatMessage(messages.dragDeckCancelled, {
+          deckName: deckRowName(dragId),
+          position: deckRowPosition(dragId),
+        });
+      }
+      return intl.formatMessage(messages.dragCancelled, {
+        cardName: cardNameOf(dragId),
+        deckName: deckNameOf(dragId),
+      });
+    },
+  }), [cardNameOf, deckNameOf, deckRowName, deckRowPosition, intl, overMessage]);
 
   const screenReaderInstructions = React.useMemo<ScreenReaderInstructions>(() => ({
     draggable: intl.formatMessage(messages.dragScreenReaderInstructions),
   }), [intl]);
 
   const value = React.useMemo<DragPreview>(
-    () => ({ previewDecks: previewDecks ?? decks, activeCardId }),
-    [previewDecks, decks, activeCardId],
+    () => ({ previewDecks: previewDecks ?? decks, activeDragId }),
+    [previewDecks, decks, activeDragId],
   );
 
   return (
@@ -560,9 +734,34 @@ export const DeckCardDragProvider = ({
 };
 
 /**
+ * What a deck row hands its parts: the handle that starts the drag, and the
+ * header element the row's droppable is measured on.
+ */
+type SortableResult = ReturnType<typeof useSortable>;
+
+interface DeckRowDrag {
+  disabled: boolean;
+  /** Attached to the row's header, so a deck aims by its header, not its body. */
+  droppableRef: (node: HTMLElement | null) => void;
+  handleRef: SortableResult['setActivatorNodeRef'];
+  handleAttributes: SortableResult['attributes'];
+  handleListeners: SortableResult['listeners'];
+}
+
+const DeckRowDragContext = React.createContext<DeckRowDrag | null>(null);
+
+/** A ref that ignores its node, for a header no DeckDragRow wraps. */
+const ignoreNode = () => undefined;
+
+/**
  * A deck header as a drop target: the deck's only target when it has no card
  * rows. Hovering a collapsed deck asks the outline to open it; the request is
  * made once per hover so it cannot loop.
+ *
+ * The header also carries the deck row's own droppable box: a row can be far
+ * taller than the viewport once its cards are open, and a droppable that tall
+ * would answer as its own target for the whole gesture, so one modest move
+ * would never reach the deck below. The row still drags as one.
  */
 export const DeckDropTarget = ({
   deckId,
@@ -579,6 +778,10 @@ export const DeckDropTarget = ({
     id: deckDroppableId(deckId),
     data: { kind: 'deck', deckId },
   });
+  // Two droppables over one box: this deck's, for a dropped card, and the
+  // row's, for a dragged deck.
+  const row = React.useContext(DeckRowDragContext);
+  const headerRef = useCombinedRefs<HTMLElement | null>(setNodeRef, row?.droppableRef ?? ignoreNode);
   const requestedRef = React.useRef(false);
 
   React.useEffect(() => {
@@ -593,7 +796,7 @@ export const DeckDropTarget = ({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={headerRef}
       data-dnd-id={deckDroppableId(deckId)}
       className={isOver ? 'deck-outline-drop-active' : undefined}
     >
@@ -615,7 +818,7 @@ export const DeckCardList = ({
   deckId: string;
   renderCard: (deck: Deck, card: Card, index: number) => React.ReactNode;
 }) => {
-  const { previewDecks, activeCardId } = useDeckDragPreview();
+  const { previewDecks, activeDragId } = useDeckDragPreview();
   const deck = previewDecks.find((candidate) => candidate.id === deckId);
   if (!deck) { return null; }
   return (
@@ -629,11 +832,130 @@ export const DeckCardList = ({
           key={card.id}
           data-dnd-id={card.id}
           // The only marker a drag in flight leaves behind, for tests and cleanup.
-          data-dnd-dragging={activeCardId === card.id ? 'true' : undefined}
+          data-dnd-dragging={activeDragId === card.id ? 'true' : undefined}
         >
           {renderCard(deck, card, index)}
         </div>
       ))}
     </SortableContext>
+  );
+};
+
+/**
+ * The deck rows as one sortable list. Each row is the real deck - header and
+ * cards together - so a drag moves the row itself and the rows between its old
+ * and new place shift to make room. Nothing is reordered until the drop.
+ */
+export const DeckDragList = ({
+  deckIds,
+  children,
+}: {
+  deckIds: string[];
+  children: React.ReactNode;
+}) => (
+  <SortableContext items={deckIds.map(deckRowDroppableId)} strategy={verticalListSortingStrategy}>
+    {children}
+  </SortableContext>
+);
+
+/**
+ * One deck row as a sortable item. Its `deck-row:` id and data are its own: the
+ * `deck:` header droppable inside it stays the target that appends a card, so a
+ * card released on a deck keeps meaning what it did. `data-dnd-dragging` marks
+ * the row a drag in flight is moving.
+ */
+export const DeckDragRow = ({
+  deckId,
+  disabled = false,
+  className,
+  children,
+}: {
+  deckId: string;
+  disabled?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) => {
+  const {
+    // The whole row is what moves; its droppable box is the header, inside
+    // DeckDropTarget, so the row's own height never becomes the aim.
+    setDraggableNodeRef,
+    setDroppableNodeRef,
+    setActivatorNodeRef,
+    listeners,
+    attributes,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: deckRowDroppableId(deckId),
+    data: { kind: 'deck-row', deckId },
+    // The caller redraws the list in its new order on the drop; animating that
+    // change on top of the row's own movement would show it twice.
+    animateLayoutChanges: () => false,
+    disabled: { draggable: disabled },
+  });
+  const value = React.useMemo<DeckRowDrag>(() => ({
+    disabled,
+    droppableRef: setDroppableNodeRef,
+    handleRef: setActivatorNodeRef,
+    handleAttributes: attributes,
+    handleListeners: disabled ? undefined : listeners,
+  }), [disabled, setDroppableNodeRef, setActivatorNodeRef, attributes, listeners]);
+
+  return (
+    <DeckRowDragContext.Provider value={value}>
+      <div
+        ref={setDraggableNodeRef}
+        className={className}
+        data-dnd-id={deckRowDroppableId(deckId)}
+        data-dnd-dragging={isDragging ? 'true' : undefined}
+        style={{
+          transform: CSS.Translate.toString(transform),
+          transition,
+          zIndex: isDragging ? 200 : undefined,
+          position: isDragging ? 'relative' : undefined,
+        }}
+      >
+        {children}
+      </div>
+    </DeckRowDragContext.Provider>
+  );
+};
+
+/**
+ * The handle a deck row is dragged by, and the only part of the row that starts
+ * a drag: Space typed in the deck's name is a space. It is named after the deck,
+ * or after the deck's position while the name is empty.
+ */
+export const DeckDragHandle = ({ deckName, position }: { deckName: string; position: number; }) => {
+  const intl = useIntl();
+  const row = React.useContext(DeckRowDragContext);
+  if (!row) { return null; }
+  const label = deckName.trim()
+    ? intl.formatMessage(messages.dragDeckHandleLabel, { deckName })
+    : intl.formatMessage(messages.dragDeckHandleLabelNoName, { position });
+
+  // The tooltip wraps the button rather than being built into it: the activator
+  // node has to be the button itself, which only a forwarded ref can reach.
+  return (
+    <OverlayTrigger
+      placement="top"
+      overlay={<Tooltip id={'deck-drag-handle-' + position}>{label}</Tooltip>}
+    >
+      <IconButton
+        ref={row.handleRef}
+        src={DragIndicator}
+        iconAs={Icon}
+        variant="light"
+        alt={label}
+        disabled={row.disabled}
+        // Only the handle refuses touch scrolling, so a pointer drag on a touch
+        // screen is not cancelled by the browser's scroll gesture.
+        style={{ touchAction: 'none' }}
+        data-drag-handle="true"
+        {...row.handleAttributes}
+        {...row.handleListeners}
+      />
+    </OverlayTrigger>
   );
 };

@@ -169,6 +169,12 @@ describe('GamesEditor decks', () => {
     const rects = Object.fromEntries(
       ids.map((id, index) => [id, [index * 60, index * 60 + 40] as StubbedRect]),
     );
+    // A collapsed deck row is exactly its header: the row's draggable box and the
+    // row droppable are one box here, as they are in the real outline.
+    ids.filter((id) => id.startsWith('deck-row:')).forEach((id) => {
+      const header = rects['deck:' + id.slice('deck-row:'.length)];
+      if (header) { rects[id] = header; }
+    });
     restoreRects = stubRects(rects);
   };
   const rowOf = (deckName: string) => screen.getByDisplayValue(deckName).closest('.deck-outline-row') as HTMLElement;
@@ -311,8 +317,14 @@ describe('GamesEditor decks', () => {
   };
   /** One item of the card menu that is open. */
   const cardMenuItem = (label: 'Move up' | 'Move down') => screen.findByText(label);
-  /** The cards of one deck row, in the order the row draws them. */
-  const cardHandlesIn = (deckName: string) => within(rowOf(deckName)).queryAllByRole('button', { name: /^Reorder / });
+  /**
+   * The cards of one deck row, in the order the row draws them. The deck's own
+   * handle is in the row too, but it is not inside a card.
+   */
+  const cardHandlesIn = (deckName: string) =>
+    within(rowOf(deckName))
+      .queryAllByRole('button', { name: /^Reorder / })
+      .filter((handle) => handle.closest('.card') != null);
   const savedTerms = (payload: { decks: { cards: { term: string; }[]; }[]; }) =>
     payload.decks.map((deck) => deck.cards.map((card) => card.term));
 
@@ -450,6 +462,81 @@ describe('GamesEditor decks', () => {
     ]);
     // The legacy mirror is the primary deck, which the drag emptied.
     expect(payload.cards).toEqual([]);
+  });
+
+  // A deck reorder is the stored order: the deck moved first becomes the block's
+  // primary deck, and the legacy `cards` field mirrors it.
+  it('reorders the decks with the keyboard and saves the new primary deck first', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByRole('button', { name: 'Reorder Deck 2' });
+
+    stubRenderedRects();
+    screen.getByRole('button', { name: 'Reorder Deck 2' }).focus();
+    await user.keyboard(' ');
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Picked up Deck 2 at position 2 of the deck list.')
+    );
+    await settleSensor();
+
+    await user.keyboard('{ArrowUp}');
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Deck 2 moved over position 1 of the deck list.')
+    );
+
+    // Enter drops as well as Space.
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Dropped Deck 2 at position 1 of the deck list.')
+    );
+    // Focus follows the deck to the row it landed in.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reorder Deck 2' })).toHaveFocus());
+
+    // The rows are drawn in the order the author left them in.
+    const names = screen.getAllByDisplayValue(/^Deck [12]$/).map((input) => (input as HTMLInputElement).value);
+    expect(names).toEqual(['Deck 2', 'Deck 1']);
+
+    await user.click(saveButton());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+
+    const payload = savedPayload();
+    expect(payload.decks.map((deck: { name: string; }) => deck.name)).toEqual(['Deck 2', 'Deck 1']);
+    expect(payload.decks.map((deck: { deck_key?: string; }) => deck.deck_key)).toEqual(['dk-2', 'dk-1']);
+    // Saved order is authoritative: the deck moved first is the primary one, and
+    // the block's legacy cards field copies it.
+    expect(payload.cards).toEqual(payload.decks[0].cards);
+    expect(payload.cards.map((card: { term: string; }) => card.term)).toEqual(['Two']);
+  });
+
+  // Escape a deck drag: nothing reached the store either, so leaving the editor
+  // asks nothing and no request goes out.
+  it('cancels a keyboard deck drag without dirtying the editor', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByRole('button', { name: 'Reorder Deck 2' });
+
+    stubRenderedRects();
+    screen.getByRole('button', { name: 'Reorder Deck 2' }).focus();
+    await user.keyboard(' ');
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Picked up Deck 2 at position 2 of the deck list.')
+    );
+    await settleSensor();
+
+    await user.keyboard('{ArrowUp}');
+    await waitFor(() =>
+      expect(screen.getByRole('status')).toHaveTextContent('Deck 2 moved over position 1 of the deck list.')
+    );
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Drag cancelled.'));
+
+    // The stored order is untouched, so leaving is not "discarding changes".
+    expect(screen.getAllByDisplayValue(/^Deck [12]$/).map((input) => (input as HTMLInputElement).value))
+      .toEqual(['Deck 1', 'Deck 2']);
+    await user.click(screen.getByRole('button', { name: 'Discard changes and return to learning context' }));
+    expect(screen.queryByText('Exit the editor?')).not.toBeInTheDocument();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(savePosts(axiosMock)).toHaveLength(0);
   });
 
   // Escape after the preview: nothing reached the store, so closing the editor

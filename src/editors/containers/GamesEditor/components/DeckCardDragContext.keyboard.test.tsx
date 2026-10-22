@@ -15,8 +15,12 @@ import { stubRects, type StubbedRect } from '../testUtils/stubRects';
 import {
   DeckCardDragProvider,
   DeckCardList,
+  DeckDragHandle,
+  DeckDragList,
+  DeckDragRow,
   DeckDropTarget,
   type CardMove,
+  type DeckMove,
 } from './DeckCardDragContext';
 
 // The real sensors run here: no DndContext, useDroppable or coordinate-getter
@@ -31,15 +35,28 @@ const applyMove = (decks: Deck[], move: CardMove): Deck[] => {
   return moveCard(state, move.cardId, { deckId: move.toDeckId, index: move.toIndex }).decks;
 };
 
+/** The caller's half of a deck reorder: the stored order is what was dropped. */
+const applyDeckMove = (decks: Deck[], move: DeckMove): Deck[] => {
+  const from = decks.findIndex((entry) => entry.id === move.deckId);
+  if (from < 0) { return decks; }
+  const next = [...decks];
+  const [moved] = next.splice(from, 1);
+  next.splice(move.toIndex, 0, moved);
+  return next;
+};
+
 const Harness = ({
   initialDecks,
   initiallyOpen,
   onCommit,
+  onDeckCommit,
 }: {
   initialDecks: Deck[];
   initiallyOpen: string[];
-  /** Counts the moves the provider reports, on top of applying them. */
+  /** Counts the card moves the provider reports, on top of applying them. */
   onCommit?: (move: CardMove) => void;
+  /** Counts the deck reorders the provider reports, on top of applying them. */
+  onDeckCommit?: (move: DeckMove) => void;
 }) => {
   const [decks, setDecks] = React.useState(initialDecks);
   const [openDeckIds, setOpenDeckIds] = React.useState<ReadonlySet<string>>(() => new Set(initiallyOpen));
@@ -47,6 +64,10 @@ const Harness = ({
     onCommit?.(move);
     setDecks((current) => applyMove(current, move));
   }, [onCommit]);
+  const onDeckMove = React.useCallback((move: DeckMove) => {
+    onDeckCommit?.(move);
+    setDecks((current) => applyDeckMove(current, move));
+  }, [onDeckCommit]);
   const openDeck = React.useCallback((deckId: string) => {
     setOpenDeckIds((previous) => new Set(previous).add(deckId));
   }, []);
@@ -59,30 +80,34 @@ const Harness = ({
       <DeckCardDragProvider
         decks={decks}
         onCardMove={onCardMove}
+        onDeckMove={onDeckMove}
         // These tests are about the drag layer, not the state it reports to.
         onCardDragStart={() => undefined}
       >
-        {decks.map((entry) => (
-          <section key={entry.id}>
-            <DeckDropTarget
-              deckId={entry.id}
-              isExpanded={openDeckIds.has(entry.id)}
-              onRequestExpand={() => openDeck(entry.id)}
-            >
-              <h3>{entry.name}</h3>
-            </DeckDropTarget>
-            {openDeckIds.has(entry.id) && (
-              <DeckCardList
+        <DeckDragList deckIds={decks.map((entry) => entry.id)}>
+          {decks.map((entry, index) => (
+            <DeckDragRow key={entry.id} deckId={entry.id}>
+              <DeckDragHandle deckName={entry.name} position={index + 1} />
+              <DeckDropTarget
                 deckId={entry.id}
-                renderCard={(_, item) => (
-                  <SortableItem id={item.id} actions={null}>
-                    <span>{item.term}</span>
-                  </SortableItem>
-                )}
-              />
-            )}
-          </section>
-        ))}
+                isExpanded={openDeckIds.has(entry.id)}
+                onRequestExpand={() => openDeck(entry.id)}
+              >
+                <h3>{entry.name}</h3>
+              </DeckDropTarget>
+              {openDeckIds.has(entry.id) && (
+                <DeckCardList
+                  deckId={entry.id}
+                  renderCard={(_, item) => (
+                    <SortableItem id={item.id} actions={null}>
+                      <span>{item.term}</span>
+                    </SortableItem>
+                  )}
+                />
+              )}
+            </DeckDragRow>
+          ))}
+        </DeckDragList>
       </DeckCardDragProvider>
     </>
   );
@@ -107,6 +132,9 @@ const row = (id: string): HTMLElement => {
 
 const dragHandle = (cardId: string): HTMLElement =>
   within(row(cardId)).getByRole('button', { name: 'Drag to reorder' });
+
+/** A deck row's own handle, named after the deck. */
+const deckDragHandle = (deckName: string): HTMLElement => screen.getByRole('button', { name: 'Reorder ' + deckName });
 
 const startDrag = async (user: ReturnType<typeof userEvent.setup>, cardId: string, key = ' ') => {
   dragHandle(cardId).focus();
@@ -200,7 +228,7 @@ describe('DeckCardDragContext keyboard dragging', () => {
     expect(liveRegion()).not.toHaveTextContent(/\bc1\b|\bd1\b|\bd2\b/);
 
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
-    expect(row('c1').closest('section')).toHaveTextContent('Genetics');
+    expect(row('c1').closest('[data-dnd-id="deck-row:d2"]')).toHaveTextContent('Genetics');
   });
 
   // The header appends, so the second row is how a middle position is reached.
@@ -400,6 +428,192 @@ describe('DeckCardDragContext pointer dragging', () => {
     expect(onCommit).not.toHaveBeenCalled();
 
     // Let go of a button the cancelled sensor no longer listens for.
+    await user.pointer({ keys: '[/MouseLeft]' });
+  });
+});
+
+// Two decks, one list: the rows are the decks themselves, so a reorder moves the
+// real row and the stored order is what was dropped.
+/**
+ * A deck row's two boxes live on different elements: the wrapper is what moves,
+ * while the row's droppable - and a card's deck target - is the header inside
+ * it. The wrapper contains its header and cards, as the real row does; only
+ * the heights are short.
+ */
+const deckRects = (withCards: boolean): Record<string, StubbedRect> => ({
+  'deck-row:d1': [0, withCards ? 200 : 40],
+  'deck:d1': [0, 40],
+  ...(withCards ? { c1: [60, 100] } : {}),
+  'deck-row:d2': [withCards ? 220 : 60, withCards ? 420 : 100],
+  'deck:d2': [withCards ? 220 : 60, withCards ? 260 : 100],
+  ...(withCards ? { c2: [280, 320] } : {}),
+});
+
+const deckDragDecks = () => [
+  deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
+  deck('d2', 'Genetics', [card('c2', 'Allele')]),
+];
+
+describe('DeckCardDragContext deck dragging', () => {
+  beforeEach(() => {
+    initializeMocks();
+    restoreRects = undefined;
+  });
+
+  afterEach(() => {
+    restoreRects?.();
+  });
+
+  it('reorders the decks with the keyboard and focuses the moved handle', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
+
+    // Enter starts a drag as well as Space.
+    deckDragHandle('Cell Biology').focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
+
+    // Arrows walk deck rows only: no card row is ever a step.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Cell Biology moved over position 2 of the deck list.'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d2:c2 | d1:c1'));
+    expect(onDeckCommit).toHaveBeenCalledTimes(1);
+    expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
+    expect(liveRegion()).toHaveTextContent('Dropped Cell Biology at position 2 of the deck list.');
+    // Names and positions only: no deck or card ids reach a screen reader.
+    expect(liveRegion()).not.toHaveTextContent(/\bd1\b|\bd2\b|c1|c2/);
+    await waitFor(() => expect(deckDragHandle('Cell Biology')).toHaveFocus());
+  });
+
+  // Only the handle starts a deck drag: a press on the row itself, name and
+  // cards included, leaves the order alone.
+  it('does not start a deck drag from the row itself', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
+
+    await user.pointer([
+      { target: screen.getByText('Cell Biology'), keys: '[MouseLeft>]' },
+      { target: screen.getByText('Cell Biology'), coords: { x: 400, y: 200 } },
+    ]);
+    expect(liveRegion()).not.toHaveTextContent('Picked up');
+    await user.pointer({ keys: '[/MouseLeft]' });
+
+    expect(onDeckCommit).not.toHaveBeenCalled();
+    expect(committed()).toEqual('d1:c1 | d2:c2');
+  });
+
+  it('reorders the decks with the pointer, from the handle', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
+
+    const handle = deckDragHandle('Cell Biology');
+    // Press on the handle and move past the sensor's 8px activation distance: the
+    // first move only picks the row up.
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 100 } },
+    ]);
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
+
+    // The next move carries the real row onto the second one.
+    await user.pointer([{ target: handle, coords: { x: 400, y: 200 } }]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Cell Biology moved over position 2 of the deck list.'));
+    // The real row is what travels, not a copy: it is marked and translated.
+    expect(row('deck-row:d1')).toHaveAttribute('data-dnd-dragging', 'true');
+    expect(row('deck-row:d1').style.transform).toContain('translate3d(');
+
+    await user.pointer([{ keys: '[/MouseLeft]' }]);
+
+    await waitFor(() => expect(committed()).toEqual('d2:c2 | d1:c1'));
+    expect(onDeckCommit).toHaveBeenCalledTimes(1);
+    expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
+  });
+
+  // A deck with its cards open is a tall row - far taller than the gap it moves
+  // to. It is aimed by its header, so one modest drag reaches the deck below,
+  // instead of having to drag past the row's own height.
+  it('reorders an expanded deck with a modest pointer move and keeps it open', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    // Deck 1 open: its row is 300px tall, its header and cards inside it.
+    useRects({
+      'deck-row:d1': [0, 300],
+      'deck:d1': [10, 50],
+      c1: [70, 110],
+      c2: [130, 170],
+      'deck-row:d2': [320, 620],
+      'deck:d2': [330, 370],
+    });
+    render(
+      <Harness
+        initialDecks={[
+          deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')]),
+          deck('d2', 'Genetics', []),
+        ]}
+        initiallyOpen={['d1', 'd2']}
+        onDeckCommit={onDeckCommit}
+      />,
+    );
+    expect(screen.getByText('Mitochondrion')).toBeInTheDocument();
+
+    const handle = deckDragHandle('Cell Biology');
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 100 } },
+    ]);
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
+
+    // The header is 50px tall inside a 300px row: 130px of travel is well inside
+    // the row, and already over Genetics.
+    await user.pointer([{ target: handle, coords: { x: 400, y: 160 } }]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Cell Biology moved over position 2 of the deck list.'));
+
+    await user.pointer({ keys: '[/MouseLeft]' });
+
+    await waitFor(() => expect(committed()).toEqual('d2: | d1:c1,c2'));
+    expect(onDeckCommit).toHaveBeenCalledTimes(1);
+    expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
+    // The row moved open: its cards are still its cards, still on screen.
+    expect(screen.getByText('Mitochondrion')).toBeInTheDocument();
+    expect(screen.getByText('Ribosome')).toBeInTheDocument();
+  });
+
+  it('cancels a pointer deck drag with Escape, leaving the order alone', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
+
+    const handle = deckDragHandle('Cell Biology');
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 200 } },
+    ]);
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Drag cancelled. Cell Biology stayed at position 1 of the deck list.')
+    );
+    expect(committed()).toEqual('d1:c1 | d2:c2');
+    expect(onDeckCommit).not.toHaveBeenCalled();
     await user.pointer({ keys: '[/MouseLeft]' });
   });
 });

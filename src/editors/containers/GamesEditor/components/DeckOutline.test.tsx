@@ -68,6 +68,49 @@ describe('DeckOutline', () => {
     initializeMocks();
   });
 
+  // Each row drags by its own handle, named after the deck so several rows are
+  // distinguishable, and the handle sits in the header before the toggle.
+  it('names every deck drag handle after its deck', () => {
+    renderOutline();
+
+    expect(screen.getByRole('button', { name: 'Reorder Deck 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder Deck 2' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder Ecology' })).toBeInTheDocument();
+  });
+
+  // A blank name has nothing to be read as: the handle names the row's position.
+  it('names the handle of a deck with no name by its position', () => {
+    renderOutline({
+      deckList: [
+        { id: 'deck-1', name: '   ', cardCount: 0 },
+        { id: 'deck-2', name: 'Deck 2', cardCount: 0 },
+      ],
+    });
+
+    expect(screen.getByRole('button', { name: 'Reorder deck 1' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reorder Deck 2' })).toBeInTheDocument();
+  });
+
+  // One deck has no order to change, so its handle is there but inert.
+  it('disables the drag handle when there is only one deck', () => {
+    renderOutline({ deckList: [decks[0]] });
+
+    expect(screen.getByRole('button', { name: 'Reorder Deck 1' })).toBeDisabled();
+  });
+
+  // A save in flight is a disabled fieldset: a reorder typed now could not be
+  // carried, so the handles are inert for the wait.
+  it('locks the drag handles while a save is in flight', () => {
+    const { rerender } = renderOutline();
+    expect(screen.getByRole('button', { name: 'Reorder Deck 1' })).toBeEnabled();
+
+    rerender(true);
+    expect(screen.getByRole('button', { name: 'Reorder Deck 1' })).toBeDisabled();
+
+    rerender(false);
+    expect(screen.getByRole('button', { name: 'Reorder Deck 1' })).toBeEnabled();
+  });
+
   // Every deck starts collapsed, the active one included: the outline is a list
   // to scan. Rows are independent, not an accordion.
   it('starts with every deck collapsed and opens rows independently', async () => {

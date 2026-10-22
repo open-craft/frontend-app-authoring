@@ -255,6 +255,35 @@ export const deleteDeck = (state: GameState, deckId: string): GameState => {
 };
 
 /**
+ * Moves a deck to `toIndex`, a position in the final list: [A, B, C] moving A
+ * to 1 is [B, A, C], to 2 is [B, C, A]. The index is a whole number in the list
+ * - a fraction is truncated - and clamped to it, so a caller may pass any slot
+ * it drew.
+ *
+ * The deck object itself moves, so its `deck_key`, name and every card travel
+ * with it and `activeDeckId` still names the same deck. Deck order is what the
+ * block saves, and the first deck is the primary one whose cards are the legacy
+ * `cards` mirror: moving a deck to 0 changes what that mirror holds.
+ */
+export const moveDeck = (state: GameState, deckId: string, toIndex: number): GameState => {
+  // Not a position: clamping NaN would silently move the deck to the front, and
+  // dirty the state for a move nobody asked for.
+  if (Number.isNaN(toIndex)) { return state; }
+  const fromIndex = state.decks.findIndex((deck) => deck.id === deckId);
+  if (fromIndex < 0) { return state; }
+  // Truncated before the comparison: splice would truncate a fraction anyway,
+  // and a slot that lands back on the deck is no move.
+  const index = Math.max(0, Math.min(Math.trunc(toIndex), state.decks.length - 1));
+  // The one same-position check, after clamping: a slot that lands back on the
+  // deck is no move, and must not dirty the state.
+  if (index === fromIndex) { return state; }
+  const decks = [...state.decks];
+  const [deck] = decks.splice(fromIndex, 1);
+  decks.splice(index, 0, deck);
+  return { ...withDecks(state, decks), isDirty: true };
+};
+
+/**
  * A card the author has not filled in yet: an explicit blank draft from addCard.
  * A blank card the block already keyed is authored content and is never dropped.
  * The one rule: a save drops these, moveCard refuses to move one, and the drag
