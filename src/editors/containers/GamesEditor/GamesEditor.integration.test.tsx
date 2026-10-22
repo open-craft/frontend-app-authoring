@@ -511,6 +511,10 @@ describe('GamesEditor decks', () => {
     expect(screen.getByText('Every deck needs a name and no two decks can share one.')).toBeInTheDocument();
     expect(savePosts(axiosMock)).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
+
+    // The blocked save hands the caret to the first invalid name: the rows are
+    // open, so the author lands where the repair starts.
+    await waitFor(() => expect(screen.getByDisplayValue('Deck 1')).toHaveFocus());
   });
 
   // Deck controls belong to Flashcards. Matching renders one flat list, so a

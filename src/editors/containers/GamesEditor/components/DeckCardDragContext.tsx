@@ -10,6 +10,7 @@ import {
   useSensor,
   useSensors,
   type Announcements,
+  type CollisionDetection,
   type DragCancelEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -54,6 +55,17 @@ export interface CardMove {
 }
 
 const DECK_ID_PREFIX = 'deck:';
+
+/** True when the point sits inside the rectangle, its own edges included. */
+const isPointWithin = (
+  point: { x: number; y: number; },
+  rect: { top: number; right: number; bottom: number; left: number; },
+) => (
+  point.x >= rect.left
+  && point.x <= rect.right
+  && point.y >= rect.top
+  && point.y <= rect.bottom
+);
 
 /** Namespaced so a deck droppable id can never be a card id. */
 const deckDroppableId = (deckId: string) => DECK_ID_PREFIX + deckId;
@@ -220,6 +232,9 @@ export const DeckCardDragProvider = ({
   // already holds the card, so the hovered row's own index is a position past
   // the gap: the announcement has to come from the drop, not from the row.
   const hoverRef = React.useRef<{ overId: string; position: number; } | null>(null);
+  // Set by the collision gate below: the pointer left the deck list, so the
+  // release is a cancellation rather than a drop with nothing to do.
+  const pointerOutsideRef = React.useRef(false);
 
   // Pointer events cover mouse, pen and touch; a small distance keeps a click
   // on the handle from starting a drag. A separate TouchSensor would compete
@@ -236,6 +251,7 @@ export const DeckCardDragProvider = ({
     dragStartDecksRef.current = null;
     lastMoveRef.current = null;
     hoverRef.current = null;
+    pointerOutsideRef.current = false;
     activeCardIdRef.current = null;
     setPreviewDecks(null);
     setActiveCardId(null);
@@ -262,6 +278,39 @@ export const DeckCardDragProvider = ({
       document.querySelector<HTMLElement>('[data-deck-outline]')?.focus();
     };
     requestAnimationFrame(() => attempt(2));
+  }, []);
+
+  // Escape belongs to the drag while one is active. The editor's modal also
+  // listens for Escape on the document and would close the whole editor,
+  // whichever order the two listeners were registered in. A capture listener
+  // runs before every bubble listener on the document, and marking the event
+  // handled is all the modal checks. preventDefault only: the event still has
+  // to reach dnd-kit, which cancels the drag and announces it.
+  React.useEffect(() => {
+    if (!activeCardId) { return undefined; }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [activeCardId]);
+
+  // dnd-kit's closestCorners always answers with the nearest droppable, however
+  // far away it is, so a pointer released off the deck list would still commit
+  // a move. Only the pointer is gated: a keyboard drag has no pointer
+  // coordinates, and every hover inside the list is left to closestCorners, so
+  // hovering a deck header keeps behaving exactly as it did.
+  const detectCollision = React.useCallback<CollisionDetection>((args) => {
+    const pointer = args.pointerCoordinates;
+    if (pointer) {
+      const outline = document.querySelector<HTMLElement>('[data-deck-outline]');
+      if (outline && !isPointWithin(pointer, outline.getBoundingClientRect())) {
+        pointerOutsideRef.current = true;
+        return [];
+      }
+    }
+    pointerOutsideRef.current = false;
+    return closestCorners(args);
   }, []);
 
   const handleDragStart = ({ active }: DragStartEvent) => {
@@ -368,7 +417,14 @@ export const DeckCardDragProvider = ({
     // The live region reads this after this handler returns, so name the drop
     // while the preview is still here.
     const landing = move ? moveResult(decks, cardId, { deckId: move.toDeckId, index: move.toIndex }).index : -1;
-    dropAnnouncementRef.current = dropMessage(cardNameOf(cardId), move, landing, previewRef.current ?? decks);
+    // A pointer that left the deck list cancels: say what a cancel says, not
+    // what a drop that found nothing to do says.
+    dropAnnouncementRef.current = !move && pointerOutsideRef.current
+      ? intl.formatMessage(messages.dragCancelled, {
+        cardName: cardNameOf(cardId),
+        deckName: deckLabelOf(cardId, decksRef.current, intl.formatMessage(messages.dragUnknownDeck)),
+      })
+      : dropMessage(cardNameOf(cardId), move, landing, previewRef.current ?? decks);
     // A null/outside over cancels: nothing to commit.
     reset();
     if (move) { onCardMove(move); }
@@ -483,7 +539,7 @@ export const DeckCardDragProvider = ({
       <DndContext
         sensors={sensors}
         // The rows and headers are the only droppables, so stock corners works.
-        collisionDetection={closestCorners}
+        collisionDetection={detectCollision}
         modifiers={[restrictToVerticalAxis]}
         // A collapsed deck expanded mid-drag must be measured for arrows and
         // for the pointer to reach its rows.

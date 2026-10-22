@@ -147,7 +147,12 @@ const GameCard = ({
         // Paragon's .card supplies the themed background.
         className="card d-flex flex-column align-items-start align-self-stretch w-100 position-relative"
         open={card.editorOpen}
-        onToggle={onToggle}
+        // The heading trigger is a div, so the save's disabled fieldset cannot
+        // reach it: while a save is out a toggle from it is ignored, and the
+        // trigger reports that with aria-disabled.
+        onToggle={(isOpen: boolean) => {
+          if (!isSaving) { onToggle(isOpen); }
+        }}
       >
         <input
           type="file"
@@ -166,7 +171,12 @@ const GameCard = ({
           accept={acceptedImages}
         />
         <Stack direction="horizontal" gap={2.5} className="w-100 pr-4 align-items-center">
-          <Collapsible.Trigger className="card-heading-wrapper d-flex align-items-center flex-grow-1 py-2.5 pl-4">
+          <Collapsible.Trigger
+            className="card-heading-wrapper d-flex align-items-center flex-grow-1 py-2.5 pl-4"
+            // A div, not a native control: locked by hand while a save is out,
+            // as the image settings trigger is.
+            aria-disabled={isSaving}
+          >
             <Stack direction="horizontal" gap={2.5} className="align-self-stretch w-100 ml-4 align-items-center">
               <div className="card-number d-inline-flex align-items-center justify-content-center mr-2.5 text-primary-500 font-weight-bold">
                 {index + 1}

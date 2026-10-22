@@ -477,6 +477,7 @@ const GameEditor = ({
                 nameErrors={deckNameErrors}
                 cardErrorDeckIds={cardErrorDeckIds}
                 focusRequest={deckFocusRequest}
+                isSaving={isSaving}
                 onSelect={selectDeck}
                 onRename={(deckId, name) => renameDeck({ deckId, name })}
                 onDelete={(deckId) => deleteDeck({ deckId })}
@@ -509,6 +510,7 @@ const GameEditor = ({
         updateType={updateType}
         setShuffleStatus={setShuffleStatus}
         setTimerStatus={setTimerStatus}
+        isSaving={isSaving}
       />
     </Stack>
   );

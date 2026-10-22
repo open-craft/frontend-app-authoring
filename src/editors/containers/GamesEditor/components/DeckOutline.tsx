@@ -41,6 +41,8 @@ interface DeckOutlineProps {
    * of the field being typed in.
    */
   focusRequest?: number;
+  /** True while a save is out: the form is a disabled fieldset, where focus() is a no-op. */
+  isSaving?: boolean;
   onSelect: (deckId: string) => void;
   /** Called on every keystroke, with what the author typed. */
   onRename: (deckId: string, name: string) => void;
@@ -68,6 +70,7 @@ const DeckOutline = ({
   nameErrors,
   cardErrorDeckIds = [],
   focusRequest = 0,
+  isSaving = false,
   onSelect,
   onRename,
   onDelete,
@@ -102,6 +105,9 @@ const DeckOutline = ({
   };
 
   const toggleDeck = (deckId: string, isOpen: boolean) => {
+    // The trigger is a role="button" div, so the disabled fieldset never reaches
+    // it; a toggle now would change state the save in flight cannot carry.
+    if (isSaving) { return; }
     setDeckOpen(deckId, isOpen);
     // Working in a deck makes it the active one; the cards below need it.
     if (isOpen) { onSelect(deckId); }
@@ -132,12 +138,15 @@ const DeckOutline = ({
   // A requested focus (a save found bad names) opens every affected row and
   // puts the caret in the first one.
   React.useEffect(() => {
+    // A save in flight wraps the form in a disabled fieldset, where focus() is
+    // swallowed: leave the request unhandled so it lands once the save settles.
+    if (isSaving) { return; }
     if (focusRequest <= handledFocusRequest.current) { return; }
     handledFocusRequest.current = focusRequest;
     if (errorIds.length === 0) { return; }
     setOpenDeckIds((previous) => new Set([...previous, ...errorIds]));
     focusNameInput(errorIds[0]);
-  }, [focusRequest, errorKey]);
+  }, [focusRequest, errorKey, isSaving]);
 
   const cardErrorKey = cardErrorDeckIds.join(' ');
   // A card error inside a collapsed deck would otherwise have no visible cause.
@@ -213,6 +222,7 @@ const DeckOutline = ({
                         )}
                         // The body unmounts when the row closes, so only point at it while it exists.
                         aria-controls={isOpen ? bodyId(deck.id) : undefined}
+                        aria-disabled={isSaving}
                         onKeyDown={(event) => {
                           // Paragon's Trigger only answers Enter; a role="button"
                           // must also toggle on Space.

@@ -24,16 +24,25 @@ let mockHandlers: {
 let mockHoveredDroppableId: string | null = null;
 // The accessibility announcements the provider registered, for the unit-level
 // check that a no-op target says nothing.
-let mockAnnouncements: { onDragOver?: (event: any) => string | undefined; } | undefined;
+let mockAnnouncements: {
+  onDragOver?: (event: any) => string | undefined;
+  onDragEnd?: (event: any) => string | undefined;
+} | undefined;
+// The collision detector the provider registered, so a test can hand it the
+// pointer coordinates the real dnd-kit would.
+let mockCollisionDetection: ((args: any) => any[]) | undefined;
 
 jest.mock('@dnd-kit/core', () => {
   const actual = jest.requireActual('@dnd-kit/core');
   const ReactModule = jest.requireActual('react');
   return {
     ...actual,
-    DndContext: ({ children, onDragStart, onDragOver, onDragEnd, onDragCancel, accessibility }: any) => {
+    DndContext: (
+      { children, onDragStart, onDragOver, onDragEnd, onDragCancel, accessibility, collisionDetection }: any,
+    ) => {
       mockHandlers = { onDragStart, onDragOver, onDragEnd, onDragCancel };
       mockAnnouncements = accessibility?.announcements;
+      mockCollisionDetection = collisionDetection;
       return ReactModule.createElement('div', null, children);
     },
     useDroppable: ({ id }: { id: string; }) => ({
@@ -85,11 +94,21 @@ const dragEnd = (cardId: string, overId: string | null, activatorEvent: Event = 
 const dragCancel = (activatorEvent: Event = pointerEvent()) =>
   act(() => mockHandlers.onDragCancel?.({ activatorEvent }));
 
-/** Let the two animation frames of a focus attempt run. */
+/**
+ * Let the focus attempts run. The retry chain is three animation frames deep, so
+ * waiting on frames rather than a fixed delay keeps a late attempt from landing
+ * in the next test when the machine is loaded.
+ */
 const settle = () =>
   act(async () => {
     await new Promise((resolve) => {
-      setTimeout(resolve, 50);
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() => {
+            setTimeout(resolve, 50);
+          })
+        )
+      );
     });
   });
 
@@ -462,5 +481,127 @@ describe('DeckCardDragContext', () => {
 
     dragEnd(blank.id, 'X');
     expect(onCardMove).not.toHaveBeenCalled();
+  });
+});
+
+// The editor's modal listens for Escape on the document and closes the whole
+// editor. While a drag is active the drag owns that key: the provider marks it
+// handled in the capture phase, so a listener registered earlier - as the
+// modal's is - still sees it handled, whatever order the two registered in.
+describe('Escape while a drag is active', () => {
+  it('marks Escape handled only while a drag is active', () => {
+    renderDrag([deck('d1', ['A']), deck('d2', ['X'])]);
+    const seen: boolean[] = [];
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { seen.push(event.defaultPrevented); }
+    };
+    document.addEventListener('keydown', listener);
+
+    const press = () => {
+      const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
+      document.dispatchEvent(event);
+      return event;
+    };
+
+    expect(press().defaultPrevented).toEqual(false);
+
+    dragStart('A');
+    expect(press().defaultPrevented).toEqual(true);
+
+    dragEnd('A', null);
+    expect(press().defaultPrevented).toEqual(false);
+    expect(seen).toEqual([false, true, false]);
+    document.removeEventListener('keydown', listener);
+  });
+});
+
+// closestCorners has no distance limit, so without a gate a pointer released
+// off the deck list still commits to the nearest row.
+describe('releasing a pointer outside the deck list', () => {
+  const outlineRect = {
+    top: 0,
+    right: 300,
+    bottom: 100,
+    left: 0,
+    x: 0,
+    y: 0,
+    width: 300,
+    height: 100,
+    toJSON: () => ({}),
+  } as DOMRect;
+
+  // The gate measures the deck list, which the outline itself renders.
+  const Outline = () => {
+    const ref = React.useRef<HTMLElement>(null);
+    React.useEffect(() => {
+      if (ref.current) { ref.current.getBoundingClientRect = () => outlineRect; }
+    }, []);
+    return <section ref={ref} data-deck-outline="true" />;
+  };
+
+  const collisionArgs = (pointerCoordinates: { x: number; y: number; } | null) => ({
+    active: { id: 'A' },
+    collisionRect: outlineRect,
+    droppableRects: new Map([['deck:d2', outlineRect]]),
+    droppableContainers: [{ id: 'deck:d2' }],
+    pointerCoordinates,
+  });
+
+  it('answers with no target outside the list, and leaves a keyboard drag alone', () => {
+    renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+
+    expect(mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }))).toEqual([]);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 50 })))
+      .toEqual([expect.objectContaining({ id: 'deck:d2' })]);
+    // No pointer coordinates: the nearest droppable still wins, as it always did.
+    expect(mockCollisionDetection?.(collisionArgs(null)))
+      .toEqual([expect.objectContaining({ id: 'deck:d2' })]);
+  });
+
+  // The outline's own rect is the whole gate, with no margin: its edges are
+  // inside, and a point past one is not. A release just off the list - ten
+  // pixels, well inside the old slop - cancels.
+  it('counts the exact edges as inside and a point past them as outside', () => {
+    renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+    const inside = [expect.objectContaining({ id: 'deck:d2' })];
+
+    expect(mockCollisionDetection?.(collisionArgs({ x: 0, y: 0 }))).toEqual(inside);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 300, y: 100 }))).toEqual(inside);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 301, y: 50 }))).toEqual([]);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 310, y: 50 }))).toEqual([]);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 101 }))).toEqual([]);
+    expect(mockCollisionDetection?.(collisionArgs({ x: -1, y: 50 }))).toEqual([]);
+  });
+
+  // Leaving and coming back is not a cancel: the last collision is the one that
+  // counts, so a drop made after the pointer returns commits and announces the
+  // drop it made.
+  it('commits a drop made after the pointer leaves and comes back', () => {
+    const onCardMove = renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+
+    dragStart('A');
+    expect(mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }))).toEqual([]);
+    // Back inside: the nearest droppable is the target again.
+    expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 50 })))
+      .toEqual([expect.objectContaining({ id: 'deck:d2' })]);
+    dragOver('A', 'deck:d2');
+    dragEnd('A', 'deck:d2');
+
+    expect(onCardMove).toHaveBeenCalledTimes(1);
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
+    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'A' } })).toEqual('Dropped A at the end of d2.');
+  });
+
+  it('announces the release as a cancellation and moves nothing', () => {
+    const onCardMove = renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+
+    dragStart('A');
+    mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }));
+    dragEnd('A', null);
+
+    expect(onCardMove).not.toHaveBeenCalled();
+    expect(preview()).toEqual('d1:A | d2:X');
+    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'A' } }))
+      .toEqual('Drag cancelled. A stayed in d1.');
   });
 });

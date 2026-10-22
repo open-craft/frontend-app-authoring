@@ -337,4 +337,69 @@ describe('DeckCardDragContext keyboard dragging', () => {
     expect(committed()).toEqual('d1:c1,c2');
     await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
   });
+
+  // The editor's modal listens for Escape on the document. A listener that was
+  // registered before dnd-kit's - as the modal's is, on mount - must already
+  // see the event as handled, or it closes the whole editor.
+  it('marks Escape handled before an earlier document listener sees it', async () => {
+    const user = userEvent.setup();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')])];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} />);
+
+    const seen: boolean[] = [];
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { seen.push(event.defaultPrevented); }
+    };
+    document.addEventListener('keydown', listener);
+
+    await startDrag(user, 'c1');
+    await user.keyboard('{Escape}');
+    document.removeEventListener('keydown', listener);
+
+    expect(seen).toEqual([true]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Drag cancelled.'));
+  });
+});
+
+// The Escape listener is the provider's, not the keyboard sensor's: a pointer
+// drag started by the real PointerSensor has to cancel on it too, or the
+// editor's modal closes over a drag still in flight. jsdom has no PointerEvent
+// of its own, but user-event supplies one and stubRects the layout, so the
+// sensor runs for real rather than through a mock.
+describe('DeckCardDragContext pointer dragging', () => {
+  beforeEach(() => {
+    initializeMocks();
+    restoreRects = undefined;
+  });
+
+  afterEach(() => {
+    restoreRects?.();
+  });
+
+  it('cancels a pointer drag with Escape, leaving the deck unchanged', async () => {
+    const user = userEvent.setup();
+    const onCommit = jest.fn();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')])];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], c2: [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} onCommit={onCommit} />);
+
+    const handle = dragHandle('c1');
+    // Press on the handle, then move past the sensor's 8px activation distance.
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 95 } },
+    ]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Picked up Mitochondrion in Cell Biology.'));
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Drag cancelled.'));
+    expect(liveRegion()).toHaveTextContent('Mitochondrion stayed in Cell Biology');
+    expect(committed()).toEqual('d1:c1,c2');
+    expect(onCommit).not.toHaveBeenCalled();
+
+    // Let go of a button the cancelled sensor no longer listens for.
+    await user.pointer({ keys: '[/MouseLeft]' });
+  });
 });

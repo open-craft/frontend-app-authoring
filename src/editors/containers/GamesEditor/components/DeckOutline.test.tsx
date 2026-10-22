@@ -21,6 +21,7 @@ const renderOutline = ({
   nameErrors = {},
   cardErrorDeckIds = [],
   focusRequest = 0,
+  isSaving = false,
   onAdd = jest.fn(),
 }: {
   deckList?: DeckOutlineSummary[];
@@ -28,26 +29,36 @@ const renderOutline = ({
   nameErrors?: Record<string, 'required' | 'duplicate' | undefined>;
   cardErrorDeckIds?: string[];
   focusRequest?: number;
+  isSaving?: boolean;
   onAdd?: () => void;
 } = {}) => {
   const onSelect = jest.fn();
   const onRename = jest.fn();
   const onDelete = jest.fn();
-  render(
+  const outlineElement = (saving: boolean) => (
     <DeckOutline
       decks={deckList}
       activeDeckId={activeDeckId}
       nameErrors={nameErrors}
       cardErrorDeckIds={cardErrorDeckIds}
       focusRequest={focusRequest}
+      isSaving={saving}
       onSelect={onSelect}
       onRename={onRename}
       onDelete={onDelete}
       onAdd={onAdd}
       renderDeck={(deckId) => <div>{`Cards of ${deckId}`}</div>}
-    />,
+    />
   );
-  return { onSelect, onRename, onDelete, onAdd };
+  const { rerender } = render(outlineElement(isSaving));
+  return {
+    onSelect,
+    onRename,
+    onDelete,
+    onAdd,
+    /** Re-renders the same outline with the save state settled. */
+    rerender: (savingNext: boolean) => rerender(outlineElement(savingNext)),
+  };
 };
 
 const toggle = (name: string) => screen.getByRole('button', { name });
@@ -246,5 +257,44 @@ describe('DeckOutline', () => {
     const collapsed = toggle('Expand Deck 2');
     expect(collapsed).toHaveAttribute('aria-expanded', 'false');
     expect(collapsed).not.toHaveAttribute('aria-controls');
+  });
+
+  // A save in flight wraps the whole form in a disabled fieldset, where focus()
+  // is a no-op: the request must stay unhandled until the save settles.
+  it('waits for the save to settle before focusing the first invalid name', async () => {
+    const { rerender } = renderOutline({
+      nameErrors: { 'deck-2': 'duplicate' },
+      focusRequest: 1,
+      isSaving: true,
+    });
+
+    expect(screen.getByLabelText('Deck 2 name')).not.toHaveFocus();
+
+    rerender(false);
+
+    await waitFor(() => expect(screen.getByLabelText('Deck 2 name')).toHaveFocus());
+  });
+
+  // The trigger is a role="button" div, so the disabled fieldset never reaches
+  // it: it has to refuse the toggle itself.
+  it('locks the deck triggers while a save is in flight', async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderOutline({ isSaving: true });
+
+    expect(toggle('Expand Deck 2')).toHaveAttribute('aria-disabled', 'true');
+
+    await user.click(toggle('Expand Deck 2'));
+    expect(toggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
+
+    // Space is our own handler; Enter is Paragon's trigger. Both must be refused.
+    toggle('Expand Deck 2').focus();
+    await user.keyboard(' ');
+    expect(toggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
+
+    await user.keyboard('{Enter}');
+
+    expect(toggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Cards of deck-2')).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });
