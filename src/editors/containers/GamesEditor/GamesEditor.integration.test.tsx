@@ -154,6 +154,8 @@ describe('GamesEditor in the editor modal', () => {
     await user.keyboard('{Enter}');
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByText('On')).toBeInTheDocument();
+    // Closed again: the controls are gone, not merely hidden behind the summary.
+    expect(screen.queryByRole('button', { name: 'Off' })).not.toBeInTheDocument();
   });
 
   // The menu is a react-overlays dropdown: Escape closes it and leaves focus on
@@ -1050,5 +1052,10 @@ describe('a save that is still out', () => {
     await act(async () => finishSave({ success: false, error: 'nope' }));
     await waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'false'));
     expect(onClose).not.toHaveBeenCalled();
+
+    // Unlocked means usable, not just unmarked: the author opens the card again.
+    await user.click(screen.getByRole('button', { name: 'Shuffle' }));
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Off' })).toBeInTheDocument();
   });
 });

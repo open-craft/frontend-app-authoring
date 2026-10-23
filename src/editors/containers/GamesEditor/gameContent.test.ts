@@ -80,6 +80,23 @@ describe('validateCards', () => {
     expect(Object.keys(errors)).toHaveLength(1);
   });
 
+  // The mirror of the case above, and the one CardField shows as "Enter a term":
+  // the term is the field that has to be fixed, so the error names it and not
+  // the definition the author already filled in.
+  it('marks the term invalid, and not the definition, when only the definition is filled', () => {
+    const half = card({ id: 'card-half', definition: 'b' });
+
+    const { errors, isValid } = validateCards({
+      type: 'matching',
+      list: [],
+      decks: [deck('d1', 'Basics', [half])],
+    });
+
+    expect(errors).toEqual({ [fieldKey('card-half', 'term')]: true });
+    expect(errors[fieldKey('card-half', 'definition')]).toBeUndefined();
+    expect(isValid).toBe(false);
+  });
+
   it('requires a name per deck and unique names ignoring case, keyed by deck id', () => {
     const { errors, deckErrors, isValid } = validateCards({
       type: 'flashcards',

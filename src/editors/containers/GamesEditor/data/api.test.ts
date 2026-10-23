@@ -89,6 +89,24 @@ describe('buildSavePayload', () => {
     expect(cards[0]).toMatchObject({ term_image: '/media/a.png', term_image_path: 'games/a.png', term_image_alt: 'A' });
   });
 
+  // The block's save handler stores what it is given, and this editor owns the
+  // payload builder precisely because the shared one drops these keys. A card
+  // whose image the author removed must still carry an empty path, or the block
+  // keeps the file it already had; a card that never had one must not be saved
+  // with the key missing either.
+  it('sends all six image fields empty for a card with no image', () => {
+    const { cards } = api.buildSavePayload({ ...base, cards: [{ term: 'a', definition: 'b' }] });
+
+    expect(cards[0]).toMatchObject({
+      term_image: '',
+      term_image_path: '',
+      term_image_alt: '',
+      definition_image: '',
+      definition_image_path: '',
+      definition_image_alt: '',
+    });
+  });
+
   // The block's save handler defaults a missing has_timer to true, so a
   // flashcards save that omits it would switch a disabled timer back on.
   it('sends has_timer for every game type', () => {

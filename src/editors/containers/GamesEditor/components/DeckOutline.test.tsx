@@ -193,7 +193,7 @@ describe('DeckOutline', () => {
   // because a collapsed row unmounts it.
   it('toggles a row with Space and Enter, pointing at the body only while it exists', async () => {
     const user = userEvent.setup();
-    renderOutline();
+    const { onSelect } = renderOutline();
 
     const trigger = toggle('Expand Deck 2');
     // Collapsed: the body is not in the DOM, so the trigger must not name it.
@@ -206,11 +206,15 @@ describe('DeckOutline', () => {
     expect(expanded).toHaveAttribute('aria-controls', 'deck-outline-body-deck-2');
     expect(screen.getByText('Cards of deck-2')).toBeInTheDocument();
     expect(document.getElementById('deck-outline-body-deck-2')).toBeInTheDocument();
+    // Opening a row is what makes its deck the one being edited.
+    expect(onSelect).toHaveBeenCalledWith('deck-2');
 
     await user.keyboard('{Enter}');
     const collapsed = toggle('Expand Deck 2');
     expect(collapsed).toHaveAttribute('aria-expanded', 'false');
     expect(collapsed).not.toHaveAttribute('aria-controls');
+    // Closing is navigation, not a selection: the deck stays the active one.
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
   // A save in flight wraps the whole form in a disabled fieldset, where focus()
