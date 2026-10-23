@@ -684,133 +684,23 @@ describe('loading', () => {
   });
 });
 
-describe('getContent', () => {
-  const settings = { shuffle: true, timer: true };
-
-  it('keeps an image-only card for flashcards and drops it for matching', () => {
-    const imageOnly = { ...emptyCard(), term_image: 'http://x/i.png' };
-    expect(editorViewHooks.getContent({ type: 'flashcards', settings, list: [imageOnly] }).cards).toHaveLength(1);
-    expect(editorViewHooks.getContent({ type: 'matching', settings, list: [imageOnly] }).cards).toHaveLength(0);
-  });
-
-  it('drops blank cards and keeps text-only cards for both game types', () => {
-    const list = [emptyCard(), { ...emptyCard(), term: 'a' }];
-    expect(editorViewHooks.getContent({ type: 'flashcards', settings, list }).cards).toHaveLength(1);
-    expect(editorViewHooks.getContent({ type: 'matching', settings, list }).cards).toHaveLength(1);
-  });
-});
-
+// gameContent.test.ts owns the card and deck-name rules. Only the two
+// image-without-text branches it cannot reach from a blank card stay here: the
+// definition side, and a side whose opposite has text.
 describe('validateCards', () => {
-  const card = (term: string, definition: string) => ({ ...emptyCard(), term, definition });
+  it('flags an image side with no text on it, whichever side it is', () => {
+    const definitionOnly = { ...emptyCard(), definition_image: 'http://x/d.png' };
+    expect(editorViewHooks.validateCards({ type: 'flashcards', list: [definitionOnly] }).errors)
+      .toEqual({ [`${definitionOnly.id}_definition`]: 'imageWithoutText' });
 
-  it('flags an image-only side of a flashcard with no text on either side', () => {
-    const imageOnly = { ...card('', ''), definition_image: 'http://x/d.png' };
-    const { errors } = editorViewHooks.validateCards({ list: [imageOnly], type: 'flashcards' });
-    expect(errors).toEqual({ [`${imageOnly.id}_definition`]: 'imageWithoutText' });
-  });
-
-  it('flags a missing term when only the definition is filled', () => {
-    const onlyDefinition = card('', 'b');
-    const { errors } = editorViewHooks.validateCards({ list: [onlyDefinition], type: 'matching' });
-    expect(errors).toEqual({ [`${onlyDefinition.id}_term`]: true });
-  });
-
-  it('asks for text beside a flashcard image on the side that has none', () => {
-    const termImage = { ...card('', 'b'), term_image: 'http://x/t.png' };
-    const definitionImage = { ...card('a', ''), definition_image: 'http://x/d.png' };
-    const { errors } = editorViewHooks.validateCards({ list: [termImage, definitionImage], type: 'flashcards' });
-    expect(errors).toEqual({
-      [`${termImage.id}_term`]: 'imageWithoutText',
-      [`${definitionImage.id}_definition`]: 'imageWithoutText',
-    });
-  });
-
-  it('reports validity purely from the collected errors', () => {
-    const { errors, isValid } = editorViewHooks.validateCards({ list: [card('a', '')], type: 'matching' });
-    expect(Object.keys(errors)).toHaveLength(1);
-    expect(isValid).toBe(false);
-  });
-
-  // A blank draft already saves as an empty game (getContent drops it), and
-  // deleting the last card leaves the same empty list. Save must not be refused
-  // with nothing to point at.
-  it('accepts an empty card list', () => {
-    expect(editorViewHooks.validateCards({ type: 'matching', list: [] }).isValid).toBe(true);
-  });
-
-  it('still rejects a card with a term but no definition', () => {
-    const { isValid, errors } = editorViewHooks.validateCards({ type: 'matching', list: [card('t', '')] });
-    expect(isValid).toBe(false);
-    expect(Object.keys(errors)).toHaveLength(1);
-  });
-
-  // Deleting the last card, then Save: the block receives an empty list.
-  it('lets the author delete the last card and save', async () => {
-    initializeMocks();
-    mockedApi.getSettings.mockResolvedValue({
-      data: { game_type: 'matching', cards: [{ term: 'only', definition: 'card' }] },
-    });
-    mockedApi.saveSettings.mockResolvedValue({ data: { success: true } });
-    await renderEditorWithCardsOpen();
-    expect(await screen.findByDisplayValue('only')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Card actions' }));
-    fireEvent.click(await screen.findByText('Delete'));
-    expect(screen.queryByDisplayValue('only')).not.toBeInTheDocument();
-
-    const { onSave } = MockedEditorContainer.mock.lastCall[0];
-    await onSave();
-    const [, content] = mockedApi.saveSettings.mock.calls[0];
-    expect(content.cards).toEqual([]);
-  });
-});
-
-describe('buildSavePayload', () => {
-  const { buildSavePayload } = jest.requireActual('./data/api');
-
-  it('sends the image storage keys, so a card stays linked to its stored file', () => {
-    const payload = buildSavePayload({
-      gameType: 'flashcards',
-      isShuffled: true,
-      hasTimer: false,
-      title: 'Games',
-      cards: [{
-        term: 't',
-        definition: 'd',
-        term_image: 'http://x/i.png',
-        term_image_path: 'gamesxblock/abc/hash.png',
-      }],
-    });
-    expect(payload.cards[0].term_image_path).toEqual('gamesxblock/abc/hash.png');
-    expect(payload.cards[0]).toHaveProperty('definition_image_path');
-  });
-
-  // Matching hides the images but must not lose them: switching to Matching
-  // and back would otherwise wipe every image.
-  it('keeps image fields and sends has_timer for matching games', () => {
-    const payload = buildSavePayload({
-      gameType: 'matching',
-      isShuffled: false,
-      hasTimer: true,
-      title: 'Games',
-      cards: [{ term: 't', definition: 'd', term_image: '/media/i.png' }],
-    });
-    expect(payload.cards[0].term_image).toEqual('/media/i.png');
-    expect(payload.has_timer).toBe(true);
-  });
-
-  // The setting is hidden for flashcards but still stored by the block, whose
-  // save handler treats a missing value as true. Sending it keeps a timer the
-  // author turned off from switching itself back on.
-  it('sends has_timer for flashcards too', () => {
-    const payload = buildSavePayload({
-      gameType: 'flashcards',
-      isShuffled: true,
-      hasTimer: false,
-      title: 'G',
-      cards: [],
-    });
-    expect(payload.has_timer).toBe(false);
+    // Text on the other side does not excuse an image with none beside it.
+    const definitionImage = { ...emptyCard(), term: 'a', definition_image: 'http://x/d.png' };
+    const termImage = { ...emptyCard(), definition: 'b', term_image: 'http://x/t.png' };
+    expect(editorViewHooks.validateCards({ type: 'flashcards', list: [definitionImage, termImage] }).errors)
+      .toEqual({
+        [`${definitionImage.id}_definition`]: 'imageWithoutText',
+        [`${termImage.id}_term`]: 'imageWithoutText',
+      });
   });
 });
 

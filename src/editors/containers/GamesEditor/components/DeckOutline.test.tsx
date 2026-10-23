@@ -111,35 +111,6 @@ describe('DeckOutline', () => {
     expect(screen.getByRole('button', { name: 'Reorder Deck 1' })).toBeEnabled();
   });
 
-  // Every deck starts collapsed, the active one included: the outline is a list
-  // to scan. Rows are independent, not an accordion.
-  it('starts with every deck collapsed and opens rows independently', async () => {
-    const user = userEvent.setup();
-    const { onSelect } = renderOutline();
-
-    expect(toggle('Expand Deck 1')).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle('Expand Ecology')).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText('Cards of deck-1')).not.toBeInTheDocument();
-
-    await user.click(toggle('Expand Deck 2'));
-
-    // The active deck stays collapsed; opening one row does not close another.
-    expect(toggle('Expand Deck 1')).toHaveAttribute('aria-expanded', 'false');
-    expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.queryByText('Cards of deck-1')).not.toBeInTheDocument();
-    expect(screen.getByText('Cards of deck-2')).toBeInTheDocument();
-    expect(onSelect).toHaveBeenCalledWith('deck-2');
-
-    await user.click(toggle('Expand Deck 1'));
-
-    expect(toggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
-    expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  // Pressing a deck's reorder handle is the operator's simple-click collapse:
-  // the body is removed before dnd-kit's sensor can start, so a click that
-  // never moves still leaves the row closed.
   it('collapses the deck when its reorder handle is pressed', async () => {
     const user = userEvent.setup();
     renderOutline();
@@ -154,47 +125,14 @@ describe('DeckOutline', () => {
     expect(screen.queryByText('Cards of deck-1')).not.toBeInTheDocument();
   });
 
-  it('opens a newly added deck and focuses its name', async () => {
-    const user = userEvent.setup();
-    const Harness = () => {
-      const [deckList, setDeckList] = React.useState(decks);
-      return (
-        <DeckOutline
-          decks={deckList}
-          activeDeckId="deck-1"
-          nameErrors={{}}
-          onSelect={() => undefined}
-          onRename={() => undefined}
-          onDelete={() => undefined}
-          onAdd={() =>
-            setDeckList((current) => [
-              ...current,
-              { id: 'deck-4', name: 'Deck 4', cardCount: 0 },
-            ])}
-          renderDeck={(deckId) => <div>{`Cards of ${deckId}`}</div>}
-        />
-      );
-    };
-    render(<Harness />);
-
-    await user.click(screen.getByRole('button', { name: 'Add deck' }));
-
-    expect(toggle('Collapse Deck 4')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Cards of deck-4')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByLabelText('Deck 4 name')).toHaveFocus());
-  });
-
-  // A name error must never be hidden behind a collapsed row, but it must not
-  // pull the caret out of the field the author is typing in either.
-  it('opens the rows with invalid names and explains them without moving the caret', async () => {
-    const user = userEvent.setup();
-    renderOutline({ nameErrors: { 'deck-2': 'duplicate', 'deck-3': 'required' } });
+  // A live name error opens its row without stealing the caret; a save that
+  // found bad names asks once, and only then is the caret moved.
+  it('opens the invalid rows and focuses the first invalid name on request', () => {
+    renderOutline({ nameErrors: { 'deck-2': 'duplicate', 'deck-3': 'required' }, focusRequest: 1 });
 
     expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
     expect(toggle('Collapse Ecology')).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText('Cards of deck-2')).toBeInTheDocument();
-    expect(screen.getByText('Cards of deck-3')).toBeInTheDocument();
-
+    // Each message stays attached to the field it is about.
     expect(screen.getByLabelText('Deck 2 name')).toHaveAttribute('aria-invalid', 'true');
     expect(screen.getByLabelText('Deck 2 name')).toHaveAttribute(
       'aria-describedby',
@@ -202,18 +140,6 @@ describe('DeckOutline', () => {
     );
     expect(screen.getByText('Deck names must be unique')).toBeInTheDocument();
     expect(screen.getByText('Enter a deck name')).toBeInTheDocument();
-
-    await user.click(screen.getByLabelText('Deck 3 name'));
-    expect(screen.getByLabelText('Deck 3 name')).toHaveFocus();
-    expect(screen.getByLabelText('Deck 2 name')).not.toHaveFocus();
-  });
-
-  // A save that found bad names asks once, and only then is the caret moved.
-  it('opens the invalid rows and focuses the first invalid name on request', () => {
-    renderOutline({ nameErrors: { 'deck-2': 'duplicate', 'deck-3': 'required' }, focusRequest: 1 });
-
-    expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
-    expect(toggle('Collapse Ecology')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByLabelText('Deck 2 name')).toHaveFocus();
   });
 
@@ -222,38 +148,6 @@ describe('DeckOutline', () => {
 
     expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Cards of deck-2')).toBeInTheDocument();
-  });
-
-  // The block always stores at least one deck, so its delete is unavailable.
-  it('cannot delete the last deck', () => {
-    renderOutline({ deckList: [decks[0]] });
-    expect(screen.getByRole('button', { name: 'Delete Deck 1' })).toBeDisabled();
-  });
-
-  it('deletes an empty deck without asking', async () => {
-    const user = userEvent.setup();
-    const { onDelete } = renderOutline();
-
-    await user.click(screen.getByRole('button', { name: 'Delete Deck 2' }));
-
-    expect(onDelete).toHaveBeenCalledWith('deck-2');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  // A deck with cards takes its cards with it, so it asks first.
-  it('asks before deleting a deck that has cards, and deletes it on confirm', async () => {
-    const user = userEvent.setup();
-    const { onDelete } = renderOutline();
-
-    await user.click(screen.getByRole('button', { name: 'Delete Deck 1' }));
-
-    expect(screen.getByRole('dialog', { name: 'Delete deck?' })).toBeInTheDocument();
-    expect(onDelete).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole('button', { name: 'Delete deck' }));
-
-    expect(onDelete).toHaveBeenCalledWith('deck-1');
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   // Deleting the deck the author was working in must leave them somewhere:

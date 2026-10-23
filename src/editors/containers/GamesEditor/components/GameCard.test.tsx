@@ -2,7 +2,7 @@ import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { DndContext } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
-import { initializeMocks, render, screen, waitFor } from '@src/testUtils';
+import { initializeMocks, render } from '@src/testUtils';
 
 import { emptyCard } from '../data/gameTransitions';
 import type { Card } from '../types';
@@ -49,7 +49,7 @@ const renderCard = (props: Partial<React.ComponentProps<typeof GameCard>> = {}) 
     </DndContext>,
   );
   // The dropdown toggle carries aria-expanded too, so the heading is named by
-  // the class its own tests and styles use.
+  // the class its own styles use.
   const heading = container.querySelector('.card-heading-wrapper') as HTMLElement;
   return { ...handlers, heading };
 };
@@ -59,48 +59,19 @@ describe('GameCard', () => {
     initializeMocks();
   });
 
-  // Escape closes the menu and leaves focus on its toggle, never on the body.
-  // The dropdown's own keydown handler marks the Escape handled (preventDefault
-  // and stopPropagation, react-overlays Dropdown), which is also what keeps the
-  // editor modal's document listener out of it.
-  it('closes the menu on Escape, keeping focus on its toggle', async () => {
-    const user = userEvent.setup();
-    renderCard();
-    const toggle = screen.getByRole('button', { name: 'Card actions' });
-
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute('aria-expanded', 'true');
-
-    await user.keyboard('{Escape}');
-
-    await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'false'));
-    expect(toggle).toHaveFocus();
-  });
-
-  // The heading is a role="button" div, out of the disabled fieldset's reach,
-  // so a save in flight has to lock it here.
-  it('locks the heading trigger while a save is in flight', async () => {
+  // The heading is a role="button" div, out of the disabled fieldset's reach and
+  // without a name a journey could pick it out by, so the save-in-flight lock is
+  // asserted here: neither a click nor Enter may toggle the card.
+  it('refuses to open or close the card while a save is in flight', async () => {
     const user = userEvent.setup();
     const { onToggle, heading } = renderCard({ isSaving: true });
 
     expect(heading).toHaveAttribute('aria-disabled', 'true');
 
     await user.click(heading);
-    expect(onToggle).not.toHaveBeenCalled();
-
     heading.focus();
     await user.keyboard('{Enter}');
+
     expect(onToggle).not.toHaveBeenCalled();
-  });
-
-  it('leaves the heading trigger working when no save is in flight', async () => {
-    const user = userEvent.setup();
-    const { onToggle, heading } = renderCard();
-
-    // aria-disabled is a string attribute: it reads "false", not absent.
-    expect(heading).toHaveAttribute('aria-disabled', 'false');
-
-    await user.click(heading);
-    expect(onToggle).toHaveBeenCalledWith(true);
   });
 });

@@ -114,6 +114,64 @@ describe('GamesEditor in the editor modal', () => {
     expect(savePosts(axiosMock)).toHaveLength(0);
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  // The author may empty the game: the draft the Add button makes is dropped
+  // from the payload, and deleting the last real card leaves the save with
+  // nothing left to point at.
+  it('deletes the last card and saves an empty game', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByRole('button', { name: 'Reorder Photosynthesis' });
+
+    await user.click(within(cardRoot('Photosynthesis')).getByRole('button', { name: 'Card actions' }));
+    await user.click(await screen.findByText('Delete'));
+    expect(screen.queryByRole('button', { name: 'Reorder Photosynthesis' })).not.toBeInTheDocument();
+
+    await user.click(saveButton());
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(savePosts(axiosMock)[0].data).cards).toEqual([]);
+  });
+
+  // The sidebar reads as a list of current values until the author opens one
+  // card, and the trigger answers Enter as well as a click.
+  it('shows a setting summary while closed, and opens the card with Enter', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('button', { name: 'Reorder Photosynthesis' });
+
+    const trigger = screen.getByRole('button', { name: 'Shuffle' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    // Closed: the value, and none of the controls that would change it.
+    expect(screen.getByText('On')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Off' })).not.toBeInTheDocument();
+
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Off' })).toBeInTheDocument();
+
+    await user.keyboard('{Enter}');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('On')).toBeInTheDocument();
+  });
+
+  // The menu is a react-overlays dropdown: Escape closes it and leaves focus on
+  // the toggle that opened it, never on the page body.
+  it('closes the card menu on Escape, keeping focus on its toggle', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await screen.findByRole('button', { name: 'Reorder Photosynthesis' });
+
+    const toggle = within(cardRoot('Photosynthesis')).getByRole('button', { name: 'Card actions' });
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-expanded', 'false'));
+    expect(toggle).toHaveFocus();
+  });
 });
 
 describe('GamesEditor decks', () => {
@@ -946,5 +1004,51 @@ describe('a card error hidden by Matching', () => {
     const payload = JSON.parse(savePosts(axiosMock)[0].data);
     expect(payload.decks.map((deck: { name: string; }) => deck.name)).toEqual(['Deck 1', 'Ecology']);
     expect(payload.decks[1].cards[0].definition).toEqual('second');
+  });
+});
+
+// The settings triggers are role="button" divs, out of the disabled fieldset's
+// reach, so a save that is out has to be refused by the trigger itself.
+describe('a save that is still out', () => {
+  let axiosMock: ReturnType<typeof initializeMocks>['axiosMock'];
+  let finishSave: (body: unknown) => void = () => {};
+
+  beforeEach(() => {
+    ({ axiosMock } = initializeMocks());
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'flashcards',
+      is_shuffled: true,
+      has_timer: false,
+      cards: [{ term: 'One', definition: 'first', card_key: 'c1' }],
+      decks: [{ deck_key: 'dk-1', name: 'Deck 1', cards: [{ term: 'One', definition: 'first', card_key: 'c1' }] }],
+    });
+    const pending = new Promise<[number, unknown]>((resolve) => {
+      finishSave = (body) => resolve([200, body]);
+    });
+    axiosMock.onPost(handlerUrl('save_settings')).reply(() => pending);
+  });
+
+  it('refuses the settings trigger while it waits, and reopens it once the save fails', async () => {
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await screen.findByDisplayValue('Deck 1');
+    const trigger = screen.getByRole('button', { name: 'Shuffle' });
+
+    await user.click(saveButton());
+
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'true'));
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+    trigger.focus();
+    await user.keyboard('{Enter}');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Off' })).not.toBeInTheDocument();
+
+    // The rejected save leaves the author where they were, with the card usable
+    // again.
+    await act(async () => finishSave({ success: false, error: 'nope' }));
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-disabled', 'false'));
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

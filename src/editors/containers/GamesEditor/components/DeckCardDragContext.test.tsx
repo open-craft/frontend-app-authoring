@@ -1,8 +1,11 @@
 import React from 'react';
-import { act, initializeMocks, render, screen } from '@src/testUtils';
+import userEvent from '@testing-library/user-event';
+import { act, initializeMocks, render, screen, waitFor, within } from '@src/testUtils';
+import { SortableItem } from '@src/generic/DraggableList';
 
-import { emptyCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
+import { emptyCard, initialState, moveCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
 import type { Card, Deck } from '@src/editors/containers/GamesEditor/types';
+import { stubRects, type StubbedRect } from '../testUtils/stubRects';
 import {
   DeckCardDragProvider,
   DeckCardList,
@@ -16,19 +19,23 @@ import {
   type DeckMove,
 } from './DeckCardDragContext';
 
-// jsdom has no layout, so the drag sensors are never driven. The provider's
-// handlers are captured from the one DndContext and called directly, which is
-// what tests the real preview/commit logic without stubbing geometry.
+/**
+ * The real drag layer, with one seam: DndContext is wrapped (not replaced) so the
+ * provider's own handlers, collision gate and announcements can be read. Sensors,
+ * droppables, sortables, focus handling and the live region are all real, so the
+ * keyboard and pointer journeys below run through dnd-kit's own state machine.
+ *
+ * The handler-level tests drive the captured handlers directly: a few contracts
+ * (the final over being the dragged card, the pointer-outside gate) are dnd-kit
+ * artifacts that no sensor can be made to produce on demand.
+ */
 let mockHandlers: {
   onDragStart?: (event: any) => void;
   onDragOver?: (event: any) => void;
   onDragEnd?: (event: any) => void;
   onDragCancel?: (event: any) => void;
 } = {};
-// Set before a render to make the mocked useDroppable report a hover.
-let mockHoveredDroppableId: string | null = null;
-// The accessibility announcements the provider registered, for the unit-level
-// check that a no-op target says nothing.
+// The accessibility announcements the provider registered.
 let mockAnnouncements: {
   onDragStart?: (event: any) => string | undefined;
   onDragOver?: (event: any) => string | undefined;
@@ -44,60 +51,362 @@ jest.mock('@dnd-kit/core', () => {
   const ReactModule = jest.requireActual('react');
   return {
     ...actual,
-    DndContext: (
-      { children, onDragStart, onDragOver, onDragEnd, onDragCancel, accessibility, collisionDetection }: any,
-    ) => {
-      mockHandlers = { onDragStart, onDragOver, onDragEnd, onDragCancel };
-      mockAnnouncements = accessibility?.announcements;
-      mockCollisionDetection = collisionDetection;
-      return ReactModule.createElement('div', null, children);
+    DndContext: (props: any) => {
+      mockHandlers = {
+        onDragStart: props.onDragStart,
+        onDragOver: props.onDragOver,
+        onDragEnd: props.onDragEnd,
+        onDragCancel: props.onDragCancel,
+      };
+      mockAnnouncements = props.accessibility?.announcements;
+      mockCollisionDetection = props.collisionDetection;
+      return ReactModule.createElement(actual.DndContext, props);
     },
-    useDroppable: ({ id }: { id: string; }) => ({
-      isOver: id === mockHoveredDroppableId,
-      setNodeRef: () => undefined,
-    }),
   };
 });
 
-jest.mock('@dnd-kit/sortable', () => ({
-  ...jest.requireActual('@dnd-kit/sortable'),
-  // The handlers are driven directly here, so a sortable row only has to render
-  // its own markup: no layout, no sensors, no transforms.
-  useSortable: () => ({
-    setNodeRef: () => undefined,
-    setActivatorNodeRef: () => undefined,
-    listeners: undefined,
-    attributes: {},
-    transform: null,
-    transition: undefined,
-    isDragging: false,
-  }),
-}));
+const card = (id: string, term = id): Card => ({ ...emptyCard(), id, term, card_key: 'key-' + id });
+const deck = (id: string, name: string, cards: Card[] = []): Deck => ({ id, name, cards });
+const deckOf = (id: string, ids: string[]): Deck => deck(id, id, ids.map((entry) => card(entry)));
 
-const card = (id: string): Card => ({ ...emptyCard(), id, term: id, card_key: 'key-' + id });
-const deck = (id: string, ids: string[]): Deck => ({ id, name: id, cards: ids.map(card) });
+let restoreRects: (() => void) | undefined;
 
-const Preview = () => {
-  const { previewDecks } = useDeckDragPreview();
+const useRects = (rects: Record<string, StubbedRect>) => {
+  restoreRects = stubRects(rects);
+};
+
+const committed = () => screen.getByTestId('committed').textContent;
+const liveRegion = () => screen.getByRole('status');
+
+/** The row wrapper the module renders for a card or deck droppable. */
+const row = (id: string): HTMLElement => {
+  const found = Array.from(document.querySelectorAll<HTMLElement>('[data-dnd-id]'))
+    .find((element) => element.dataset.dndId === id);
+  if (!found) { throw new Error('No droppable row for ' + id); }
+  return found;
+};
+
+const dragHandle = (cardId: string): HTMLElement =>
+  within(row(cardId)).getByRole('button', { name: 'Drag to reorder' });
+
+/** A deck row's own handle, named after the deck. */
+const deckDragHandle = (deckName: string): HTMLElement => screen.getByRole('button', { name: 'Reorder ' + deckName });
+
+/* ------------------------------------------------------------------ *
+ * Sensor-level harness: the outline as the drag layer needs it, with the
+ * caller's half of each move applied so the committed tree is visible.
+ * ------------------------------------------------------------------ */
+
+const applyMove = (decks: Deck[], move: CardMove): Deck[] => {
+  const state = { ...initialState, decks, activeDeckId: decks[0].id, list: decks[0].cards };
+  return moveCard(state, move.cardId, { deckId: move.toDeckId, index: move.toIndex }).decks;
+};
+
+/** The caller's half of a deck reorder: the stored order is what was dropped. */
+const applyDeckMove = (decks: Deck[], move: DeckMove): Deck[] => {
+  const from = decks.findIndex((entry) => entry.id === move.deckId);
+  if (from < 0) { return decks; }
+  const next = [...decks];
+  const [moved] = next.splice(from, 1);
+  next.splice(move.toIndex, 0, moved);
+  return next;
+};
+
+const Harness = ({
+  initialDecks,
+  initiallyOpen,
+  onCommit,
+  onDeckCommit,
+}: {
+  initialDecks: Deck[];
+  initiallyOpen: string[];
+  /** Counts the card moves the provider reports, on top of applying them. */
+  onCommit?: (move: CardMove) => void;
+  /** Counts the deck reorders the provider reports, on top of applying them. */
+  onDeckCommit?: (move: DeckMove) => void;
+}) => {
+  const [decks, setDecks] = React.useState(initialDecks);
+  const [openDeckIds, setOpenDeckIds] = React.useState<ReadonlySet<string>>(() => new Set(initiallyOpen));
+  const onCardMove = React.useCallback((move: CardMove) => {
+    onCommit?.(move);
+    setDecks((current) => applyMove(current, move));
+  }, [onCommit]);
+  const onDeckMove = React.useCallback((move: DeckMove) => {
+    onDeckCommit?.(move);
+    setDecks((current) => applyDeckMove(current, move));
+  }, [onDeckCommit]);
+  const openDeck = React.useCallback((deckId: string) => {
+    setOpenDeckIds((previous) => new Set(previous).add(deckId));
+  }, []);
+
   return (
-    <div data-testid="preview">
-      {previewDecks.map((entry) => entry.id + ':' + entry.cards.map((c) => c.id).join(',')).join(' | ')}
-    </div>
+    <>
+      <div data-testid="committed">
+        {decks.map((entry) => entry.id + ':' + entry.cards.map((item) => item.id).join(',')).join(' | ')}
+      </div>
+      <DeckCardDragProvider
+        decks={decks}
+        onCardMove={onCardMove}
+        onDeckMove={onDeckMove}
+        // These tests are about the drag layer, not the state it reports to.
+        onCardDragStart={() => undefined}
+      >
+        <DeckDragList deckIds={decks.map((entry) => entry.id)}>
+          {decks.map((entry, index) => (
+            <DeckDragRow key={entry.id} deckId={entry.id}>
+              <DeckDragHandle deckName={entry.name} position={index + 1} />
+              <DeckDropTarget
+                deckId={entry.id}
+                isExpanded={openDeckIds.has(entry.id)}
+                onRequestExpand={() => openDeck(entry.id)}
+              >
+                <h3>{entry.name}</h3>
+              </DeckDropTarget>
+              {openDeckIds.has(entry.id) && (
+                <DeckCardList
+                  deckId={entry.id}
+                  renderCard={(_, item) => (
+                    <SortableItem id={item.id} actions={null}>
+                      <span>{item.term}</span>
+                    </SortableItem>
+                  )}
+                />
+              )}
+            </DeckDragRow>
+          ))}
+        </DeckDragList>
+      </DeckCardDragProvider>
+    </>
   );
 };
 
-const preview = () => screen.getByTestId('preview').textContent;
-
-/** The dragged card's own open state, wherever the preview put it. */
-const OpenState = () => {
-  const { previewDecks } = useDeckDragPreview();
-  const dragged = previewDecks.flatMap((entry) => entry.cards).find((entry) => entry.id === 'A');
-  return <div data-testid="open-state">{dragged ? String(dragged.editorOpen) : 'none'}</div>;
+const startDrag = async (user: ReturnType<typeof userEvent.setup>, cardId: string, key = ' ') => {
+  dragHandle(cardId).focus();
+  await user.keyboard(key);
+  await waitFor(() => expect(liveRegion()).toHaveTextContent('Picked up'));
 };
-const openState = () => screen.getByTestId('open-state').textContent;
 
-// dnd-kit's activator event decides whether focus follows the card: a pointer
-// event means mouse/touch, a keyboard event means Space or Enter.
+describe('DeckCardDragContext keyboard dragging', () => {
+  beforeEach(() => {
+    initializeMocks();
+    restoreRects = undefined;
+  });
+
+  afterEach(() => {
+    restoreRects?.();
+  });
+
+  it('reorders within a deck with the arrow keys, committing once and restoring focus', async () => {
+    const user = userEvent.setup();
+    const onCommit = jest.fn();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')])];
+    // Ascending rows: the stock coordinate getter filters by top.
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], c2: [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} onCommit={onCommit} />);
+
+    await startDrag(user, 'c1');
+
+    expect(liveRegion()).toHaveTextContent('Picked up Mitochondrion in Cell Biology.');
+    // Names only: no raw ids (card or deck) reach a screen reader.
+    expect(liveRegion()).not.toHaveTextContent(/\bc1\b|\bd1\b/);
+
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('position 2 of Cell Biology'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d1:c2,c1'));
+    // One drop, one move.
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({ cardId: 'c1', toDeckId: 'd1', toIndex: 1 });
+    expect(liveRegion()).toHaveTextContent('at the end of Cell Biology');
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+  });
+
+  // The deck header sits above its own rows, so ArrowUp from the first card
+  // reaches it. That must not be read as "move the card to the end".
+  it('does not move a card to the end when the arrow reaches its own deck header', async () => {
+    const user = userEvent.setup();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')])];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], c2: [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} />);
+
+    await startDrag(user, 'c1');
+    await user.keyboard('{ArrowUp}');
+    await user.keyboard(' ');
+
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Dropped Mitochondrion.'));
+    expect(committed()).toEqual('d1:c1,c2');
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+  });
+
+  it('moves a card into another deck before the hovered row, focusing its new handle', async () => {
+    const user = userEvent.setup();
+    const onCommit = jest.fn();
+    const decks = [
+      deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
+      deck('d2', 'Genetics', [card('c2', 'Allele'), card('c3', 'Genome')]),
+    ];
+    useRects({
+      'deck:d1': [0, 40],
+      c1: [60, 100],
+      'deck:d2': [120, 160],
+      c2: [180, 220],
+      c3: [240, 280],
+    });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1', 'd2']} onCommit={onCommit} />);
+
+    await startDrag(user, 'c1');
+
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the end of Genetics'));
+
+    // The first row of the later deck: the card lands before it, at position 1.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over position 1 of Genetics'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d1: | d2:c1,c2,c3'));
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith({ cardId: 'c1', toDeckId: 'd2', toIndex: 0 });
+    expect(liveRegion()).toHaveTextContent('Dropped Mitochondrion at position 1 of Genetics.');
+    // The drop announcement names the card and decks, never their ids.
+    expect(liveRegion()).not.toHaveTextContent(/\bc1\b|\bd1\b|\bd2\b/);
+
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+    expect(row('c1').closest('[data-dnd-id="deck-row:d2"]')).toHaveTextContent('Genetics');
+  });
+
+  // Hovering a collapsed deck's header is what makes its card rows reachable at
+  // all; the header itself appends.
+  it('opens a collapsed deck on hover and appends the card to it', async () => {
+    const user = userEvent.setup();
+    const decks = [
+      deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
+      deck('d2', 'Genetics', [card('c2', 'Allele'), card('c3', 'Genome')]),
+    ];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], 'deck:d2': [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} />);
+
+    await startDrag(user, 'c1');
+
+    await user.keyboard('{ArrowDown}');
+    // Hovering the header asks the outline to open it.
+    await waitFor(() => expect(screen.getByText('Allele')).toBeInTheDocument());
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the end of Genetics'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d1: | d2:c2,c3,c1'));
+    expect(liveRegion()).toHaveTextContent('at the end of Genetics');
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+  });
+
+  it('drops a card into an empty deck through its header', async () => {
+    const user = userEvent.setup();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]), deck('d2', 'Ecology')];
+    // The empty deck has no rows: its header is the target.
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], 'deck:d2': [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1', 'd2']} />);
+
+    await startDrag(user, 'c1');
+
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('moved over the empty deck Ecology'));
+
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d1: | d2:c1'));
+    expect(liveRegion()).toHaveTextContent('in the empty deck Ecology');
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+  });
+
+  it('cancels with Escape, leaving the deck unchanged and focus where it started', async () => {
+    const user = userEvent.setup();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')])];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], c2: [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} />);
+
+    // Enter starts a drag as well as Space.
+    await startDrag(user, 'c1', '{Enter}');
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('position 2 of Cell Biology'));
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Drag cancelled.'));
+    expect(liveRegion()).toHaveTextContent('Mitochondrion stayed in Cell Biology');
+    expect(liveRegion()).not.toHaveTextContent(/\bc1\b|\bc2\b|\bd1\b/);
+    expect(committed()).toEqual('d1:c1,c2');
+    await waitFor(() => expect(dragHandle('c1')).toHaveFocus());
+  });
+
+  // The editor's modal listens for Escape on the document. A listener that was
+  // registered before dnd-kit's - as the modal's is, on mount - must already
+  // see the event as handled, or it closes the whole editor.
+  it('marks Escape handled before an earlier document listener sees it', async () => {
+    const user = userEvent.setup();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')])];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} />);
+
+    const seen: boolean[] = [];
+    const listener = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { seen.push(event.defaultPrevented); }
+    };
+    document.addEventListener('keydown', listener);
+
+    await startDrag(user, 'c1');
+    await user.keyboard('{Escape}');
+    document.removeEventListener('keydown', listener);
+
+    expect(seen).toEqual([true]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Drag cancelled.'));
+  });
+});
+
+// The Escape listener is the provider's, not the keyboard sensor's: a pointer
+// drag started by the real PointerSensor has to cancel on it too, or the
+// editor's modal closes over a drag still in flight. jsdom has no PointerEvent
+// of its own, but user-event supplies one and stubRects the layout.
+describe('DeckCardDragContext pointer dragging', () => {
+  beforeEach(() => {
+    initializeMocks();
+    restoreRects = undefined;
+  });
+
+  afterEach(() => {
+    restoreRects?.();
+  });
+
+  it('cancels a pointer drag with Escape, leaving the deck unchanged', async () => {
+    const user = userEvent.setup();
+    const onCommit = jest.fn();
+    const decks = [deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')])];
+    useRects({ 'deck:d1': [0, 40], c1: [60, 100], c2: [120, 160] });
+    render(<Harness initialDecks={decks} initiallyOpen={['d1']} onCommit={onCommit} />);
+
+    const handle = dragHandle('c1');
+    // Press on the handle, then move past the sensor's 8px activation distance.
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 95 } },
+    ]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Picked up Mitochondrion in Cell Biology.'));
+
+    await user.keyboard('{Escape}');
+
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Drag cancelled.'));
+    expect(liveRegion()).toHaveTextContent('Mitochondrion stayed in Cell Biology');
+    expect(committed()).toEqual('d1:c1,c2');
+    expect(onCommit).not.toHaveBeenCalled();
+
+    // Let go of a button the cancelled sensor no longer listens for.
+    await user.pointer({ keys: '[/MouseLeft]' });
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Handler-level harness: the provider's own handlers, called directly.
+ * ------------------------------------------------------------------ */
+
 const pointerEvent = () => new MouseEvent('pointerdown');
 const keyboardEvent = () => new KeyboardEvent('keydown', { code: 'Space' });
 
@@ -116,6 +425,18 @@ const dragEnd = (cardId: string, overId: string | null, activatorEvent: Event = 
 const dragCancel = (activatorEvent: Event = pointerEvent()) =>
   act(() => mockHandlers.onDragCancel?.({ activatorEvent }));
 
+/** The over dnd-kit hands a handler for a deck row: its id, and nothing else. */
+const overRow = (deckId: string) => ({ id: deckRowDroppableId(deckId) });
+
+const dragEndDeck = (rowId: string, deckId: string | null, activatorEvent: Event = pointerEvent()) =>
+  act(() => {
+    mockHandlers.onDragEnd?.({
+      active: { id: rowId },
+      over: deckId ? overRow(deckId) : null,
+      activatorEvent,
+    });
+  });
+
 /**
  * Let the focus attempts run. The retry chain is three animation frames deep, so
  * waiting on frames rather than a fixed delay keeps a late attempt from landing
@@ -133,6 +454,24 @@ const settle = () =>
       );
     });
   });
+
+const Preview = () => {
+  const { previewDecks } = useDeckDragPreview();
+  return (
+    <div data-testid="preview">
+      {previewDecks.map((entry) => entry.id + ':' + entry.cards.map((c) => c.id).join(',')).join(' | ')}
+    </div>
+  );
+};
+const preview = () => screen.getByTestId('preview').textContent;
+
+/** The dragged card's own open state, wherever the preview put it. */
+const OpenState = () => {
+  const { previewDecks } = useDeckDragPreview();
+  const dragged = previewDecks.flatMap((entry) => entry.cards).find((entry) => entry.id === 'A');
+  return <div data-testid="open-state">{dragged ? String(dragged.editorOpen) : 'none'}</div>;
+};
+const openState = () => screen.getByTestId('open-state').textContent;
 
 const renderDrag = (
   decks: Deck[],
@@ -167,11 +506,7 @@ const renderDrag = (
   return onCardMove;
 };
 
-/**
- * The outline as the drag layer needs it: one sortable row per deck, with the
- * header droppable and the card rows inside it, exactly as DeckOutline nests
- * them. Returns both move callbacks.
- */
+/** The outline as the drag layer needs it: one sortable row per deck. */
 const renderDeckDrag = (decks: Deck[]) => {
   const onCardMove = jest.fn<void, [CardMove]>();
   const onDeckMove = jest.fn<void, [DeckMove]>();
@@ -198,270 +533,72 @@ const renderDeckDrag = (decks: Deck[]) => {
   return { onCardMove, onDeckMove };
 };
 
-/** The over dnd-kit hands a handler for a deck row: its id, and nothing else. */
-const overRow = (deckId: string) => ({ id: deckRowDroppableId(deckId) });
-
-describe('DeckCardDragContext', () => {
+describe('the card drag handler', () => {
   beforeEach(() => {
     initializeMocks();
-    mockHoveredDroppableId = null;
   });
 
-  it('reorders within a deck in the preview and commits the position once', () => {
-    const decks = [deck('d1', ['A', 'B', 'C'])];
-    const onCardMove = renderDrag(decks);
-
-    dragStart('A');
-    expect(preview()).toEqual('d1:A,B,C');
-
-    dragOver('A', 'B');
-    // Within one deck the sorting strategy draws the gap; the preview order is
-    // untouched so the row is not displaced twice.
-    expect(preview()).toEqual('d1:A,B,C');
-
-    dragEnd('A', 'B');
-
-    expect(onCardMove).toHaveBeenCalledTimes(1);
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd1', toIndex: 1 });
-    // The preview is dropped on commit; only the caller applies the move.
-    expect(preview()).toEqual('d1:A,B,C');
-    expect(decks[0].cards.map((c) => c.id)).toEqual(['A', 'B', 'C']);
-  });
-
-  it('previews a cross-deck move before the hovered row and commits it once', () => {
-    const decks = [deck('d1', ['A']), deck('d2', ['X', 'Y'])];
+  // After a cross-deck preview has re-parented the card, dnd-kit can report the
+  // card itself as the target. The last real target is the drop; a same-deck
+  // drag ending over itself has not moved, whatever it last hovered.
+  it('commits the last real target once, even when the final over is the active card', () => {
+    const decks = [deckOf('d1', ['A', 'B', 'C']), deckOf('d2', ['X', 'Y'])];
     const onCardMove = renderDrag(decks);
 
     dragStart('A');
     dragOver('A', 'Y');
-    expect(preview()).toEqual('d1: | d2:X,A,Y');
-
-    dragEnd('A', 'Y');
-    expect(onCardMove).toHaveBeenCalledTimes(1);
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
-  });
-
-  // From an earlier deck, the first row of a later one is position 1, not the
-  // position after it: index 0 of a non-empty later deck used to be unreachable.
-  it('previews and commits index 0 of a later deck that holds cards', () => {
-    const decks = [deck('d1', ['A']), deck('d2', ['X', 'Y'])];
-    const onCardMove = renderDrag(decks);
-
-    dragStart('A');
-    dragOver('A', 'X');
-    expect(preview()).toEqual('d1: | d2:A,X,Y');
-
-    dragEnd('A', 'X');
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
-  });
-
-  // The announcement is read after the preview has taken the card in, so the
-  // hovered row's own index is one past the gap: the position has to come from
-  // the drop itself, or it names a place the card will not land in.
-  it('announces the position the drop will take, in another deck', () => {
-    const decks = [deck('d1', ['A', 'B']), deck('d2', ['X', 'Y'])];
-    renderDrag(decks);
-
-    dragStart('A');
-    dragOver('A', 'X');
-    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'X' } }))
-      .toEqual('A moved over position 1 of d2.');
-
-    dragOver('A', 'Y');
-    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'Y' } }))
-      .toEqual('A moved over position 2 of d2.');
-  });
-
-  it('expands a collapsed deck header and appends the card to it', () => {
-    mockHoveredDroppableId = 'deck:d2';
-    const onCardMove = jest.fn<void, [CardMove]>();
-    const CollapsedDeck = () => {
-      const [open, setOpen] = React.useState(false);
-      return (
-        <DeckDropTarget
-          deckId="d2"
-          isExpanded={open}
-          onRequestExpand={() => setOpen(true)}
-        >
-          {open ? 'Deck 2 open' : 'Deck 2 closed'}
-        </DeckDropTarget>
-      );
-    };
-    const decks = [deck('d1', ['A']), deck('d2', ['X'])];
-    renderDrag(decks, onCardMove, <CollapsedDeck />);
-
-    // Hovering the header asks the outline to open it.
-    expect(screen.getByText('Deck 2 open')).toBeInTheDocument();
-
-    dragStart('A');
-    dragOver('A', 'deck:d2');
-    expect(preview()).toEqual('d1: | d2:X,A');
-
-    dragEnd('A', 'deck:d2');
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
-  });
-
-  // A deck holding only a blank draft has nothing saved in it, so its header is
-  // the drop target.
-  it('drops a card into a draft-only deck at index 0 through its header', () => {
-    const draft = emptyCard();
-    const decks: Deck[] = [
-      { id: 'd1', name: 'd1', cards: [card('A')] },
-      { id: 'd2', name: 'd2', cards: [draft] },
-    ];
-    const onCardMove = jest.fn<void, [CardMove]>();
-    renderDrag(decks, onCardMove, <DeckCardList deckId="d2" renderCard={() => null} />);
-
-    dragStart('A');
-    dragOver('A', 'deck:d2');
-    expect(preview()).toEqual('d1: | d2:A');
-
-    dragEnd('A', 'deck:d2');
-    expect(onCardMove).toHaveBeenCalledTimes(1);
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
-    // Committed decks are never mutated; the draft is still there.
-    expect(decks[1].cards).toEqual([draft]);
-  });
-
-  // A deck with no cards at all - no blank draft either - has no rows, so its
-  // header is what takes a pointer drop, at position 1.
-  it('drops a pointer drag into a deck with no cards through its header', () => {
-    const decks = [deck('d1', ['A']), deck('d2', [])];
-    const onCardMove = renderDrag(decks, undefined, <DeckCardList deckId="d2" renderCard={() => null} />);
-
-    dragStart('A');
-    dragOver('A', 'deck:d2');
-    expect(preview()).toEqual('d1: | d2:A');
-    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'deck:d2' } }))
-      .toEqual('A moved over the empty deck d2.');
-
-    dragEnd('A', 'deck:d2');
-    expect(onCardMove).toHaveBeenCalledTimes(1);
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
-  });
-
-  // After a cross-deck preview has re-parented the card, dnd-kit can report
-  // the card itself as the target. The last real target is the drop.
-  it('commits the last valid target when the final over is the active card', () => {
-    const decks = [deck('d1', ['A']), deck('d2', ['X', 'Y'])];
-    const onCardMove = renderDrag(decks);
-
-    dragStart('A');
-    dragOver('A', 'Y');
-    expect(preview()).toEqual('d1: | d2:X,A,Y');
-
     dragOver('A', 'A');
     dragEnd('A', 'A');
 
     expect(onCardMove).toHaveBeenCalledTimes(1);
     expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 1 });
-  });
 
-  // A same-deck drag that ends over its own id has not moved, even though a
-  // row hover recorded a target earlier.
-  it('does not commit a same-deck drag that ends over the active card', () => {
-    const decks = [deck('d1', ['A', 'B', 'C'])];
-    const onCardMove = renderDrag(decks);
-
-    dragStart('A');
-    dragOver('A', 'B');
-    dragEnd('A', 'A');
-
-    expect(onCardMove).not.toHaveBeenCalled();
-    expect(preview()).toEqual('d1:A,B,C');
-  });
-
-  it('treats a final drop outside every target as a cancel', () => {
-    const decks = [deck('d1', ['A']), deck('d2', ['X'])];
-    const onCardMove = renderDrag(decks);
-
-    dragStart('A');
-    dragOver('A', 'X');
-    dragEnd('A', null);
-
-    expect(onCardMove).not.toHaveBeenCalled();
-    expect(preview()).toEqual('d1:A | d2:X');
-  });
-
-  it('restores the committed view on cancel, with no commit and no mutation', () => {
-    const decks = [deck('d1', ['A', 'B']), deck('d2', ['X'])];
-    const before = JSON.parse(JSON.stringify(decks));
-    const onCardMove = renderDrag(decks);
-
-    dragStart('A');
-    dragOver('A', 'X');
-    expect(preview()).toEqual('d1:B | d2:A,X');
-
-    dragCancel();
-
-    expect(preview()).toEqual('d1:A,B | d2:X');
-    expect(onCardMove).not.toHaveBeenCalled();
-    expect(JSON.parse(JSON.stringify(decks))).toEqual(before);
-  });
-
-  // Same-deck hovers only record the target; the preview never moves, so the
-  // row does not jump between the pointer's position and the sorting gap.
-  it('commits once however many times the pointer crosses rows', () => {
-    const decks = [deck('d1', ['A', 'B', 'C'])];
-    const onCardMove = renderDrag(decks);
+    onCardMove.mockClear();
 
     dragStart('A');
     dragOver('A', 'B');
     dragOver('A', 'C');
     dragOver('A', 'B');
-    expect(preview()).toEqual('d1:A,B,C');
+    dragEnd('A', 'A');
 
-    dragEnd('A', 'C');
-    expect(onCardMove).toHaveBeenCalledTimes(1);
-    // Resolved against the committed decks, not the preview index.
-    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd1', toIndex: 2 });
+    expect(onCardMove).not.toHaveBeenCalled();
+    expect(preview()).toEqual('d1:A,B,C | d2:X,Y');
   });
 
-  // Pointer drops on the card's own deck header keep the resolver's append.
-  it('appends a pointer drag dropped on its own deck header', () => {
-    const decks = [deck('d1', ['A', 'B', 'C'])];
+  // A pointer drop on the card's own deck header appends; for a keyboard drag
+  // that header is not a destination at all, and the preview goes back to the
+  // tree the drag started from.
+  it('treats the card\'s own deck header as an append for a pointer and no move for a keyboard', async () => {
+    const decks = [deckOf('d1', ['A', 'B', 'C']), deckOf('d2', ['X'])];
     const onCardMove = renderDrag(decks);
 
     dragStart('A');
     dragOver('A', 'deck:d1');
     dragEnd('A', 'deck:d1');
-
     expect(onCardMove).toHaveBeenCalledTimes(1);
     expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd1', toIndex: 2 });
-  });
 
-  // A keyboard drag that returns to its own header after a cross-deck preview
-  // shows the committed tree again and commits nothing.
-  it('restores the preview and commits nothing when a keyboard drag returns to its own header', async () => {
-    const decks = [deck('d1', ['A', 'B']), deck('d2', ['X'])];
-    const onCardMove = renderDrag(decks, undefined, <OpenState />);
+    onCardMove.mockClear();
 
     dragStart('A', keyboardEvent());
     dragOver('A', 'X', keyboardEvent());
-    expect(preview()).toEqual('d1:B | d2:A,X');
+    expect(preview()).toEqual('d1:B,C | d2:A,X');
 
     dragOver('A', 'deck:d1', keyboardEvent());
-    expect(preview()).toEqual('d1:A,B | d2:X');
-    // The restored tree is the one the drag started from, so the card is still
-    // collapsed: what travelled is the compact card, not the form it came from.
-    expect(openState()).toEqual('false');
-    // The announcement must not claim a move to the deck the card is still in.
-    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'A' }, over: { id: 'deck:d1' } }))
-      .toBeUndefined();
-
+    expect(preview()).toEqual('d1:A,B,C | d2:X');
     dragEnd('A', 'deck:d1', keyboardEvent());
     expect(onCardMove).not.toHaveBeenCalled();
-    expect(preview()).toEqual('d1:A,B | d2:X');
+    expect(preview()).toEqual('d1:A,B,C | d2:X');
 
-    // Let the keyboard focus attempt settle before the next test renders its
-    // own rows: the retry looks the card up by attribute in the live document.
+    // The keyboard drop ends with a focus attempt: let it land here, not in the
+    // next test's DOM, where the same card row exists again.
     await settle();
   });
 
   // A pointer drag never had focus on the handle, so it must not take it (and
   // pop the handle's tooltip) when it ends or is cancelled.
   it('leaves focus alone when a pointer drag ends or is cancelled', async () => {
-    const decks = [deck('d1', ['A'])];
+    const decks = [deckOf('d1', ['A'])];
     renderDrag(
       decks,
       jest.fn<void, [CardMove]>(),
@@ -495,9 +632,9 @@ describe('DeckCardDragContext', () => {
   // The card that moves is the real one, so an open card is collapsed into the
   // preview at drag start and the caller is told to collapse it in its state:
   // the row that travels is compact, and the drop leaves it collapsed.
-  it('collapses an open card into the preview and asks the editor to persist it', () => {
+  it('collapses an open card into the preview and asks the editor once', () => {
     const onCardDragStart = jest.fn<void, [string]>();
-    renderDrag([deck('d1', ['A']), deck('d2', ['X', 'Y'])], undefined, <OpenState />, onCardDragStart);
+    renderDrag([deckOf('d1', ['A']), deckOf('d2', ['X', 'Y'])], undefined, <OpenState />, onCardDragStart);
     expect(openState()).toEqual('true');
 
     dragStart('A');
@@ -518,7 +655,7 @@ describe('DeckCardDragContext', () => {
 
   // An already collapsed card is not the editor's to collapse again: a drag of
   // it must not write anything, and a cancel must leave it collapsed.
-  it('leaves a collapsed card alone and stays collapsed when the drag is cancelled', () => {
+  it('leaves an already collapsed card alone and stays collapsed when cancelled', () => {
     const onCardDragStart = jest.fn<void, [string]>();
     const decks: Deck[] = [{ id: 'd1', name: 'd1', cards: [{ ...card('A'), editorOpen: false }] }];
     renderDrag(decks, undefined, <OpenState />, onCardDragStart);
@@ -530,50 +667,6 @@ describe('DeckCardDragContext', () => {
     dragCancel();
     expect(openState()).toEqual('false');
     expect(onCardDragStart).not.toHaveBeenCalled();
-  });
-
-  it('refuses to drag the blank draft card', () => {
-    const blank = emptyCard();
-    const decks: Deck[] = [{ id: 'd1', name: 'd1', cards: [blank] }, deck('d2', ['X'])];
-    const onCardMove = renderDrag(decks);
-
-    dragStart(blank.id);
-    dragOver(blank.id, 'X');
-    expect(preview()).toEqual('d1:' + blank.id + ' | d2:X');
-
-    dragEnd(blank.id, 'X');
-    expect(onCardMove).not.toHaveBeenCalled();
-  });
-});
-
-// The editor's modal listens for Escape on the document and closes the whole
-// editor. While a drag is active the drag owns that key: the provider marks it
-// handled in the capture phase, so a listener registered earlier - as the
-// modal's is - still sees it handled, whatever order the two registered in.
-describe('Escape while a drag is active', () => {
-  it('marks Escape handled only while a drag is active', () => {
-    renderDrag([deck('d1', ['A']), deck('d2', ['X'])]);
-    const seen: boolean[] = [];
-    const listener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { seen.push(event.defaultPrevented); }
-    };
-    document.addEventListener('keydown', listener);
-
-    const press = () => {
-      const event = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true });
-      document.dispatchEvent(event);
-      return event;
-    };
-
-    expect(press().defaultPrevented).toEqual(false);
-
-    dragStart('A');
-    expect(press().defaultPrevented).toEqual(true);
-
-    dragEnd('A', null);
-    expect(press().defaultPrevented).toEqual(false);
-    expect(seen).toEqual([false, true, false]);
-    document.removeEventListener('keydown', listener);
   });
 });
 
@@ -609,43 +702,34 @@ describe('releasing a pointer outside the deck list', () => {
     pointerCoordinates,
   });
 
-  it('answers with no target outside the list, and leaves a keyboard drag alone', () => {
-    renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+  const nearest = [expect.objectContaining({ id: 'deck:d2' })];
 
-    expect(mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }))).toEqual([]);
-    expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 50 })))
-      .toEqual([expect.objectContaining({ id: 'deck:d2' })]);
-    // No pointer coordinates: the nearest droppable still wins, as it always did.
-    expect(mockCollisionDetection?.(collisionArgs(null)))
-      .toEqual([expect.objectContaining({ id: 'deck:d2' })]);
-  });
+  it('answers with no target outside the list, and counts its exact edges as inside', () => {
+    renderDrag([deckOf('d1', ['A']), deckOf('d2', ['X'])], undefined, <Outline />);
 
-  // The outline's own rect is the whole gate, with no margin: its edges are
-  // inside, and a point past one is not. A release just off the list - ten
-  // pixels, well inside the old slop - cancels.
-  it('counts the exact edges as inside and a point past them as outside', () => {
-    renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
-    const inside = [expect.objectContaining({ id: 'deck:d2' })];
-
-    expect(mockCollisionDetection?.(collisionArgs({ x: 0, y: 0 }))).toEqual(inside);
-    expect(mockCollisionDetection?.(collisionArgs({ x: 300, y: 100 }))).toEqual(inside);
+    // The outline's own rect is the whole gate, with no margin: its edges are
+    // inside, and a point past one is not - ten pixels is well inside the old slop.
+    expect(mockCollisionDetection?.(collisionArgs({ x: 0, y: 0 }))).toEqual(nearest);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 300, y: 100 }))).toEqual(nearest);
     expect(mockCollisionDetection?.(collisionArgs({ x: 301, y: 50 }))).toEqual([]);
     expect(mockCollisionDetection?.(collisionArgs({ x: 310, y: 50 }))).toEqual([]);
     expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 101 }))).toEqual([]);
     expect(mockCollisionDetection?.(collisionArgs({ x: -1, y: 50 }))).toEqual([]);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }))).toEqual([]);
+    // No pointer coordinates: the nearest droppable still wins, as it always did.
+    expect(mockCollisionDetection?.(collisionArgs(null))).toEqual(nearest);
   });
 
   // Leaving and coming back is not a cancel: the last collision is the one that
   // counts, so a drop made after the pointer returns commits and announces the
   // drop it made.
   it('commits a drop made after the pointer leaves and comes back', () => {
-    const onCardMove = renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+    const onCardMove = renderDrag([deckOf('d1', ['A']), deckOf('d2', ['X'])], undefined, <Outline />);
 
     dragStart('A');
     expect(mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }))).toEqual([]);
     // Back inside: the nearest droppable is the target again.
-    expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 50 })))
-      .toEqual([expect.objectContaining({ id: 'deck:d2' })]);
+    expect(mockCollisionDetection?.(collisionArgs({ x: 100, y: 50 }))).toEqual(nearest);
     dragOver('A', 'deck:d2');
     dragEnd('A', 'deck:d2');
 
@@ -655,7 +739,7 @@ describe('releasing a pointer outside the deck list', () => {
   });
 
   it('announces the release as a cancellation and moves nothing', () => {
-    const onCardMove = renderDrag([deck('d1', ['A']), deck('d2', ['X'])], undefined, <Outline />);
+    const onCardMove = renderDrag([deckOf('d1', ['A']), deckOf('d2', ['X'])], undefined, <Outline />);
 
     dragStart('A');
     mockCollisionDetection?.(collisionArgs({ x: 400, y: 400 }));
@@ -668,116 +752,181 @@ describe('releasing a pointer outside the deck list', () => {
   });
 });
 
-// A deck drag is the same machinery as a card drag, one kind over: one reported
-// move, nothing written before the drop, and every card left alone.
+// A deck drag is the same machinery as a card drag, one kind over: the real row
+// is what moves, and the stored order is what was dropped.
+/**
+ * A deck row's two boxes live on different elements: the wrapper is what moves,
+ * while the row's droppable - and a card's deck target - is the header inside
+ * it. The wrapper contains its header and cards, as the real row does; only
+ * the heights are short.
+ */
+const deckRects = (withCards: boolean): Record<string, StubbedRect> => ({
+  'deck-row:d1': [0, withCards ? 200 : 40],
+  'deck:d1': [0, 40],
+  ...(withCards ? { c1: [60, 100] } : {}),
+  'deck-row:d2': [withCards ? 220 : 60, withCards ? 420 : 100],
+  'deck:d2': [withCards ? 220 : 60, withCards ? 260 : 100],
+  ...(withCards ? { c2: [280, 320] } : {}),
+});
+
+const deckDragDecks = () => [
+  deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion')]),
+  deck('d2', 'Genetics', [card('c2', 'Allele')]),
+];
+
 describe('moving a deck', () => {
-  const decks = () => [deck('d1', ['A']), deck('d2', ['X', 'Y']), deck('d3', [])];
-
-  const dragOverDeck = (rowId: string, deckId: string) =>
-    act(() => {
-      mockHandlers.onDragOver?.({ active: { id: rowId }, over: overRow(deckId), activatorEvent: pointerEvent() });
-    });
-  const dragEndDeck = (rowId: string, deckId: string | null, activatorEvent: Event = pointerEvent()) =>
-    act(() => {
-      mockHandlers.onDragEnd?.({
-        active: { id: rowId },
-        over: deckId ? overRow(deckId) : null,
-        activatorEvent,
-      });
-    });
-
-  it('reports one reorder when the row is dropped on another deck', () => {
-    const { onDeckMove, onCardMove } = renderDeckDrag(decks());
-
-    dragStart('deck-row:d1');
-    // A deck needs no preview tree: the row moves itself, and the order is the
-    // caller's until the drop.
-    expect(preview()).toEqual('d1:A | d2:X,Y | d3:');
-
-    dragOverDeck('deck-row:d1', 'd3');
-    expect(preview()).toEqual('d1:A | d2:X,Y | d3:');
-
-    dragEndDeck('deck-row:d1', 'd3');
-
-    expect(onDeckMove).toHaveBeenCalledTimes(1);
-    expect(onDeckMove).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 2 });
-    expect(onCardMove).not.toHaveBeenCalled();
+  beforeEach(() => {
+    initializeMocks();
+    restoreRects = undefined;
   });
 
-  it('reports nothing when the deck is dropped on its own row, outside every row, or cancelled', () => {
-    const { onDeckMove } = renderDeckDrag(decks());
+  afterEach(() => {
+    restoreRects?.();
+  });
 
-    dragStart('deck-row:d2');
-    dragEndDeck('deck-row:d2', 'd2');
+  it('reorders the decks with the keyboard and focuses the moved handle', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
 
-    dragStart('deck-row:d2');
-    dragEndDeck('deck-row:d2', null);
+    // Enter starts a drag as well as Space.
+    deckDragHandle('Cell Biology').focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
 
-    dragStart('deck-row:d2');
-    dragCancel();
+    // Arrows walk deck rows only: no card row is ever a step.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Cell Biology moved over position 2 of the deck list.'));
 
-    expect(onDeckMove).not.toHaveBeenCalled();
+    await user.keyboard(' ');
+    await waitFor(() => expect(committed()).toEqual('d2:c2 | d1:c1'));
+    expect(onDeckCommit).toHaveBeenCalledTimes(1);
+    expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
+    expect(liveRegion()).toHaveTextContent('Dropped Cell Biology at position 2 of the deck list.');
+    // Names and positions only: no deck or card ids reach a screen reader.
+    expect(liveRegion()).not.toHaveTextContent(/\bd1\b|\bd2\b|c1|c2/);
+    await waitFor(() => expect(deckDragHandle('Cell Biology')).toHaveFocus());
+  });
+
+  // Only the handle starts a deck drag: a press on the row itself, name and
+  // cards included, leaves the order alone.
+  it('does not start a deck drag from the row itself', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
+
+    await user.pointer([
+      { target: screen.getByText('Cell Biology'), keys: '[MouseLeft>]' },
+      { target: screen.getByText('Cell Biology'), coords: { x: 400, y: 200 } },
+    ]);
+    expect(liveRegion()).not.toHaveTextContent('Picked up');
+    await user.pointer({ keys: '[/MouseLeft]' });
+
+    expect(onDeckCommit).not.toHaveBeenCalled();
+    expect(committed()).toEqual('d1:c1 | d2:c2');
+  });
+
+  it('reorders the decks with the pointer, from the handle', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    useRects(deckRects(true));
+    render(<Harness initialDecks={deckDragDecks()} initiallyOpen={['d1', 'd2']} onDeckCommit={onDeckCommit} />);
+
+    const handle = deckDragHandle('Cell Biology');
+    // Press on the handle and move past the sensor's 8px activation distance: the
+    // first move only picks the row up.
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 100 } },
+    ]);
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
+
+    // The next move carries the real row onto the second one.
+    await user.pointer([{ target: handle, coords: { x: 400, y: 200 } }]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Cell Biology moved over position 2 of the deck list.'));
+    // The real row is what travels, not a copy: it is marked and translated.
+    expect(row('deck-row:d1')).toHaveAttribute('data-dnd-dragging', 'true');
+
+    await user.pointer([{ keys: '[/MouseLeft]' }]);
+
+    await waitFor(() => expect(committed()).toEqual('d2:c2 | d1:c1'));
+    expect(onDeckCommit).toHaveBeenCalledTimes(1);
+    expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
+  });
+
+  // A deck with its cards open is a tall row - far taller than the gap it moves
+  // to. It is aimed by its header, so one modest drag reaches the deck below,
+  // instead of having to drag past the row's own height.
+  it('reorders an expanded deck with a modest pointer move', async () => {
+    const user = userEvent.setup();
+    const onDeckCommit = jest.fn();
+    // Deck 1 open: its row is 300px tall, its header and cards inside it.
+    useRects({
+      'deck-row:d1': [0, 300],
+      'deck:d1': [10, 50],
+      c1: [70, 110],
+      c2: [130, 170],
+      'deck-row:d2': [320, 620],
+      'deck:d2': [330, 370],
+    });
+    render(
+      <Harness
+        initialDecks={[
+          deck('d1', 'Cell Biology', [card('c1', 'Mitochondrion'), card('c2', 'Ribosome')]),
+          deck('d2', 'Genetics'),
+        ]}
+        initiallyOpen={['d1', 'd2']}
+        onDeckCommit={onDeckCommit}
+      />,
+    );
+    expect(screen.getByText('Mitochondrion')).toBeInTheDocument();
+
+    const handle = deckDragHandle('Cell Biology');
+    await user.pointer([
+      { target: handle, keys: '[MouseLeft>]' },
+      { target: handle, coords: { x: 400, y: 100 } },
+    ]);
+    await waitFor(() =>
+      expect(liveRegion()).toHaveTextContent('Picked up Cell Biology at position 1 of the deck list.')
+    );
+
+    // The header is 50px tall inside a 300px row: 130px of travel is well inside
+    // the row, and already over Genetics.
+    await user.pointer([{ target: handle, coords: { x: 400, y: 160 } }]);
+    await waitFor(() => expect(liveRegion()).toHaveTextContent('Cell Biology moved over position 2 of the deck list.'));
+
+    await user.pointer({ keys: '[/MouseLeft]' });
+
+    await waitFor(() => expect(committed()).toEqual('d2: | d1:c1,c2'));
+    expect(onDeckCommit).toHaveBeenCalledTimes(1);
+    expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
+    // Only the deck order was written: no card content and no card order moved.
+    expect(screen.getByText('Mitochondrion')).toBeInTheDocument();
+    expect(screen.getByText('Ribosome')).toBeInTheDocument();
   });
 
   // A drop that changed nothing is announced as a plain drop: saying a position
   // would claim the deck moved.
-  it('announces a drop that moved nothing as a drop', () => {
-    const { onDeckMove } = renderDeckDrag(decks());
+  it('reports nothing when a deck lands on its own row, and announces it as a drop', () => {
+    const { onDeckMove } = renderDeckDrag([deckOf('d1', ['A']), deckOf('d2', ['X'])]);
 
     dragStart('deck-row:d2');
     dragEndDeck('deck-row:d2', 'd2');
-    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'deck-row:d2' } })).toEqual('Dropped d2.');
+
     expect(onDeckMove).not.toHaveBeenCalled();
-
-    dragStart('deck-row:d2');
-    dragEndDeck('deck-row:d2', null);
     expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'deck-row:d2' } })).toEqual('Dropped d2.');
-  });
-
-  it('announces the deck name and its position, never an id', () => {
-    renderDeckDrag(decks());
-
-    dragStart('deck-row:d2');
-    expect(mockAnnouncements?.onDragStart?.({ active: { id: 'deck-row:d2' } }))
-      .toEqual('Picked up d2 at position 2 of the deck list.');
-    expect(mockAnnouncements?.onDragOver?.({ active: { id: 'deck-row:d2' }, over: overRow('d3') }))
-      .toEqual('d2 moved over position 3 of the deck list.');
-
-    dragEndDeck('deck-row:d2', 'd3');
-    expect(mockAnnouncements?.onDragEnd?.({ active: { id: 'deck-row:d2' } }))
-      .toEqual('Dropped d2 at position 3 of the deck list.');
-    expect(mockAnnouncements?.onDragStart?.({ active: { id: 'deck-row:d2' } })).not.toContain('deck-row:');
-  });
-
-  // Escape belongs to whichever drag is active, and a cancelled deck drag puts
-  // focus back on the handle it started from.
-  it('cancels with Escape, leaving the order alone and focus on the deck handle', async () => {
-    const { onDeckMove } = renderDeckDrag(decks());
-    const seen: boolean[] = [];
-    const listener = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') { seen.push(event.defaultPrevented); }
-    };
-    document.addEventListener('keydown', listener);
-    const handle = document.querySelector<HTMLElement>('[data-dnd-id="deck-row:d1"] [data-drag-handle]') as HTMLElement;
-    handle.focus();
-
-    dragStart('deck-row:d1', keyboardEvent());
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true }));
-    dragCancel(keyboardEvent());
-    document.removeEventListener('keydown', listener);
-
-    expect(seen).toEqual([true]);
-    expect(mockAnnouncements?.onDragCancel?.({ active: { id: 'deck-row:d1' } }))
-      .toEqual('Drag cancelled. d1 stayed at position 1 of the deck list.');
-    expect(onDeckMove).not.toHaveBeenCalled();
-    await settle();
-    expect(handle).toHaveFocus();
   });
 
   // Both kinds share one context, so the nearest droppable of the wrong kind is
   // not a target at all: a deck walks rows, a card walks cards and headers.
   it('filters collision candidates by the dragged kind', () => {
-    renderDeckDrag(decks());
+    renderDeckDrag([deckOf('d1', ['A']), deckOf('d2', ['X'])]);
     const rect = { top: 0, right: 300, bottom: 100, left: 0 };
     const containers = [
       { id: 'A', data: { current: { sortable: {} } } },
@@ -801,7 +950,7 @@ describe('moving a deck', () => {
   // A deck row is not a card target, whatever the pointer says.
   it('refuses a card dropped on a deck row', () => {
     const onCardMove = jest.fn<void, [CardMove]>();
-    renderDrag(decks(), onCardMove);
+    renderDrag([deckOf('d1', ['A']), deckOf('d2', ['X'])], onCardMove);
 
     dragStart('A');
     dragEnd('A', deckRowDroppableId('d2'));
