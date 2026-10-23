@@ -1,5 +1,5 @@
-// Everything here is scoped to the wrapper GameEditor renders, so the
-// editor's .card/.sidebar rules never reach Paragon or Studio.
+// Everything here is scoped to the wrapper GameEditor renders. Root classes
+// that could collide with Paragon/Studio are feature-prefixed (e.g. .games-sidebar).
 //
 // Layout, spacing, colour and type come from Paragon components and utility
 // classes on the elements themselves. This file only holds what those do not
@@ -13,7 +13,7 @@
     width: 100%;
   }
 
-  .sidebar {
+  .games-sidebar {
     width: 320px;
   }
 
@@ -110,4 +110,10 @@
     outline: 2px dashed var(--pgn-color-primary-500);
     outline-offset: -2px;
   }
+}
+
+// Short Games editors keep a half-viewport dialog; the modal flex body
+// absorbs the extra space.
+.pgn__modal.editor-modal:has(.xblock-games-editor) {
+  min-height: 50vh;
 }
