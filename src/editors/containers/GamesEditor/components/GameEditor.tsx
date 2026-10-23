@@ -539,7 +539,7 @@ const GameEditor = ({
       saveDisabled={!blockFinished}
     >
       <div className="xblock-games-editor">
-        <div className="h-75 overflow-auto">
+        <div>
           {deckAlertVisible && hasDeckNameErrors && (
             <Alert
               variant="danger"
