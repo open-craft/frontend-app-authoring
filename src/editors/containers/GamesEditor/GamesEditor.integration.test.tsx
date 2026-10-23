@@ -465,11 +465,14 @@ describe('GamesEditor decks', () => {
   });
 
   // A deck reorder is the stored order: the deck moved first becomes the block's
-  // primary deck, and the legacy `cards` field mirrors it.
-  it('reorders the decks with the keyboard and saves the new primary deck first', async () => {
+  // primary deck, and the legacy `cards` field mirrors it. A deck that is
+  // open when it is picked up closes, so the row that travels is compact.
+  it('collapses the deck it picks up, reorders with the keyboard, and saves the new primary deck first', async () => {
     const user = userEvent.setup();
     const onClose = renderEditor();
     await screen.findByRole('button', { name: 'Reorder Deck 2' });
+    await openDeck(user, 'Deck 2');
+    expect(deckToggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
 
     stubRenderedRects();
     screen.getByRole('button', { name: 'Reorder Deck 2' }).focus();
@@ -477,6 +480,8 @@ describe('GamesEditor decks', () => {
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent('Picked up Deck 2 at position 2 of the deck list.')
     );
+    // Picked up, the open deck is already closed: the drag collapses it.
+    expect(await screen.findByRole('button', { name: 'Expand Deck 2' })).toHaveAttribute('aria-expanded', 'false');
     await settleSensor();
 
     await user.keyboard('{ArrowUp}');
@@ -495,6 +500,8 @@ describe('GamesEditor decks', () => {
     // The rows are drawn in the order the author left them in.
     const names = screen.getAllByDisplayValue(/^Deck [12]$/).map((input) => (input as HTMLInputElement).value);
     expect(names).toEqual(['Deck 2', 'Deck 1']);
+    // The drop leaves the moved deck as closed as the pickup did.
+    expect(deckToggle('Expand Deck 2')).toHaveAttribute('aria-expanded', 'false');
 
     await user.click(saveButton());
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));

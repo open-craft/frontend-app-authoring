@@ -1,4 +1,5 @@
 import React from 'react';
+import { flushSync } from 'react-dom';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import {
   DndContext,
@@ -927,10 +928,28 @@ export const DeckDragRow = ({
  * a drag: Space typed in the deck's name is a space. It is named after the deck,
  * or after the deck's position while the name is empty.
  */
-export const DeckDragHandle = ({ deckName, position }: { deckName: string; position: number; }) => {
+export const DeckDragHandle = ({
+  deckName,
+  position,
+  onDragIntent,
+}: {
+  deckName: string;
+  position: number;
+  /**
+   * Called synchronously before dnd-kit's sensor starts, so the caller can
+   * collapse the deck before the row is measured. A plain state update is not
+   * enough for the keyboard: the sensor starts in this same key event.
+   */
+  onDragIntent?: () => void;
+}) => {
   const intl = useIntl();
   const row = React.useContext(DeckRowDragContext);
   if (!row) { return null; }
+
+  const handleDragIntent = () => {
+    if (row.disabled || !onDragIntent) { return; }
+    flushSync(onDragIntent);
+  };
   const label = deckName.trim()
     ? intl.formatMessage(messages.dragDeckHandleLabel, { deckName })
     : intl.formatMessage(messages.dragDeckHandleLabelNoName, { position });
@@ -953,6 +972,14 @@ export const DeckDragHandle = ({ deckName, position }: { deckName: string; posit
         // screen is not cancelled by the browser's scroll gesture.
         style={{ touchAction: 'none' }}
         data-drag-handle="true"
+        // Capture runs before dnd-kit's activator listeners on the button.
+        // Neither handler consumes the event: the sensor must still see it.
+        onPointerDownCapture={(event) => {
+          if (event.button === 0) { handleDragIntent(); }
+        }}
+        onKeyDownCapture={(event) => {
+          if (event.key === ' ' || event.key === 'Enter') { handleDragIntent(); }
+        }}
         {...row.handleAttributes}
         {...row.handleListeners}
       />

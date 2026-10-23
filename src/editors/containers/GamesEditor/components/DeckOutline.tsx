@@ -97,6 +97,7 @@ const DeckOutline = ({
 
   const setDeckOpen = (deckId: string, isOpen: boolean) => {
     setOpenDeckIds((previous) => {
+      if (previous.has(deckId) === isOpen) { return previous; }
       const next = new Set(previous);
       if (isOpen) { next.add(deckId); }
       else { next.delete(deckId); }
@@ -222,7 +223,13 @@ const DeckOutline = ({
                       onRequestExpand={() => toggleDeck(deck.id, true)}
                     >
                       <Stack direction="horizontal" gap={2} className="p-2">
-                        <DeckDragHandle deckName={deck.name} position={index + 1} />
+                        <DeckDragHandle
+                          deckName={deck.name}
+                          position={index + 1}
+                          // The handle reports the intent before dnd-kit starts:
+                          // the deck is compact when the sensor measures it.
+                          onDragIntent={() => setDeckOpen(deck.id, false)}
+                        />
                         <Collapsible.Trigger
                           className="deck-outline-toggle d-flex align-items-center px-1 mr-2"
                           aria-label={intl.formatMessage(
@@ -281,12 +288,15 @@ const DeckOutline = ({
                       </Stack>
                     </DeckDropTarget>
                     {
-                      /* The body is unmounted while the row is collapsed, so this id
-                      resolves for the open row the trigger controls. */
+                      /* Only the open row has a body. Closing it removes the body in
+                      this same commit, so a drag intent collapses the deck before
+                      dnd-kit measures its row, with no exit transition to wait for. */
                     }
-                    <Collapsible.Body id={bodyId(deck.id)} className="deck-outline-body px-2 pb-2">
-                      {renderDeck(deck.id)}
-                    </Collapsible.Body>
+                    {isOpen && (
+                      <Collapsible.Body id={bodyId(deck.id)} className="deck-outline-body px-2 pb-2">
+                        {renderDeck(deck.id)}
+                      </Collapsible.Body>
+                    )}
                   </Collapsible.Advanced>
                 </DeckDragRow>
               );

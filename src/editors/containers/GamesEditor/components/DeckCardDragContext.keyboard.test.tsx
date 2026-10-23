@@ -543,8 +543,10 @@ describe('DeckCardDragContext deck dragging', () => {
 
   // A deck with its cards open is a tall row - far taller than the gap it moves
   // to. It is aimed by its header, so one modest drag reaches the deck below,
-  // instead of having to drag past the row's own height.
-  it('reorders an expanded deck with a modest pointer move and keeps it open', async () => {
+  // instead of having to drag past the row's own height. This is the row layer,
+  // which owns the open state and never closes a row: the real DeckOutline
+  // closes the deck it picks up, and its own tests cover that.
+  it('reorders an expanded deck with a modest pointer move', async () => {
     const user = userEvent.setup();
     const onDeckCommit = jest.fn();
     // Deck 1 open: its row is 300px tall, its header and cards inside it.
@@ -587,7 +589,7 @@ describe('DeckCardDragContext deck dragging', () => {
     await waitFor(() => expect(committed()).toEqual('d2: | d1:c1,c2'));
     expect(onDeckCommit).toHaveBeenCalledTimes(1);
     expect(onDeckCommit).toHaveBeenCalledWith({ deckId: 'd1', toIndex: 1 });
-    // The row moved open: its cards are still its cards, still on screen.
+    // Only the deck order was written: no card content and no card order moved.
     expect(screen.getByText('Mitochondrion')).toBeInTheDocument();
     expect(screen.getByText('Ribosome')).toBeInTheDocument();
   });

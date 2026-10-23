@@ -137,6 +137,23 @@ describe('DeckOutline', () => {
     expect(toggle('Collapse Deck 2')).toHaveAttribute('aria-expanded', 'true');
   });
 
+  // Pressing a deck's reorder handle is the operator's simple-click collapse:
+  // the body is removed before dnd-kit's sensor can start, so a click that
+  // never moves still leaves the row closed.
+  it('collapses the deck when its reorder handle is pressed', async () => {
+    const user = userEvent.setup();
+    renderOutline();
+
+    await user.click(toggle('Expand Deck 1'));
+    expect(toggle('Collapse Deck 1')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Cards of deck-1')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reorder Deck 1' }));
+
+    expect(toggle('Expand Deck 1')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Cards of deck-1')).not.toBeInTheDocument();
+  });
+
   it('opens a newly added deck and focuses its name', async () => {
     const user = userEvent.setup();
     const Harness = () => {
