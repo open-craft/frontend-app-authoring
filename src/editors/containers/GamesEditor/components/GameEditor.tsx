@@ -18,7 +18,7 @@ import { Info, InfoOutline, Plus } from '@openedx/paragon/icons';
 
 import EditorContainer from '@src/editors/containers/EditorContainer';
 import DraggableList from '@src/generic/DraggableList';
-import { isBlankCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
+import { findCardLocation, isBlankCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
 import type { GameActions } from '@src/editors/containers/GamesEditor/data/useGameState';
 import type { SaveOutcome } from '@src/editors/containers/GamesEditor/data/saveGame';
 import type { EditorSaveOverrideResult } from '@src/editors/hooks';
@@ -257,10 +257,9 @@ const GameEditor = ({
   // deck's start going down. The transition does the rest: clamping, the
   // target's blank draft and the no-op that must not dirty the state.
   const menuMoveTarget = useCallback((cardId: string, direction: MenuMoveDirection): CardDropTarget | null => {
-    const deckIndex = decks.findIndex((deck) => deck.cards.some((card) => card.id === cardId));
-    const deck = decks[deckIndex];
-    const index = deck?.cards.findIndex((card) => card.id === cardId) ?? -1;
-    if (!deck || index < 0) { return null; }
+    const at = findCardLocation(decks, cardId);
+    if (!at) { return null; }
+    const { deckIndex, deck, index } = at;
     // A blank draft is not a card to move.
     if (isBlankCard(deck.cards[index])) { return null; }
     const step = direction === 'up' ? index - 1 : index + 1;
@@ -303,7 +302,7 @@ const GameEditor = ({
   const moveCardFromMenu = useCallback((cardId: string, direction: MenuMoveDirection) => {
     const target = menuMoveTarget(cardId, direction);
     if (!target) { return; }
-    const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
+    const sourceDeckId = findCardLocation(decks, cardId)?.deck.id;
     moveCard({ cardId, toDeckId: target.deckId, toIndex: target.index });
     // Within one deck the row stays where it was, focus and all.
     if (target.deckId !== sourceDeckId) { focusMovedCard(cardId); }
@@ -335,8 +334,8 @@ const GameEditor = ({
   // open card first. Checking `editorOpen` here is what keeps a drag of an
   // already collapsed card from writing to the store for nothing.
   const handleCardDragStart = useCallback((cardId: string) => {
-    const card = decks.flatMap((deck) => deck.cards).find((candidate) => candidate.id === cardId);
-    if (card?.editorOpen) { toggleOpen({ cardId, isOpen: false }); }
+    const at = findCardLocation(decks, cardId);
+    if (at?.deck.cards[at.index].editorOpen) { toggleOpen({ cardId, isOpen: false }); }
   }, [decks, toggleOpen]);
 
   const openImageSettings = useCallback((card: Card, imageType: ImageType) => {

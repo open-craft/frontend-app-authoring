@@ -10,6 +10,7 @@ import {
   loaded,
   moveDeck,
   moveCard,
+  moveCardInDecks,
   removeCard,
   renameDeck,
   selectActiveCards,
@@ -605,6 +606,17 @@ describe('moving a card to a position', () => {
     expect(order(moveCard(state, 'A', { deckId: 'd2', index: 2 }), 'd1')).toEqual([]);
   });
 
+  // The drag preview announces the position the card lands in, so the index a
+  // move reports has to be the final position even for a fractional slot.
+  it('reports the position the card really lands in', () => {
+    const state = stateOf(deckOf('d1', ['A']), deckOf('d2', ['X', 'Y']));
+
+    const moved = moveCardInDecks(state.decks, 'A', { deckId: 'd2', index: 1.5 });
+
+    expect(moved.decks[1].cards.map((entry) => entry.id)).toEqual(['X', 'A', 'Y']);
+    expect(moved.index).toEqual(1);
+  });
+
   it('returns the same state for a drop on the position the card already has', () => {
     const state = stateOf(deckOf('d1', ['A', 'B', 'C']));
     expect(moveCard(state, 'A', { deckId: 'd1', index: 0 })).toBe(state);
@@ -658,6 +670,29 @@ describe('moving a card to a position', () => {
     // The target's draft is the one that goes: the card replaces it.
     expect(next.decks[1].cards.filter(isBlankCard)).toHaveLength(0);
     expect(next.decks[1].cards.map((entry) => entry.term)).toEqual(['X', 'A']);
+  });
+
+  // Within one deck nothing enters, so the deck keeps its draft: a move asked
+  // for past the draft still reads as its real cards and then that same draft.
+  it('keeps the blank draft last for a same-deck move requested after it', () => {
+    const draft = emptyCard();
+    const state = stateOf({ ...deckOf('d1', ['A', 'B']), cards: [card('A'), card('B'), draft] });
+
+    const next = moveCard(state, 'A', { deckId: 'd1', index: 2 });
+
+    expect(order(next, 'd1')).toEqual(['B', 'A', draft.id]);
+    expect(next.decks[0].cards[2]).toBe(draft);
+    expect(isBlankCard(next.decks[0].cards[2])).toBe(true);
+    expect(next.isDirty).toBe(true);
+  });
+
+  // B is the last real card, so a drop on the draft asks for the order the deck
+  // already has: no move, and nothing to save.
+  it('returns the same state for the last real card dropped on the trailing draft', () => {
+    const state = stateOf({ ...deckOf('d1', ['A', 'B']), cards: [card('A'), card('B'), emptyCard()] });
+
+    expect(moveCard(state, 'B', { deckId: 'd1', index: 2 })).toBe(state);
+    expect(state.isDirty).toBe(false);
   });
 
   // The card object travels whole: id (uploads target it), card_key (the

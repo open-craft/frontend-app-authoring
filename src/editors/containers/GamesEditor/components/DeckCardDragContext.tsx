@@ -33,7 +33,11 @@ import { DragIndicator } from '@openedx/paragon/icons';
 
 import messages from '@src/editors/containers/GamesEditor/messages';
 import { resolveCardDrop, type CardDropOver } from '@src/editors/containers/GamesEditor/data/cardDropTarget';
-import { initialState, isBlankCard, moveCard } from '@src/editors/containers/GamesEditor/data/gameTransitions';
+import {
+  findCardLocation,
+  isBlankCard,
+  moveCardInDecks,
+} from '@src/editors/containers/GamesEditor/data/gameTransitions';
 import type {
   Card,
   CardDropTarget,
@@ -164,14 +168,6 @@ const targetsOf = (decks: Deck[]): Map<string, CardDropOver> => {
   return targets;
 };
 
-const findCard = (decks: Deck[], cardId: string): Card | null => {
-  for (const deck of decks) {
-    const card = deck.cards.find((candidate) => candidate.id === cardId);
-    if (card) { return card; }
-  }
-  return null;
-};
-
 /** A human description of one drop target, for the screen-reader announcements. */
 type DropLabel =
   | { kind: 'position'; position: number; deckName: string; }
@@ -204,36 +200,23 @@ const labelTarget = (overId: string, decks: Deck[], preview: Deck[]): DropLabel 
 
 /** What to call a card: its text, never its id. */
 const cardLabelOf = (cardId: string, decks: Deck[], fallback: string): string => {
-  const card = findCard(decks, cardId);
-  return card?.term.trim() || fallback;
+  const at = findCardLocation(decks, cardId);
+  return at?.deck.cards[at.index].term.trim() || fallback;
 };
 
 /** The deck a card is in, by name. */
-const deckLabelOf = (cardId: string, decks: Deck[], fallback: string): string => {
-  const deck = decks.find((entry) => entry.cards.some((card) => card.id === cardId));
-  return deck?.name || fallback;
-};
+const deckLabelOf = (cardId: string, decks: Deck[], fallback: string): string =>
+  findCardLocation(decks, cardId)?.deck.name || fallback;
 
 /**
- * What `moveCard` makes of a drop target: the decks after it, and where the
- * card lands among them. `moveCard` is pure and already owns the clamping and
- * blank-draft rules, so this reuses it on a throwaway state instead of
- * duplicating them; a no-op returns the same decks array, which is how callers
- * detect "nothing to render differently". `index` is the position to
- * announce: `target.index` is measured before the target deck's blank draft
- * is dropped, so it can be one past where the card actually ends up.
+ * What `moveCardInDecks` makes of a drop target: the decks after it, and the
+ * card's position among them, which is what an announcement names. That
+ * transition owns the clamping and the blank-draft rules, so this adds none of
+ * its own. Nothing moved returns the same decks array, which is how callers
+ * detect "nothing to render differently", and -1 comes back only for a move
+ * that was refused.
  */
-const moveResult = (decks: Deck[], cardId: string, target: CardDropTarget) => {
-  const state = {
-    ...initialState,
-    decks,
-    activeDeckId: decks[0]?.id ?? '',
-    list: decks[0]?.cards ?? [],
-  };
-  const moved = moveCard(state, cardId, target).decks;
-  const deck = moved.find((candidate) => candidate.id === target.deckId);
-  return { decks: moved, index: deck?.cards.findIndex((card) => card.id === cardId) ?? -1 };
-};
+const moveResult = (decks: Deck[], cardId: string, target: CardDropTarget) => moveCardInDecks(decks, cardId, target);
 
 interface DragPreview {
   /** The decks to render: the preview while dragging, the committed ones after. */
@@ -416,8 +399,9 @@ export const DeckCardDragProvider = ({
       if (decks.some((deck) => deckRowDroppableId(deck.id) === dragId)) { beginDrag(dragId); }
       return;
     }
-    const card = findCard(decks, dragId);
-    if (!card) { return; }
+    const at = findCardLocation(decks, dragId);
+    if (!at) { return; }
+    const card = at.deck.cards[at.index];
     beginDrag(dragId);
     // An open card would drag as a tall form; collapsed, it is the compact card
     // the author picked up. The caller persists the same collapse, so the drop
@@ -441,7 +425,7 @@ export const DeckCardDragProvider = ({
     if (isDeckRowId(String(active.id))) { return; }
     const cardId = String(active.id);
     const overId = String(over.id);
-    const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
+    const sourceDeckId = findCardLocation(decks, cardId)?.deck.id;
     // Keyboard arrows reach the header above the first row. For a keyboard drag
     // that is not a destination: moving the card to the end for an ArrowUp that
     // never left the deck would be a trap. A pointer drop there still appends,
@@ -478,8 +462,7 @@ export const DeckCardDragProvider = ({
     // Only a cross-deck move changes the preview: within one deck the card
     // stays in place and the sorting strategy draws the gap. Reordering the
     // preview there would double the displacement.
-    const sourceDeck = preview.find((entry) => entry.cards.some((card) => card.id === cardId));
-    if (sourceDeck?.id === move.deckId) { return; }
+    if (findCardLocation(preview, cardId)?.deck.id === move.deckId) { return; }
     const next = moveResult(preview, cardId, move).decks;
     if (next === preview) { return; }
     previewRef.current = next;
@@ -520,7 +503,7 @@ export const DeckCardDragProvider = ({
     const overId = over ? String(over.id) : null;
     let move: CardMove | null = null;
     if (overId) {
-      const sourceDeckId = decks.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
+      const sourceDeckId = findCardLocation(decks, cardId)?.deck.id;
       if (keyboardDrag && isSourceDeckTarget(overId, sourceDeckId)) {
         // Keyboard dropped on its own header: no move. A pointer drop there is
         // still the resolver's append.
@@ -530,8 +513,10 @@ export const DeckCardDragProvider = ({
         // re-parented it. Only a preview in a different deck from the card's
         // committed source means a move happened; a same-deck drag that ends
         // over its own id has not moved, whatever row it last hovered.
-        const committedDeck = decks.find((deck) => deck.cards.some((card) => card.id === cardId));
-        const previewDeck = previewRef.current?.find((deck) => deck.cards.some((card) => card.id === cardId));
+        const committedDeck = findCardLocation(decks, cardId)?.deck;
+        const previewDeck = previewRef.current
+          ? findCardLocation(previewRef.current, cardId)?.deck
+          : undefined;
         move = committedDeck && previewDeck && previewDeck.id !== committedDeck.id
           ? lastMoveRef.current
           : null;
@@ -595,7 +580,7 @@ export const DeckCardDragProvider = ({
   const overMessage = React.useCallback((cardId: string, overId: string | null) => {
     const cardName = cardNameOf(cardId);
     const decksNow = decksRef.current;
-    const sourceDeckId = decksNow.find((deck) => deck.cards.some((card) => card.id === cardId))?.id;
+    const sourceDeckId = findCardLocation(decksNow, cardId)?.deck.id;
     if (overId && isSourceDeckTarget(overId, sourceDeckId)) {
       // Not a destination: the card is still in this deck.
       return undefined;

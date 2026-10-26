@@ -170,4 +170,24 @@ describe('resolveCardDrop feeding moveCard', () => {
     expect(terms(drop(state, 'C', { kind: 'card', deckId: 'cell', cardId: 'A' }), 'cell'))
       .toEqual(['C', 'A', 'B']);
   });
+
+  // A trailing draft is a row the author may drop on, and its own deck's header
+  // appends past it: both put the card after the real cards, and neither may
+  // take the draft with it, because the deck is still being edited.
+  it('keeps its own trailing draft last when a card is dropped on it or on the header', () => {
+    const draft = emptyCard();
+    const state = stateOf(deckWith('cell', card('A'), card('B'), draft));
+    const targets: CardDropOver[] = [
+      { kind: 'card', deckId: 'cell', cardId: draft.id },
+      { kind: 'deck', deckId: 'cell' },
+    ];
+
+    for (const over of targets) {
+      const next = drop(state, 'A', over);
+      expect(terms(next, 'cell')).toEqual(['B', 'A', '']);
+      expect(next.decks[0].cards[2]).toBe(draft);
+      expect(isBlankCard(next.decks[0].cards[2])).toBe(true);
+      expect(next.isDirty).toBe(true);
+    }
+  });
 });

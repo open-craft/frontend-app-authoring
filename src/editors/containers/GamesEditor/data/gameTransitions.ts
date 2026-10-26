@@ -66,6 +66,22 @@ export type CardField = Exclude<keyof Card, 'id'>;
  */
 export type CardTarget = { index: number; cardId?: undefined; } | { cardId: string; index?: undefined; };
 
+/**
+ * Where a card is: the deck holding it, that deck's position in the deck list
+ * and the card's position in the deck. Null when no deck holds it. The one walk
+ * the menu targets, the drop resolver and the drag preview all share.
+ */
+export const findCardLocation = (
+  decks: Deck[],
+  cardId: string,
+): { deckIndex: number; deck: Deck; index: number; } | null => {
+  for (const [deckIndex, deck] of decks.entries()) {
+    const index = deck.cards.findIndex((card) => card.id === cardId);
+    if (index >= 0) { return { deckIndex, deck, index }; }
+  }
+  return null;
+};
+
 /** Position of the active deck, or 0 if the id no longer names one. */
 export const activeDeckIndex = (state: GameState): number => {
   const index = state.decks.findIndex((deck) => deck.id === state.activeDeckId);
@@ -97,9 +113,8 @@ const withDecks = (state: GameState, decks: Deck[], activeDeckId: string = state
 const locate = (state: GameState, target: CardTarget): { deck: number; card: number; } | null => {
   const { cardId, index } = target;
   if (cardId != null) {
-    const deck = state.decks.findIndex((candidate) => candidate.cards.some((card) => card.id === cardId));
-    if (deck < 0) { return null; }
-    return { deck, card: state.decks[deck].cards.findIndex((card) => card.id === cardId) };
+    const at = findCardLocation(state.decks, cardId);
+    return at ? { deck: at.deckIndex, card: at.index } : null;
   }
   const deck = activeDeckIndex(state);
   if (!state.decks[deck] || !state.decks[deck].cards[index]) { return null; }
@@ -286,8 +301,8 @@ export const moveDeck = (state: GameState, deckId: string, toIndex: number): Gam
 /**
  * A card the author has not filled in yet: an explicit blank draft from addCard.
  * A blank card the block already keyed is authored content and is never dropped.
- * The one rule: a save drops these, moveCard refuses to move one, and the drag
- * resolver refuses to start a drag from one.
+ * The one rule: a save drops these, a reorder leaves one last, moveCard refuses
+ * to move one, and the drag resolver refuses to start a drag from one.
  */
 export const isBlankCard = (card: Card) => (
   !card.card_key
@@ -301,6 +316,21 @@ const dropOnePlaceholder = (cards: Card[]): Card[] => {
   return [...cards.slice(0, index), ...cards.slice(index + 1)];
 };
 
+/** True when both lists hold the same cards in the same order. */
+const sameCardOrder = (a: Card[], b: Card[]): boolean =>
+  a.length === b.length && a.every((card, index) => card === b[index]);
+
+/**
+ * The deck's cards with its blank draft last, the only place a caller may read
+ * it: a real card beside the draft is a deck edge (see menuMoveTarget). The
+ * draft object itself is kept, never copied.
+ */
+const draftLast = (cards: Card[]): Card[] => {
+  const draftAt = cards.findIndex(isBlankCard);
+  if (draftAt < 0 || draftAt === cards.length - 1) { return cards; }
+  return [...cards.slice(0, draftAt), ...cards.slice(draftAt + 1), cards[draftAt]];
+};
+
 /**
  * Moves a card to `target.index` in `target.deckId`, in one path for both a
  * reorder and a move to another deck. The index counts positions in the target
@@ -312,49 +342,76 @@ const dropOnePlaceholder = (cards: Card[]): Card[] => {
  * The card object itself moves, so its id (uploads target it), `card_key`
  * (the block's identity), images and `editorOpen` go with it, and deck order is
  * untouched. A real card entering another deck replaces that deck's blank
- * draft, which is editor state rather than content.
+ * draft, which is editor state rather than content; within one deck nothing
+ * enters, so the deck keeps its own draft, last.
+ *
+ * Decks only, no editor state, so a drag preview can ask for the same move. The
+ * decks are returned as they were given when nothing moves - a caller compares
+ * arrays to know there is nothing new to render - and `index` is where the
+ * card actually ends up: its final position on a move, the position it kept
+ * when nothing moved, and -1 only when no deck holds the card at all.
  */
-export const moveCard = (state: GameState, cardId: string, target: CardDropTarget): GameState => {
+export const moveCardInDecks = (
+  decks: Deck[],
+  cardId: string,
+  target: CardDropTarget,
+): { decks: Deck[]; index: number; } => {
+  const source = findCardLocation(decks, cardId);
+  const toDeckIndex = decks.findIndex((deck) => deck.id === target.deckId);
+  if (!source || toDeckIndex < 0) { return { decks, index: source ? source.index : -1 }; }
+  const { deckIndex: fromDeckIndex, deck: fromDeck, index: fromIndex } = source;
   // Not a position: clamping NaN would silently put the card first, and dirty
   // the state for a move nobody asked for.
-  if (Number.isNaN(target.index)) { return state; }
-  const fromDeckIndex = state.decks.findIndex((deck) => deck.cards.some((card) => card.id === cardId));
-  const toDeckIndex = state.decks.findIndex((deck) => deck.id === target.deckId);
-  if (fromDeckIndex < 0 || toDeckIndex < 0) { return state; }
-  const fromCards = state.decks[fromDeckIndex].cards;
-  const fromIndex = fromCards.findIndex((card) => card.id === cardId);
-  const card = fromCards[fromIndex];
+  if (Number.isNaN(target.index)) { return { decks, index: fromIndex }; }
+  const card = fromDeck.cards[fromIndex];
   // A keyless blank card is an explicit editing draft, not content: it has
   // nothing to move, and dragging it would invent a card in the target.
-  if (isBlankCard(card)) { return state; }
+  if (isBlankCard(card)) { return { decks, index: fromIndex }; }
   const sameDeck = fromDeckIndex === toDeckIndex;
-  const remaining = fromCards.filter((_, index) => index !== fromIndex);
+  const remaining = fromDeck.cards.filter((_, index) => index !== fromIndex);
   // The target deck as the caller counts positions in it. Within one deck that
   // is just the cards minus this one.
-  const enteredCards = sameDeck ? remaining : state.decks[toDeckIndex].cards;
+  const enteredCards = sameDeck ? remaining : decks[toDeckIndex].cards;
   // Only a card entering another deck meets its blank draft; within one deck
-  // nothing enters, so its own draft stays where it is.
+  // nothing enters, so its own draft stays with it.
   const scaffold = sameDeck ? -1 : enteredCards.findIndex(isBlankCard);
   const targetCards = scaffold < 0 ? enteredCards : dropOnePlaceholder(enteredCards);
   // Dropping a blank draft above the requested gap shifts that gap up by one.
   const gap = scaffold >= 0 && scaffold < target.index ? target.index - 1 : target.index;
   const index = Math.max(0, Math.min(gap, targetCards.length));
-  // The one same-position check, after clamping and the draft shift: an
-  // index that lands back on the card is no move, and must not dirty the state.
-  if (sameDeck && index === fromIndex) { return state; }
-  const cards = [...targetCards.slice(0, index), card, ...targetCards.slice(index)];
+  const placed = [...targetCards.slice(0, index), card, ...targetCards.slice(index)];
+  // Within one deck the draft is kept, but last: whatever gap the caller drew,
+  // the deck still reads as its real cards and then its draft.
+  const cards = sameDeck ? draftLast(placed) : placed;
+  // Where the card really ends up: the gap above may be a fraction, so neither
+  // it nor the clamp is the position to report back.
+  const placedIndex = cards.findIndex((entry) => entry.id === cardId);
+  if (sameDeck) {
+    // The same cards in the same order is no move, and must not dirty the state.
+    if (sameCardOrder(cards, fromDeck.cards)) { return { decks, index: fromIndex }; }
+    return {
+      decks: decks.map((deck, deckIndex) => (deckIndex === fromDeckIndex ? { ...deck, cards } : deck)),
+      index: placedIndex,
+    };
+  }
   return {
-    ...withDecks(
-      state,
-      state.decks.map((deck, deckIndex) => {
-        if (sameDeck) { return deckIndex === fromDeckIndex ? { ...deck, cards } : deck; }
-        if (deckIndex === fromDeckIndex) { return { ...deck, cards: remaining }; }
-        if (deckIndex === toDeckIndex) { return { ...deck, cards }; }
-        return deck;
-      }),
-    ),
-    isDirty: true,
+    decks: decks.map((deck, deckIndex) => {
+      if (deckIndex === fromDeckIndex) { return { ...deck, cards: remaining }; }
+      if (deckIndex === toDeckIndex) { return { ...deck, cards: placed }; }
+      return deck;
+    }),
+    index: placedIndex,
   };
+};
+
+/**
+ * A card move as a state transition: `moveCardInDecks` does the work, in the
+ * frame documented there, and the state comes back unchanged when the decks did.
+ */
+export const moveCard = (state: GameState, cardId: string, target: CardDropTarget): GameState => {
+  const moved = moveCardInDecks(state.decks, cardId, target);
+  if (moved.decks === state.decks) { return state; }
+  return { ...withDecks(state, moved.decks), isDirty: true };
 };
 
 /** One card from a `get_settings` card object, with editor defaults filled in. */

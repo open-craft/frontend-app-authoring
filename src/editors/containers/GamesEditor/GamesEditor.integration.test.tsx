@@ -450,6 +450,77 @@ describe('GamesEditor decks', () => {
     expect(payload.cards).toEqual([]);
   });
 
+  // A real card beside its deck's blank draft sits at that deck's edge: a drop
+  // past the draft leaves the draft last, so Move up moves the card above its
+  // deck-mate instead of stepping over the draft into Deck 1.
+  it('keeps Move up inside a deck whose last row is the blank draft Add made', async () => {
+    axiosMock.onPost(handlerUrl('get_settings')).reply(200, {
+      game_type: 'flashcards',
+      is_shuffled: true,
+      has_timer: false,
+      // The block's legacy cards field is the primary deck.
+      cards: [{ term: 'One', definition: 'first', card_key: 'c1' }],
+      decks: [
+        { deck_key: 'dk-1', name: 'Deck 1', cards: [{ term: 'One', definition: 'first', card_key: 'c1' }] },
+        {
+          deck_key: 'dk-2',
+          name: 'Deck 2',
+          cards: [
+            { term: 'Two', definition: 'second', card_key: 'c2' },
+            { term: 'Three', definition: 'third', card_key: 'c3' },
+          ],
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    const onClose = renderEditor();
+    await openDeck(user, 'Deck 1');
+    await openDeck(user, 'Deck 2');
+
+    // The Add button's draft is the deck's trailing blank card. It is editor
+    // state, not content, so it has no handle to drag.
+    await user.click(within(rowOf('Deck 2')).getByRole('button', { name: 'Add card to Deck 2' }));
+    expect(await screen.findByPlaceholderText('Enter your term')).toBeInTheDocument();
+    expect(cardHandlesIn('Deck 2')).toHaveLength(2);
+
+    stubRenderedRects();
+    screen.getByRole('button', { name: 'Reorder Two' }).focus();
+    await user.keyboard(' ');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Picked up Two in Deck 2'));
+    await settleSensor();
+
+    // Down over Three, then over the draft the drop must leave last.
+    await user.keyboard('{ArrowDown}');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Two moved over position 2 of Deck 2'));
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard(' ');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/Dropped Two .*Deck 2/));
+
+    const dropped = cardHandlesIn('Deck 2');
+    expect(dropped).toHaveLength(2);
+    expect(dropped[0]).toHaveAccessibleName('Reorder Three');
+    expect(dropped[1]).toHaveAccessibleName('Reorder Two');
+
+    // At that edge, Move up still goes somewhere: up within its own deck only.
+    await openCardMenu(user, 'Two');
+    expect(await cardMenuItem('Move up')).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(await cardMenuItem('Move up'));
+
+    const deckTwo = cardHandlesIn('Deck 2');
+    expect(deckTwo).toHaveLength(2);
+    expect(deckTwo[0]).toHaveAccessibleName('Reorder Two');
+    expect(deckTwo[1]).toHaveAccessibleName('Reorder Three');
+    // Nothing crossed the deck boundary: Deck 1 kept its one card.
+    const deckOne = cardHandlesIn('Deck 1');
+    expect(deckOne).toHaveLength(1);
+    expect(deckOne[0]).toHaveAccessibleName('Reorder One');
+
+    await user.click(saveButton());
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    // The draft was never content: the save drops it.
+    expect(savedTerms(savedPayload())).toEqual([['One'], ['Two', 'Three']]);
+  });
+
   // A card with no term still gets a readable handle name instead of the
   // composed "Reorder No text".
   it('names the drag handle of a card that has no term', async () => {

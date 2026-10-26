@@ -1,4 +1,4 @@
-import { isBlankCard } from './gameTransitions';
+import { findCardLocation, isBlankCard } from './gameTransitions';
 import type { CardDropTarget, Deck } from '@src/editors/containers/GamesEditor/types';
 
 /**
@@ -15,10 +15,10 @@ export type CardDropOver =
  * it: no target, an unknown card or deck, a card that is only an explicit blank
  * draft, or the position it is already in.
  *
- * A non-null result is passed directly to `moveCard`, which is the only thing
- * that acts on it: its index is a position in the target deck counted after the
- * card has left its source deck but before that deck's blank draft is dropped,
- * the same frame `moveCard` takes.
+ * A non-null result is passed directly to `moveCardInDecks`, which is the only
+ * thing that acts on it: its index is a position in the target deck counted
+ * after the card has left its source deck but before that deck's blank draft is
+ * dropped, the same frame the transition takes.
  *
  * The geometry is dnd-kit's, and it only holds within one deck: the sorting
  * strategy draws the gap below the row being passed on a downward move and
@@ -41,13 +41,13 @@ export const resolveCardDrop = (
   over: CardDropOver | null | undefined,
 ): CardDropTarget | null => {
   if (!over) { return null; }
-  const fromDeckIndex = decks.findIndex((deck) => deck.cards.some((card) => card.id === activeCardId));
+  const source = findCardLocation(decks, activeCardId);
   const toDeckIndex = decks.findIndex((deck) => deck.id === over.deckId);
-  if (fromDeckIndex < 0 || toDeckIndex < 0) { return null; }
-  const sameDeck = fromDeckIndex === toDeckIndex;
-  const fromIndex = decks[fromDeckIndex].cards.findIndex((card) => card.id === activeCardId);
+  if (!source || toDeckIndex < 0) { return null; }
+  const sameDeck = source.deckIndex === toDeckIndex;
+  const fromIndex = source.index;
   // A blank card is an explicit editing draft: there is nothing to drag.
-  if (isBlankCard(decks[fromDeckIndex].cards[fromIndex])) { return null; }
+  if (isBlankCard(source.deck.cards[fromIndex])) { return null; }
   const targetCards = decks[toDeckIndex].cards;
 
   // A hovered deck header appends: past the end of the deck as it is drawn.
