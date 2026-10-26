@@ -282,11 +282,6 @@ export const DeckCardDragProvider = ({
   // because the live region reads it after this handler returns.
   const activeDragIdRef = React.useRef<string | null>(null);
   const dropAnnouncementRef = React.useRef<string | null>(null);
-  // The last drop target that would really move the card, in committed-deck
-  // coordinates. A cross-deck preview re-parents the active card, after which
-  // dnd-kit can report the card as its own `over`; without this the drop would
-  // silently no-op.
-  const lastMoveRef = React.useRef<CardMove | null>(null);
   // The hovered target and the 1-based position it will put the card in. The
   // live region is read after this handler has run, by which time the preview
   // already holds the card, so the hovered row's own index is a position past
@@ -309,7 +304,6 @@ export const DeckCardDragProvider = ({
   const reset = React.useCallback(() => {
     previewRef.current = null;
     dragStartDecksRef.current = null;
-    lastMoveRef.current = null;
     hoverRef.current = null;
     pointerOutsideRef.current = false;
     activeDragIdRef.current = null;
@@ -386,7 +380,6 @@ export const DeckCardDragProvider = ({
   const beginDrag = (dragId: string) => {
     dropAnnouncementRef.current = null;
     activeDragIdRef.current = dragId;
-    lastMoveRef.current = null;
     hoverRef.current = null;
     setActiveDragId(dragId);
   };
@@ -418,6 +411,59 @@ export const DeckCardDragProvider = ({
     if (card.editorOpen) { onCardDragStart(dragId); }
   };
 
+  /**
+   * A preview index in the committed frame `moveCard` takes. A card entering a
+   * deck drops that deck's blank draft from the preview, so every preview index
+   * at or past the draft's committed place moves up one. A deck whose draft is
+   * still drawn - matched by id, not by any blank - needs no conversion.
+   */
+  const committedIndexOf = (deckId: string, index: number): number => {
+    const committedDeck = decks.find((deck) => deck.id === deckId);
+    const previewDeck = previewRef.current?.find((deck) => deck.id === deckId);
+    if (!committedDeck || !previewDeck) { return index; }
+    const draft = committedDeck.cards.findIndex(isBlankCard);
+    if (draft < 0) { return index; }
+    const draftId = committedDeck.cards[draft].id;
+    if (previewDeck.cards.some((card) => card.id === draftId)) { return index; }
+    return draft <= index ? index + 1 : index;
+  };
+
+  /**
+   * The move the preview itself draws the card in: the slot it holds there. With
+   * no row under the drag no gap is drawn, so that slot is the drop.
+   */
+  const drawnSlotMove = (cardId: string): CardMove | null => {
+    const committedAt = findCardLocation(decks, cardId);
+    const drawnAt = previewRef.current ? findCardLocation(previewRef.current, cardId) : undefined;
+    if (!committedAt || !drawnAt) { return null; }
+    if (drawnAt.deck.id === committedAt.deck.id && drawnAt.index === committedAt.index) { return null; }
+    return {
+      cardId,
+      toDeckId: drawnAt.deck.id,
+      toIndex: committedIndexOf(drawnAt.deck.id, drawnAt.index),
+    };
+  };
+
+  /**
+   * The move a drop on `overId` really makes, in the committed frame `moveCard`
+   * takes. The preview is the tree on screen, so its rows are the ones hovered;
+   * a move it draws is converted from its frame. A move it refuses - the card's
+   * own header, a header append within the card's deck - falls back to the
+   * committed decks, which is already that frame.
+   */
+  const resolveDrawnMove = (cardId: string, overId: string): CardMove | null => {
+    if (overId === cardId) { return drawnSlotMove(cardId); }
+    const preview = previewRef.current;
+    const previewTarget = preview ? targetsOf(preview).get(overId) : undefined;
+    const drawn = preview && previewTarget ? resolveCardDrop(preview, cardId, previewTarget) : null;
+    if (drawn) {
+      return { cardId, toDeckId: drawn.deckId, toIndex: committedIndexOf(drawn.deckId, drawn.index) };
+    }
+    const committedTarget = targetsOf(decks).get(overId);
+    const committed = committedTarget ? resolveCardDrop(decks, cardId, committedTarget) : null;
+    return committed ? { cardId, toDeckId: committed.deckId, toIndex: committed.index } : null;
+  };
+
   const handleDragOver = ({ active, over, activatorEvent }: DragOverEvent) => {
     if (!over) { return; }
     // A deck's rows are drawn in committed order and moved by their own
@@ -439,21 +485,17 @@ export const DeckCardDragProvider = ({
         previewRef.current = startDecks;
         setPreviewDecks(startDecks);
       }
-      lastMoveRef.current = null;
       hoverRef.current = null;
       return;
     }
-    // The drop target is resolved against the committed decks, which is the
-    // frame `moveCard` takes: a preview has already dropped the target deck's
-    // blank draft, so its indexes are in a different frame.
-    const committedTarget = targetsOf(decks).get(overId);
-    const committedMove = committedTarget ? resolveCardDrop(decks, cardId, committedTarget) : null;
-    if (committedMove) {
-      lastMoveRef.current = { cardId, toDeckId: committedMove.deckId, toIndex: committedMove.index };
-      hoverRef.current = { overId, position: moveResult(decks, cardId, committedMove).index + 1 };
-    } else {
-      hoverRef.current = null;
-    }
+    // The hovered position is the landing the drop will report.
+    const drawnMove = resolveDrawnMove(cardId, overId);
+    hoverRef.current = drawnMove
+      ? {
+        overId,
+        position: moveResult(decks, cardId, { deckId: drawnMove.toDeckId, index: drawnMove.toIndex }).index + 1,
+      }
+      : null;
     const preview = previewRef.current;
     if (!preview) { return; }
     const target = targetsOf(preview).get(overId);
@@ -501,32 +543,12 @@ export const DeckCardDragProvider = ({
     }
     const cardId = dragId;
     const overId = over ? String(over.id) : null;
-    let move: CardMove | null = null;
-    if (overId) {
-      const sourceDeckId = findCardLocation(decks, cardId)?.deck.id;
-      if (keyboardDrag && isSourceDeckTarget(overId, sourceDeckId)) {
-        // Keyboard dropped on its own header: no move. A pointer drop there is
-        // still the resolver's append.
-        move = null;
-      } else if (overId === cardId) {
-        // dnd-kit can report the card itself as the target once a preview has
-        // re-parented it. Only a preview in a different deck from the card's
-        // committed source means a move happened; a same-deck drag that ends
-        // over its own id has not moved, whatever row it last hovered.
-        const committedDeck = findCardLocation(decks, cardId)?.deck;
-        const previewDeck = previewRef.current
-          ? findCardLocation(previewRef.current, cardId)?.deck
-          : undefined;
-        move = committedDeck && previewDeck && previewDeck.id !== committedDeck.id
-          ? lastMoveRef.current
-          : null;
-      } else {
-        // A final non-active target wins, resolved against committed decks.
-        const target = targetsOf(decks).get(overId);
-        const resolved = target ? resolveCardDrop(decks, cardId, target) : null;
-        if (resolved) { move = { cardId, toDeckId: resolved.deckId, toIndex: resolved.index }; }
-      }
-    }
+    // A keyboard drop on the card's own header is no move; a pointer drop there
+    // is still the append. Every other target, the active card included, goes
+    // through the same resolver.
+    const ownHeader = overId != null && keyboardDrag
+      && isSourceDeckTarget(overId, findCardLocation(decks, cardId)?.deck.id);
+    const move = overId && !ownHeader ? resolveDrawnMove(cardId, overId) : null;
     // The live region reads this after this handler returns, so name the drop
     // while the preview is still here.
     const landing = move ? moveResult(decks, cardId, { deckId: move.toDeckId, index: move.toIndex }).index : -1;

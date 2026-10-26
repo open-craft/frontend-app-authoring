@@ -25,11 +25,12 @@ export type CardDropOver =
  * above it on an upward one, so a hovered row means "insert after it" going
  * down and "insert before it" going up. That gap is converted once into the
  * post-removal frame, because a card moving down its own deck has already
- * vacated the position it is counted from. Rows of another deck never shift
- * (dnd-kit disables its transforms once the active card is outside their
- * container), so a hovered row there always means "insert before it", whatever
- * the order of the two decks. A hovered deck header appends, which for a deck
- * with no cards is position 0.
+ * vacated the position it is counted from. Rows of another deck are not the
+ * active card's own and dnd-kit does not shift them, so a hovered row there
+ * means "insert before it", whatever the order of the two decks; a preview that
+ * has already re-parented the card makes them its own rows, with the gap drawn
+ * as within one deck. A hovered deck header appends, which for a deck with no
+ * cards is position 0.
  *
  * Pure and independent of dnd-kit, so it is tested without any layout. It
  * depends on the state transitions for the blank-card rule, never the other way

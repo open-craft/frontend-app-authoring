@@ -637,6 +637,71 @@ describe('the card drag handler', () => {
     expect(preview()).toEqual('d1:A,B,C | d2:X,Y');
   });
 
+  // The journey the browser takes when the pointer enters the deck by its
+  // header: the first hover re-parents the card past the last row, the next
+  // hovers walk the rows X and Y, and dnd-kit ends the drag over the active card
+  // itself. The card is drawn in the slot past Y, so that slot is the drop; the
+  // gap the rows recorded on the way there is not where the pointer ended.
+  it('commits the end slot when a drag that entered by the header ends over the active card', () => {
+    const decks = [deckOf('d1', ['A']), deckOf('d2', ['X', 'Y'])];
+    const onCardMove = renderDrag(decks);
+
+    dragStart('A');
+    dragOver('A', 'deck:d2');
+    expect(preview()).toEqual('d1: | d2:X,Y,A');
+
+    dragOver('A', 'X');
+    dragOver('A', 'Y');
+    dragOver('A', 'A');
+    dragEnd('A', 'A');
+
+    expect(onCardMove).toHaveBeenCalledTimes(1);
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 2 });
+  });
+
+  // The same end slot with a blank draft trailing the committed target deck: the
+  // preview consumes the draft, but the drop's index counts the committed target
+  // frame before the draft is removed, so 3 is past Y. Applying it lands A after Y.
+  it('counts the end slot past a trailing blank draft in the committed target frame', () => {
+    const draft = emptyCard();
+    const decks = [deckOf('d1', ['A']), deck('d2', 'd2', [card('X'), card('Y'), draft])];
+    const onCardMove = renderDrag(decks);
+
+    dragStart('A');
+    dragOver('A', 'deck:d2');
+    expect(preview()).toEqual('d1: | d2:X,Y,A');
+
+    dragOver('A', 'X');
+    dragOver('A', 'Y');
+    dragOver('A', 'A');
+    dragEnd('A', 'A');
+
+    expect(onCardMove).toHaveBeenCalledTimes(1);
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 3 });
+    // The committed deck kept its draft: only the preview copy lost it.
+    expect(preview()).toEqual('d1:A | d2:X,Y,' + draft.id);
+  });
+
+  // The mirror journey: entering by the first row draws the card at the top, so
+  // the rows walked afterwards record the end slot past Y - the deeper place,
+  // not the drawn one. Ending over the active card lands in the slot the active
+  // card is drawn in, which is first.
+  it('commits the drawn first slot, not the last end slot, when a drag entered by the first row ends over the active card', () => {
+    const decks = [deckOf('d1', ['A']), deckOf('d2', ['X', 'Y'])];
+    const onCardMove = renderDrag(decks);
+
+    dragStart('A');
+    dragOver('A', 'X');
+    expect(preview()).toEqual('d1: | d2:A,X,Y');
+
+    dragOver('A', 'Y');
+    dragOver('A', 'A');
+    dragEnd('A', 'A');
+
+    expect(onCardMove).toHaveBeenCalledTimes(1);
+    expect(onCardMove).toHaveBeenCalledWith({ cardId: 'A', toDeckId: 'd2', toIndex: 0 });
+  });
+
   // A pointer drop on the card's own deck header appends; for a keyboard drag
   // that header is not a destination at all, and the preview goes back to the
   // tree the drag started from.
