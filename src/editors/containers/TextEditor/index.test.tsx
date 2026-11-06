@@ -92,6 +92,35 @@ describe('TextEditor', () => {
     });
   });
 
+  describe('use_mfe_theming toggle', () => {
+    beforeEach(() => {
+      initializeMocks();
+    });
+
+    test('is unchecked for an existing block with no stored value', () => {
+      render(<TextEditor {...props} />);
+      expect(screen.getByRole('switch', { name: /apply theme styles/i })).not.toBeChecked();
+    });
+
+    test('reflects the value stored in block metadata', () => {
+      render(<TextEditor
+        {...props}
+        blockValue={{ data: { data: 'eDiTablE Text', metadata: { use_mfe_theming: true } } }}
+      />);
+      expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
+    });
+
+    test('defaults to checked while creating a new block', () => {
+      render(<TextEditor {...props} blockValue={null} isCreateWorkflow />);
+      expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
+    });
+
+    test('shows the theme styles help text', () => {
+      render(<TextEditor {...props} />);
+      expect(screen.getByText(/theme for fonts, heading styles and spacing/i)).toBeInTheDocument();
+    });
+  });
+
   describe('mapStateToProps', () => {
     // type set to any to prevent warning on not matchig expected type on the selectors
     const testState: any = { A: 'pple', B: 'anana', C: 'ucumber' };

@@ -299,13 +299,14 @@ export const apiMethods = {
   }) => {
     let response = {};
     if (blockType === 'html') {
+      const { data, ...settings } = content;
       response = {
         category: blockType,
         courseKey: learningContextId,
-        data: content,
+        data,
         has_changes: true,
         id: blockId,
-        metadata: { display_name: title },
+        metadata: { display_name: title, ...settings },
       };
     } else if (blockType === 'problem') {
       response = {
