@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 
 import {
+  Form,
   Spinner,
   Toast,
 } from '@openedx/paragon';
@@ -29,12 +30,30 @@ const TextEditor = ({
   blockFailed,
   initializeEditor,
   blockFinished,
+  isCreateWorkflow,
   learningContextId,
   images,
   isLibrary,
 }) => {
   const intl = useIntl();
   const { editorRef, refReady, setEditorRef } = prepareEditorRef();
+
+  // The value the block was loaded with, before the user touched the toggle.
+  // Kept separately from `useMfeTheming` so isDirty can tell a toggle-only
+  // change from an untouched editor. A new block starts opted in; an existing
+  // block without the setting keeps the field's default, which is off.
+  const storedUseMfeTheming = blockValue?.data?.metadata?.use_mfe_theming;
+  const initialUseMfeTheming = typeof storedUseMfeTheming === 'boolean'
+    ? storedUseMfeTheming
+    : isCreateWorkflow;
+  const [useMfeThemingOverride, setUseMfeThemingOverride] = useState(null);
+  const useMfeTheming = useMfeThemingOverride ?? initialUseMfeTheming;
+
+  // `content_style` is only read when the editor initializes, so toggling the
+  // theme has to rebuild the editor for the preview to follow. The unsaved
+  // content is snapshotted first so it is not lost with the old instance.
+  const [contentSnapshot, setContentSnapshot] = useState(null);
+
   const initialContent = blockValue ? blockValue.data.data : '';
   const newContent = replaceStaticWithAsset({
     initialContent,
@@ -48,6 +67,13 @@ const TextEditor = ({
 
   if (!refReady) { return null; }
 
+  const handleUseMfeThemingChange = (e) => {
+    if (editorRef.current && !showRawEditor) {
+      setContentSnapshot({ blockId, content: editorRef.current.getContent() });
+    }
+    setUseMfeThemingOverride(e.target.checked);
+  };
+
   const selectEditor = () => {
     if (showRawEditor) {
       return (
@@ -59,13 +85,17 @@ const TextEditor = ({
     }
     return (
       <TinyMceWidget
+        key={String(useMfeTheming)}
         editorType="text"
         editorRef={editorRef}
-        editorContentHtml={editorContent}
+        editorContentHtml={
+          contentSnapshot && contentSnapshot.blockId === blockId ? contentSnapshot.content : editorContent
+        }
         setEditorRef={setEditorRef}
         minHeight={500}
         maxHeight={500}
         initializeEditor={initializeEditor}
+        useMfeTheming={useMfeTheming}
         {...{
           images,
           isLibrary,
@@ -78,8 +108,13 @@ const TextEditor = ({
 
   return (
     <EditorContainer
-      getContent={hooks.getContent({ editorRef, showRawEditor })}
-      isDirty={hooks.isDirty({ editorRef, showRawEditor })}
+      getContent={hooks.getContent({ editorRef, showRawEditor, useMfeTheming })}
+      isDirty={hooks.isDirty({
+        editorRef,
+        showRawEditor,
+        useMfeTheming,
+        initialUseMfeTheming,
+      })}
       onClose={onClose}
       returnFunction={returnFunction}
     >
@@ -97,7 +132,23 @@ const TextEditor = ({
                 screenreadertext={intl.formatMessage(messages.spinnerScreenReaderText)}
               />
             </div>
-          ) : (selectEditor())}
+          ) : (
+            <>
+              <div className="py-3 px-1">
+                <Form.Switch
+                  name="use_mfe_theming"
+                  checked={useMfeTheming}
+                  onChange={handleUseMfeThemingChange}
+                  floatLabelLeft
+                  className="mb-0"
+                  helperText={<span>{intl.formatMessage(messages.useMfeThemingHelp)}</span>}
+                >
+                  {intl.formatMessage(messages.useMfeThemingLabel)}
+                </Form.Switch>
+              </div>
+              {selectEditor()}
+            </>
+          )}
       </div>
     </EditorContainer>
   );
@@ -105,6 +156,7 @@ const TextEditor = ({
 TextEditor.defaultProps = {
   blockValue: null,
   blockFinished: null,
+  isCreateWorkflow: false,
   returnFunction: null,
 };
 TextEditor.propTypes = {
@@ -112,13 +164,17 @@ TextEditor.propTypes = {
   returnFunction: PropTypes.func,
   // redux
   blockValue: PropTypes.shape({
-    data: PropTypes.shape({ data: PropTypes.string }),
+    data: PropTypes.shape({
+      data: PropTypes.string,
+      metadata: PropTypes.shape({ use_mfe_theming: PropTypes.bool }),
+    }),
   }),
   blockId: PropTypes.string,
   blockFailed: PropTypes.bool.isRequired,
   initializeEditor: PropTypes.func.isRequired,
   showRawEditor: PropTypes.bool.isRequired,
   blockFinished: PropTypes.bool,
+  isCreateWorkflow: PropTypes.bool,
   learningContextId: PropTypes.string, // This should be required but is NULL when the store is in initial state :/
   images: PropTypes.shape({}).isRequired,
   isLibrary: PropTypes.bool.isRequired,
@@ -131,6 +187,7 @@ export const mapStateToProps = (state) => ({
   showRawEditor: selectors.app.showRawEditor(state),
   blockFinished: selectors.app.shouldCreateBlock(state)
   || selectors.requests.isFinished(state, { requestKey: RequestKeys.fetchBlock }),
+  isCreateWorkflow: selectors.app.shouldCreateBlock(state),
   learningContextId: selectors.app.learningContextId(state),
   images: selectors.app.images(state),
   isLibrary: selectors.app.isLibrary(state),
