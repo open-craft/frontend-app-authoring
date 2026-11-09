@@ -38,16 +38,14 @@ const TextEditor = ({
   const intl = useIntl();
   const { editorRef, refReady, setEditorRef } = prepareEditorRef();
 
-  // The value the block was loaded with, before the user touched the toggle.
-  // Kept separately from `useMfeTheming` so isDirty can tell a toggle-only
-  // change from an untouched editor. A new block starts opted in; an existing
-  // block without the setting keeps the field's default, which is off.
-  const storedUseMfeTheming = blockValue?.data?.metadata?.use_mfe_theming;
-  const initialUseMfeTheming = typeof storedUseMfeTheming === 'boolean'
-    ? storedUseMfeTheming
+  // The value the block was loaded with. `isDirty` compares the current toggle
+  // against it to tell a toggle-only change from an untouched editor. New
+  // blocks start opted in; an existing block without the setting keeps the
+  // field's default, which is off.
+  const initialUseMfeTheming = typeof blockValue?.data?.metadata?.use_mfe_theming === 'boolean'
+    ? blockValue.data.metadata.use_mfe_theming
     : isCreateWorkflow;
-  const [useMfeThemingOverride, setUseMfeThemingOverride] = useState(null);
-  const useMfeTheming = useMfeThemingOverride ?? initialUseMfeTheming;
+  const [useMfeTheming, setUseMfeTheming] = useState(initialUseMfeTheming);
 
   // `content_style` is only read when the editor initializes, so toggling the
   // theme has to rebuild the editor for the preview to follow. The unsaved
@@ -71,7 +69,7 @@ const TextEditor = ({
     if (editorRef.current && !showRawEditor) {
       setContentSnapshot({ blockId, content: editorRef.current.getContent() });
     }
-    setUseMfeThemingOverride(e.target.checked);
+    setUseMfeTheming(e.target.checked);
   };
 
   const selectEditor = () => {
