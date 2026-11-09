@@ -8,9 +8,6 @@ export const getContent = ({ editorRef, showRawEditor, useMfeTheming }) => () =>
     ? editorRef.current.state.doc.toString()
     : editorRef.current?.getContent());
   return {
-    // `data` is sent as the block's `data` field, which the block API only
-    // accepts as a string. Everything else is settings-scoped and travels in
-    // `metadata` (see apiMethods.normalizeContent).
     data: setAssetToStaticUrl({ editorValue: content }),
     use_mfe_theming: useMfeTheming,
   };
