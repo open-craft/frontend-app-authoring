@@ -180,6 +180,7 @@ const AddComponent = ({
           type,
           boilerplate: moduleName,
           parentLocator: blockId,
+          metadata: { use_mfe_theming: true },
         }, /* istanbul ignore next */ ({ courseKey, locator }) => {
           setCourseId(courseKey);
           setBlockType(type);

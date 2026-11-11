@@ -3,14 +3,26 @@ import { setAssetToStaticUrl } from '../../sharedComponents/TinyMceWidget/hooks'
 
 export const { nullMethod, navigateCallback, navigateTo } = appHooks;
 
-export const getContent = ({ editorRef, showRawEditor }) => () => {
+export const getContent = ({ editorRef, showRawEditor, useMfeTheming }) => () => {
   const content = (showRawEditor && editorRef && editorRef.current
     ? editorRef.current.state.doc.toString()
     : editorRef.current?.getContent());
-  return setAssetToStaticUrl({ editorValue: content });
+  return {
+    data: setAssetToStaticUrl({ editorValue: content }),
+    use_mfe_theming: useMfeTheming,
+  };
 };
 
-export const isDirty = ({ editorRef, showRawEditor }) => () => {
+export const isDirty = ({
+  editorRef,
+  showRawEditor,
+  useMfeTheming,
+  initialUseMfeTheming,
+}) => () => {
+  // Compare against the value the block was loaded with.
+  if (useMfeTheming !== initialUseMfeTheming) {
+    return true;
+  }
   /* istanbul ignore next */
   if (!editorRef?.current) {
     return false;
