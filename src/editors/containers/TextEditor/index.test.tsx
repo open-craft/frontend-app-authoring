@@ -120,8 +120,13 @@ describe('TextEditor', () => {
       expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
     });
 
-    test('defaults to checked while creating a new block', () => {
+    test('is unchecked for a new course block', () => {
       render(<TextEditor {...props} blockValue={null} isCreateWorkflow />);
+      expect(screen.getByRole('switch', { name: /apply theme styles/i })).not.toBeChecked();
+    });
+
+    test('defaults to checked while creating a new library block', () => {
+      render(<TextEditor {...props} blockValue={null} isCreateWorkflow isLibrary />);
       expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
     });
 
