@@ -110,6 +110,16 @@ describe('TextEditor', () => {
       expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
     });
 
+    test('reflects a stored value that arrives after the first render', () => {
+      const { rerender } = render(<TextEditor {...props} blockValue={null} />);
+      expect(screen.getByRole('switch', { name: /apply theme styles/i })).not.toBeChecked();
+      rerender(<TextEditor
+        {...props}
+        blockValue={{ data: { data: 'eDiTablE Text', metadata: { use_mfe_theming: true } } }}
+      />);
+      expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
+    });
+
     test('defaults to checked while creating a new block', () => {
       render(<TextEditor {...props} blockValue={null} isCreateWorkflow />);
       expect(screen.getByRole('switch', { name: /apply theme styles/i })).toBeChecked();
