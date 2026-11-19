@@ -164,7 +164,10 @@ describe('cms api', () => {
 
     describe('normalizeContent', () => {
       test('return value for blockType: html', () => {
-        const content = 'Im baby palo santo ugh celiac fashion axe. La croix lo-fi venmo whatever. Beard man braid migas single-origin coffee forage ramps.';
+        const content = {
+          data: 'Im baby palo santo ugh celiac fashion axe. La croix lo-fi venmo whatever. Beard man braid migas single-origin coffee forage ramps.',
+          use_mfe_theming: true,
+        };
         expect(apiMethods.normalizeContent({
           blockId,
           blockType: 'html',
@@ -174,10 +177,10 @@ describe('cms api', () => {
         })).toEqual({
           category: 'html',
           courseKey: learningContextId,
-          data: content,
+          data: content.data,
           has_changes: true,
           id: blockId,
-          metadata: { display_name: title },
+          metadata: { display_name: title, use_mfe_theming: true },
         });
       });
       test('return value for blockType: video', () => {

@@ -48,17 +48,17 @@ describe('TextEditor hooks', () => {
         tinyMceHookKeys.setAssetToStaticUrl,
       ).mockReturnValueOnce(rawContent);
       test('returns correct content based on showRawEditor equals false', () => {
-        const getContent = module.getContent({ editorRef, showRawEditor: false })();
+        const getContent = module.getContent({ editorRef, showRawEditor: false, useMfeTheming: true })();
         expect(spies.visualHtml.mock.calls.length).toEqual(1);
         expect(spies.visualHtml).toHaveBeenCalledWith({ editorValue: visualContent });
-        expect(getContent).toEqual(visualContent);
+        expect(getContent).toEqual({ data: visualContent, use_mfe_theming: true });
       });
       test('returns correct content based on showRawEditor equals true', () => {
         jest.clearAllMocks();
-        const getContent = module.getContent({ editorRef, showRawEditor: true })();
+        const getContent = module.getContent({ editorRef, showRawEditor: true, useMfeTheming: false })();
         expect(spies.rawHtml.mock.calls.length).toEqual(1);
         expect(spies.rawHtml).toHaveBeenCalledWith({ editorValue: rawContent });
-        expect(getContent).toEqual(rawContent);
+        expect(getContent).toEqual({ data: rawContent, use_mfe_theming: false });
       });
     });
 
@@ -79,6 +79,16 @@ describe('TextEditor hooks', () => {
           },
         };
         const isDirty = module.isDirty({ editorRef, showRawEditor: true })();
+        expect(isDirty).toEqual(true);
+      });
+      test('is dirty when the theme toggle differs from the loaded value', () => {
+        const editorRef = { current: { isNotDirty: true } };
+        const isDirty = module.isDirty({
+          editorRef,
+          showRawEditor: false,
+          useMfeTheming: true,
+          initialUseMfeTheming: false,
+        })();
         expect(isDirty).toEqual(true);
       });
     });

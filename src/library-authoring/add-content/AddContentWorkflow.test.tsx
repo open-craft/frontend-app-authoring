@@ -34,7 +34,7 @@ jest.spyOn(editorCmsApi as any, 'fetchBlockById').mockImplementation(
     { status: 200, data: snakeCaseObject(await mockXBlockFields(args.blockId)) }
   ),
 );
-jest.spyOn(textEditorHooks, 'getContent').mockImplementation(() => () => '<p>Edited HTML content</p>');
+jest.spyOn(textEditorHooks, 'getContent').mockImplementation(() => () => ({ data: '<p>Edited HTML content</p>', use_mfe_theming: false }));
 jest.mock('frontend-components-tinymce-advanced-plugins', () => ({ a11ycheckerCss: '' }));
 const saveSpy = jest.spyOn(editorCmsApi as any, 'saveBlock');
 

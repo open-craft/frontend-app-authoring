@@ -52,6 +52,7 @@ export async function createCourseXblock({
   boilerplate,
   stagedContent,
   libraryContentKey,
+  metadata,
 }: {
   type: string,
   category?: string, // The category of the XBlock. Defaults to the type if not provided.
@@ -60,6 +61,7 @@ export async function createCourseXblock({
   boilerplate?: string,
   stagedContent?: string,
   libraryContentKey?: string, // component key from library if being imported.
+  metadata?: Record<string, unknown>,
 }) {
   const body = {
     type,
@@ -69,6 +71,7 @@ export async function createCourseXblock({
     display_name: displayName,
     staged_content: stagedContent,
     library_content_key: libraryContentKey,
+    metadata,
   };
 
   const { data } = await getAuthenticatedHttpClient()

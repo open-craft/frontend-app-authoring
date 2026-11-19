@@ -299,13 +299,17 @@ export const apiMethods = {
   }) => {
     let response = {};
     if (blockType === 'html') {
+      // `data` is the block's HTML; any other key from the editor is a
+      // settings-scoped value (for example `use_mfe_theming`) and is sent in
+      // `metadata` next to `display_name`.
+      const { data, ...settings } = content;
       response = {
         category: blockType,
         courseKey: learningContextId,
-        data: content,
+        data,
         has_changes: true,
         id: blockId,
-        metadata: { display_name: title },
+        metadata: { display_name: title, ...settings },
       };
     } else if (blockType === 'problem') {
       response = {
